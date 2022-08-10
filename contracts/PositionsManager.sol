@@ -91,6 +91,7 @@ contract PositionsManager is Ownable {
     }
 
     function adjustLiquidationPoints(uint positionId, address[] calldata watchedTokens, uint[] calldata liquidationPoints) external {
+        require (watchedTokens.length==liquidationPoints.length && watchedTokens.length>0, "Invalid liquidation request");
         Position storage position = positions[positionId];
         position.watchedTokens = watchedTokens;
         position.liquidationPoints = liquidationPoints;
@@ -108,6 +109,7 @@ contract PositionsManager is Ownable {
     }
 
     function deposit(Position memory position) public returns (uint) {
+        require (position.watchedTokens.length==position.liquidationPoints.length && position.watchedTokens.length>0, "Invalid liquidation request");
         BankBase bank = BankBase(banks[position.bankId]);
         address lpToken = bank.getLPToken(position.bankToken);
         require(UniversalSwap(universalSwap).isSupported(lpToken), "Asset is not currently supported");
@@ -152,7 +154,7 @@ contract PositionsManager is Ownable {
         (address[] memory rewardAddresses, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, address(this));
         bank.burn(position.bankToken, position.user, position.amount, address(this));
         address lpToken = bank.getLPToken(position.bankToken);
-        IERC20(lpToken).approve(universalSwap, position.amount);
+        // IERC20(lpToken).approve(universalSwap, position.amount);
         address[] memory tokens = new address[](rewardAddresses.length+1);
         uint[] memory tokenAmounts = new uint[](rewardAmounts.length+1);
         tokens[0] = lpToken;

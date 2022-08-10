@@ -4,14 +4,16 @@ import { assert, expect } from "chai";
 import { ethers, network } from "hardhat";
 import { IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
 import { ERC20, IUniswapV2Pair } from "../typechain-types";
-import {getUnderlyingTokens, getLPTokens, getToken, getTimestamp, getUniversalSwap, deployAndInitializeManager, addresses, getNetworkToken, getLPToken} from "../utils"
+import {getUnderlyingTokens, getLPTokens, getToken, getTimestamp, getUniversalSwap, deployAndInitializeManager, addresses, getNetworkToken, getLPToken, depositNew, isRoughlyEqual} from "../utils"
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { BigNumber } from "ethers";
 
 const NETWORK = 'ethereum'
 const networkAddresses = addresses[NETWORK]
 let owners: SignerWithAddress[]
 let networkTokenContract: IWETH
 let universalSwap: UniversalSwap
+let sushiContract: ERC20
 let positionsCreated = 0
 
 // describe ("Deployment", function () {
@@ -32,6 +34,7 @@ describe ("Position opening", function () {
         }
         networkTokenContract = await ethers.getContractAt("IWETH", networkAddresses.networkToken)
         universalSwap = await ethers.getContractAt("UniversalSwap", universalSwapAddress)
+        sushiContract = await ethers.getContractAt("ERC20", networkAddresses.sushi)
     })
     // it("Deposits and withdraws simple USDC position", async function () {
     //     const [owners[0]] = await ethers.getSigners()
@@ -138,7 +141,7 @@ describe ("Position opening", function () {
         await manager.connect(owners[1]).close(1, true)
         const b3 = await networkTokenContract.balanceOf(owners[0].address)
         const b4 = await networkTokenContract.balanceOf(owners[1].address)
-        console.log(b3.sub(b1), b4.sub(b2))
+        // console.log(b3.sub(b1), b4.sub(b2))
     })
     it("Opens and recompounds position rewards", async function () {
         const lpToken = "0x31503dcb60119A812feE820bb7042752019F2355"
@@ -193,40 +196,110 @@ describe ("Position opening", function () {
         expect(sushiBalance1.div("2")).to.greaterThan(sushiBalance2.mul("95").div(100))
         expect(sushiBalance2.div("2")).to.lessThan(sushiBalance2.mul("105").div("100"))
         const b1 = await networkTokenContract.balanceOf(owners[0].address)
-        const b2 = await networkTokenContract.balanceOf(owners[1].address)
-        await manager.connect(owners[0]).close(0, true)
-        await manager.connect(owners[1]).close(1, true)
+        await manager.connect(owners[0]).close(3, true)
         const b3 = await networkTokenContract.balanceOf(owners[0].address)
-        const b4 = await networkTokenContract.balanceOf(owners[1].address)
-        console.log(b3.sub(b1), b4.sub(b2))
+        expect(b3.sub(b1)).to.greaterThan(lpBalance1)
     })
-    // it("Handles multiple positions", async function () {
-    //     const lpToken = "0x31503dcb60119A812feE820bb7042752019F2355"
-    //     const {lpBalance: lpBalance1, lpTokenContract} = await getLPToken(lpToken, NETWORK, universalSwap, "1", owners[3])
-    //     const {lpBalance: lpBalance2} = await getLPToken(lpToken, NETWORK, universalSwap, "1", owners[4])
-    //     const {lpBalance: lpBalance3} = await getLPToken(lpToken, NETWORK, universalSwap, "1", owners[5])
-    //     const {lpBalance: lpBalance4} = await getLPToken(lpToken, NETWORK, universalSwap, "1", owners[6])
+    it("Handles multiple positions", async function () {
+        const lpToken = "0x99B42F2B49C395D2a77D973f6009aBb5d67dA343"
+        const extraRewardContract = await ethers.getContractAt("ERC20", "0x25f8087ead173b73d6e8b84329989a8eea16cf73")
 
-    //     await lpTokenContract.connect(owners[3]).approve(manager.address, lpBalance1)
-    //     await lpTokenContract.connect(owners[4]).approve(manager.address, lpBalance2)
-    //     await lpTokenContract.connect(owners[5]).approve(manager.address, lpBalance3)
-    //     await lpTokenContract.connect(owners[6]).approve(manager.address, lpBalance4)
-    //     const [bankId, tokenId] = await manager.recommendBank(lpToken)
-    //     const position = {
-    //         user: owners[0].address,
-    //         bankId,
-    //         bankToken: tokenId,
-    //         amount: lpBalance1.toString(),
-    //         liquidateTo: networkAddresses.networkToken,
-    //         watchedTokens: [networkAddresses.usdc],
-    //         liquidationPoints: ["1"]
-    //     }
-    //     const positionId = 2;
-    //     await manager.connect(owners[0])["deposit((address,uint256,uint256,uint256,address,address[],uint256[]))"](position)
-    //     const positionInfo1 = await manager.getPosition(positionId)
-    //     await ethers.provider.send("hardhat_mine", ["0x100"]);
-    //     await manager.connect(owners[0]).harvestAndRecompound(positionId)
-    //     const positionInfo2 = await manager.getPosition(positionId)
-    //     expect(positionInfo2.amount).to.greaterThan(positionInfo1.amount)
-    // })
+        const {lpBalance: lpBalance1, lpTokenContract} = await getLPToken(lpToken, NETWORK, universalSwap, "1", owners[3])
+        const {lpBalance: lpBalance2} = await getLPToken(lpToken, NETWORK, universalSwap, "1", owners[4])
+        const {lpBalance: lpBalance3} = await getLPToken(lpToken, NETWORK, universalSwap, "1", owners[5])
+        const {lpBalance: lpBalance4} = await getLPToken(lpToken, NETWORK, universalSwap, "1", owners[6])
+        await depositNew(manager, lpToken, lpBalance1.toString(), networkAddresses.networkToken, [networkAddresses.networkToken], [100], owners[3])
+        await depositNew(manager, lpToken, lpBalance2.div("3").toString(), networkAddresses.networkToken, [networkAddresses.networkToken], [100], owners[4])
+        await ethers.provider.send("hardhat_mine", ["0x100"]);
+        await manager.harvestRewards(4)
+        await manager.harvestRewards(5)
+
+        let owner1Sushi = ethers.BigNumber.from("0")
+        let owner2Sushi = ethers.BigNumber.from("0")
+        let owner3Sushi = ethers.BigNumber.from("0")
+        let owner4Sushi = ethers.BigNumber.from("0")
+        let owner1Convex = ethers.BigNumber.from("0")
+        let owner2Convex = ethers.BigNumber.from("0")
+        let owner3Convex = ethers.BigNumber.from("0")
+        let owner4Convex = ethers.BigNumber.from("0")
+
+        
+        const getBalances = async () => {
+            owner1Sushi = await sushiContract.balanceOf(owners[3].address)
+            owner2Sushi = await sushiContract.balanceOf(owners[4].address)
+            owner1Convex = await extraRewardContract.balanceOf(owners[3].address)
+            owner2Convex = await extraRewardContract.balanceOf(owners[4].address)
+            owner3Sushi = await sushiContract.balanceOf(owners[5].address)
+            owner4Sushi = await sushiContract.balanceOf(owners[6].address)
+            owner3Convex = await extraRewardContract.balanceOf(owners[5].address)
+            owner4Convex = await extraRewardContract.balanceOf(owners[6].address)
+        }
+
+        const clearRewards = async () => {
+            await getBalances()
+            await sushiContract.connect(owners[3]).transfer(owners[0].address, owner1Sushi)
+            await sushiContract.connect(owners[4]).transfer(owners[0].address, owner2Sushi)
+            await extraRewardContract.connect(owners[3]).transfer(owners[0].address, owner1Convex)
+            await extraRewardContract.connect(owners[4]).transfer(owners[0].address, owner2Convex)
+            await sushiContract.connect(owners[5]).transfer(owners[0].address, owner3Sushi)
+            await sushiContract.connect(owners[6]).transfer(owners[0].address, owner4Sushi)
+            await extraRewardContract.connect(owners[5]).transfer(owners[0].address, owner3Convex)
+            await extraRewardContract.connect(owners[6]).transfer(owners[0].address, owner4Convex)
+            await getBalances()
+        }
+
+        await getBalances()
+        isRoughlyEqual(owner1Sushi.div(owner2Sushi), lpBalance1.div(lpBalance2.div("3")))
+        isRoughlyEqual(owner1Convex.div(owner2Convex), lpBalance1.div(lpBalance2.div("3")))
+
+        await clearRewards()
+
+        await depositNew(manager, lpToken, lpBalance3.toString(), networkAddresses.networkToken, [networkAddresses.networkToken], [100], owners[5])
+        await depositNew(manager, lpToken, lpBalance4.div("2").toString(), networkAddresses.networkToken, [networkAddresses.networkToken], [100], owners[6])
+        await ethers.provider.send("hardhat_mine", ["0x100"]);
+        await manager.connect(owners[5]).harvestRewards(6)
+        await manager.connect(owners[6]).harvestRewards(7)
+        
+        await getBalances()
+        isRoughlyEqual(owner3Sushi.mul("1000").div(owner4Sushi), lpBalance3.mul("1000").div(lpBalance4.div("2")))
+        isRoughlyEqual(owner3Convex.mul("1000").div(owner4Convex), lpBalance3.mul("1000").div(lpBalance4.div("2")))
+        await clearRewards()
+        await sushiContract.connect(owners[5]).transfer(owners[0].address, owner3Sushi)
+        await sushiContract.connect(owners[6]).transfer(owners[0].address, owner4Sushi)
+        await extraRewardContract.connect(owners[5]).transfer(owners[0].address, owner3Convex)
+        await extraRewardContract.connect(owners[6]).transfer(owners[0].address, owner4Convex)
+        await getBalances()
+
+        await ethers.provider.send("hardhat_mine", ["0x100"]);
+        await manager.connect(owners[3]).harvestRewards(4)
+        await manager.connect(owners[4]).harvestRewards(5)
+        await manager.connect(owners[5]).harvestRewards(6)
+        await manager.connect(owners[6]).harvestRewards(7)
+        
+        await getBalances()
+
+        isRoughlyEqual(owner1Sushi.mul("1000").div(owner2Sushi), lpBalance1.mul("1000").div(lpBalance2.div("3")))
+        isRoughlyEqual(owner1Convex.mul("1000").div(owner2Convex), lpBalance1.mul("1000").div(lpBalance2.div("3")))
+        isRoughlyEqual(owner3Sushi.mul("1000").div(owner4Sushi), lpBalance3.mul("1000").div(lpBalance4.div("2")))
+        isRoughlyEqual(owner3Convex.mul("1000").div(owner4Convex), lpBalance3.mul("1000").div(lpBalance4.div("2")))
+        isRoughlyEqual(owner1Sushi.mul("1000").div(owner3Sushi.mul("2")), lpBalance1.mul("1000").div(lpBalance3))
+        isRoughlyEqual(owner1Convex.mul("1000").div(owner3Convex.mul("2")), lpBalance1.mul("1000").div(lpBalance3))
+
+        await manager.connect(owners[3]).withdraw(4, lpBalance1.mul("2").div("3"), true)
+        await lpTokenContract.connect(owners[6]).approve(manager.address, lpBalance4.div("2"))
+        await manager.connect(owners[6])["deposit(uint256,uint256)"](7, lpBalance4.div("2"))
+        await clearRewards()
+        
+        await ethers.provider.send("hardhat_mine", ["0x100"]);
+        await manager.connect(owners[3]).harvestRewards(4)
+        await manager.connect(owners[4]).harvestRewards(5)
+        await manager.connect(owners[5]).harvestRewards(6)
+        await manager.connect(owners[6]).harvestRewards(7)
+
+        await getBalances()
+        isRoughlyEqual(owner1Sushi.mul("1000").div(owner2Sushi), lpBalance1.mul("1000").div(lpBalance2))
+        isRoughlyEqual(owner1Convex.mul("1000").div(owner2Convex), lpBalance1.mul("1000").div(lpBalance2))
+        isRoughlyEqual(owner3Sushi.mul("1000").div(owner4Sushi), lpBalance3.mul("1000").div(lpBalance4))
+        isRoughlyEqual(owner3Convex.mul("1000").div(owner4Convex), lpBalance3.mul("1000").div(lpBalance4))
+    })
 })

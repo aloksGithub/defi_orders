@@ -11,15 +11,15 @@ contract UniswapV2PoolInteractor is IPoolInteractor {
         external
         returns (address[] memory, uint256[] memory)
     {
-        IUniswapV2Pair holder = IUniswapV2Pair(lpTokenAddress);
-        holder.transferFrom(msg.sender, lpTokenAddress, amount);
-        (uint256 token0Gained, uint256 token1Gained) = holder.burn(msg.sender);
+        IUniswapV2Pair pair = IUniswapV2Pair(lpTokenAddress);
+        pair.transferFrom(msg.sender, lpTokenAddress, amount);
+        (uint256 token0Gained, uint256 token1Gained) = pair.burn(msg.sender);
         uint256[] memory receivedTokenAmounts = new uint256[](2);
         receivedTokenAmounts[0] = token0Gained;
         receivedTokenAmounts[1] = token1Gained;
         address[] memory receivedTokens = new address[](2);
-        receivedTokens[0] = holder.token0();
-        receivedTokens[1] = holder.token1();
+        receivedTokens[0] = pair.token0();
+        receivedTokens[1] = pair.token1();
         emit Burn(lpTokenAddress, amount);
         return (receivedTokens, receivedTokenAmounts);
     }

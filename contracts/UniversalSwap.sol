@@ -104,7 +104,7 @@ contract UniversalSwap {
     }
 
     function _convertSimpleTokens(address token0, uint amount, address token1) private returns (uint) {
-        if (token0==token1) return amount;
+        if (token0==token1 || amount==0) return amount;
         for (uint i = 0;i<liquidators.length; i++) {
             ILiquidator liquidator = ILiquidator(liquidators[i]);
             address router = liquidator.routerAddress();
@@ -115,6 +115,7 @@ contract UniversalSwap {
                 return amountReturned;
             }
         }
+        console.log(token0, token1, amount);
         revert("Failed to convert token");
     }
 

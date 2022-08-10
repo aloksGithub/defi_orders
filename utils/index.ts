@@ -1,6 +1,8 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ethers } from "hardhat";
 import { PositionsManager, UniversalSwap } from "../typechain-types";
+import { BigNumber } from "ethers";
+import { expect } from "chai";
 
 const uniswapRouterV2 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
 const sushiRouterV2 = "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
@@ -29,7 +31,9 @@ export const addresses = {
     balancerLiquidityGaugeFactory: "0x4E7bBd911cf1EFa442BC1b2e9Ea01ffE785412EC",
     balancerVault: "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
     sushiMasterChefV1: "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd",
-    sushiMasterChefV2: "0xEF0881eC094552b2e128Cf945EF17a6752B4Ec5d"
+    sushiMasterChefV2: "0xEF0881eC094552b2e128Cf945EF17a6752B4Ec5d",
+    v1MasterChefs: [{address: "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd", rewardGetter: "sushi()"}],
+    sushiV2MasterChefs: [{address: "0xEF0881eC094552b2e128Cf945EF17a6752B4Ec5d", rewardGetter: "SUSHI()"}]
   }
 }
 
@@ -164,20 +168,40 @@ const deployERC20Bank = async (positionsManager: string) => {
   return erc20Bank
 }
 
+const masterChefV1Wrapper = async (network: string) => {
+  const wrapperV1Factory = await ethers.getContractFactory("MasterChefV1Wrapper")
+  const wrapperV1 = await wrapperV1Factory.deploy()
+  // @ts-ignore
+  for (const masterChef of addresses[network].v1MasterChefs) {
+    await wrapperV1.initializeMasterChef(masterChef.address, masterChef.rewardGetter)
+  }
+  return wrapperV1
+}
+
+const sushiMasterChefV2Wrapper = async (network: string) => {
+  const wrapperV2Factory = await ethers.getContractFactory("SushiSwapMasterChefV2Wrapper")
+  const wrapperV2 = await wrapperV2Factory.deploy()
+  // @ts-ignore
+  for (const masterChef of addresses[network].sushiV2MasterChefs) {
+    await wrapperV2.initializeMasterChef(masterChef.address, masterChef.rewardGetter)
+  }
+  return wrapperV2
+}
+
 const deployMasterChefBank = async (positionsManager: string, network:string) => {
   const [owner] = await ethers.getSigners()
-  const sushiV1WrapperFactory = await ethers.getContractFactory("SushiSwapMasterChefV1")
-  // @ts-ignore
-  const sushiV1Wrapper = await sushiV1WrapperFactory.deploy(addresses[network].sushiMasterChefV1)
-  const sushiV2WrapperFactory = await ethers.getContractFactory("SushiSwapMasterChefV2")
-  // @ts-ignore
-  const sushiV2Wrapper = await sushiV2WrapperFactory.deploy(addresses[network].sushiMasterChefV2)
+  const wrapperV1 = await masterChefV1Wrapper(network)
+  const wrapperV2 = await sushiMasterChefV2Wrapper(network)
   const bankFactory = await ethers.getContractFactory("MasterChefBank", owner)
   const masterChefBank = await bankFactory.deploy(positionsManager)
   // @ts-ignore
-  await masterChefBank.setMasterChefWrapper(addresses[network].sushiMasterChefV1, sushiV1Wrapper.address)
+  for (const masterChef of addresses[network].sushiV2MasterChefs) {
+    await masterChefBank.setMasterChefWrapper(masterChef.address, wrapperV2.address)
+  }
   // @ts-ignore
-  await masterChefBank.setMasterChefWrapper(addresses[network].sushiMasterChefV2, sushiV2Wrapper.address)
+  for (const masterChef of addresses[network].v1MasterChefs) {
+    await masterChefBank.setMasterChefWrapper(masterChef.address, wrapperV1.address)
+  }
   return masterChefBank
 }
 
@@ -205,4 +229,25 @@ export const getLPToken = async (lpToken: string, network: string, universalSwap
   await universalSwap.connect(owner).swap([addresses[network].networkToken], [ethers.utils.parseEther(etherAmount)], lpToken)
   const lpBalance = await lpTokenContract.balanceOf(owner.address)
   return {lpBalance, lpTokenContract}
+}
+
+export const depositNew = async (manager:PositionsManager, lpToken: string, amount:string, liquidateTo:string, watchedTokens: string[], liquidationPoints: number[], owner:SignerWithAddress) => {
+  const lpTokenContract = await ethers.getContractAt("ERC20", lpToken)
+  const [bankId, tokenId] = await manager.recommendBank(lpToken)
+  await lpTokenContract.connect(owner).approve(manager.address, amount)
+  const position = {
+    user: owner.address,
+    bankId,
+    bankToken: tokenId,
+    amount,
+    liquidateTo,
+    watchedTokens,
+    liquidationPoints
+  }
+  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,address,address[],uint256[]))"](position)
+}
+
+export const isRoughlyEqual = (a:BigNumber, b:BigNumber) => {
+  expect(a).to.lessThan(b.mul("105").div("100"))
+  expect(a).to.greaterThan(b.mul("95").div("100"))
 }
