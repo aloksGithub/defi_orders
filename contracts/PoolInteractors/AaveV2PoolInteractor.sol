@@ -50,14 +50,12 @@ contract AaveV2PoolInteractor is IPoolInteractor {
     function getUnderlyingTokens(address lpTokenAddress)
         public
         view
-        returns (address[] memory, uint[] memory balances)
+        returns (address[] memory)
     {
         IAToken lpTokenContract = IAToken(lpTokenAddress);
         address underlyingAddress = lpTokenContract.UNDERLYING_ASSET_ADDRESS();
         address[] memory receivedTokens = new address[](1);
         receivedTokens[0] = underlyingAddress;
-        balances = new uint[](1);
-        balances[0] = IERC20(underlyingAddress).balanceOf(lpTokenAddress);
-        return (receivedTokens, balances);
+        return receivedTokens;
     }
 }

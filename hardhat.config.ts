@@ -16,6 +16,12 @@ const config: HardhatUserConfig = {
       forking: {
         url: "https://eth-mainnet.g.alchemy.com/v2/SyReNERkXkZ5_8YG92nOR_haHaN-Saj2",
       }
+    },
+    bsc: {
+      url: 'http://127.0.0.1:8545',
+      forking: {
+        url: "https://bsc-dataseed.binance.org/",
+      }
     }
   },
   mocha: {

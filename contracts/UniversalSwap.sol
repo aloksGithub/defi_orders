@@ -3,46 +3,54 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "./interfaces/ILiquidator.sol";
 import "./interfaces/IPoolInteractor.sol";
 import "./libraries/Strings.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "./Swappers/UniswapV2Swapper.sol";
 import "hardhat/console.sol";
 
-contract UniversalSwap {
+contract UniversalSwap is Ownable {
     using Address for address;
     using strings for *;
 
     address networkToken;
-    address[] liquidators;
+    UniswapV2Swapper uniswapSwapper;
+    address[] uniswapV2Routers;
+    address[] swappers;
     string[] protocols;
     uint fractionDenominator = 10000;
     mapping(string=>address) poolInteractors;
 
-    function init(address[] calldata _liquidators, string[] calldata _protocols, address[] calldata _poolInteractors, address _networkToken) public {
-        liquidators = _liquidators;
+    constructor (string[] memory _protocols, address[] memory _poolInteractors, address _networkToken, address[] memory _uniswapV2Routers, address swapper) {
         for (uint i = 0; i<_protocols.length; i++) {
             poolInteractors[_protocols[i]] = _poolInteractors[i];
             protocols.push(_protocols[i]);
         }
+        uniswapV2Routers = _uniswapV2Routers;
         networkToken = _networkToken;
+        uniswapSwapper = UniswapV2Swapper(swapper);
+    }
+    
+    function setRouters(address[] calldata _uniswapV2Routers) external onlyOwner {
+        uniswapV2Routers = _uniswapV2Routers;
+    }
+
+    function setPoolInteractor(string[] calldata _protocols, address[] calldata _poolInteractors) external onlyOwner {
+        for (uint i = 0; i<_protocols.length; i++) {
+            poolInteractors[_protocols[i]] = _poolInteractors[i];
+            protocols.push(_protocols[i]);
+        }
     }
 
     function isSupported(address token) public view returns (bool) {
         if (_isSimpleToken(token)) return true;
-        ERC20 tokenContract = ERC20(token);
-        string memory name = tokenContract.name();
-        for (uint x = 0; x<protocols.length; x++) {
-            if (name.toSlice().startsWith(protocols[x].toSlice())) {
-                return true;
-            }
-        }
+        if (_isPoolToken(token)) return true;
         return false;
     }
 
-    function _isSimpleToken(address token) private view returns (bool) {
-        for (uint i = 0;i<liquidators.length; i++) {
-            ILiquidator liquidator = ILiquidator(liquidators[i]);
-            bool liquidable = liquidator.checkLiquidable(token, networkToken);
+    function _isSimpleToken(address token) internal view returns (bool) {
+        for (uint i = 0;i<uniswapV2Routers.length; i++) {
+            bool liquidable = uniswapSwapper.checkSwappable(token, networkToken, uniswapV2Routers[i]);
             if (liquidable) {
                 return true;
             }
@@ -61,7 +69,7 @@ contract UniversalSwap {
         return false;
     }
 
-    function _getUnderlying(address token) private view returns (address[] memory underlyingTokens, uint[] memory underlyingRatios) {
+    function _getUnderlying(address token) private view returns (address[] memory underlyingTokens) {
         ERC20 tokenContract = ERC20(token);
         address poolInteractor;
         IPoolInteractor poolInteractorContract;
@@ -74,16 +82,14 @@ contract UniversalSwap {
         if (poolInteractor==address(0)) {
             if (_isSimpleToken(token)) {
                 underlyingTokens = new address[](1);
-                underlyingRatios = new uint[](1);
                 underlyingTokens[0] = token;
-                underlyingRatios[0] = 1;
-                return (underlyingTokens, underlyingRatios);
+                return underlyingTokens;
             } else {
                 revert("Unsupported Token");
             }
         } else {
             poolInteractorContract = IPoolInteractor(poolInteractor);
-            (underlyingTokens, underlyingRatios) = poolInteractorContract.getUnderlyingTokens(token);
+            underlyingTokens = poolInteractorContract.getUnderlyingTokens(token);
         }
     }
 
@@ -105,17 +111,15 @@ contract UniversalSwap {
 
     function _convertSimpleTokens(address token0, uint amount, address token1) private returns (uint) {
         if (token0==token1 || amount==0) return amount;
-        for (uint i = 0;i<liquidators.length; i++) {
-            ILiquidator liquidator = ILiquidator(liquidators[i]);
-            address router = liquidator.routerAddress();
-            // bool liquidable = liquidator.checkWillLiquidate(token0, amount, token1);
-            (bool success, bytes memory returnData) = liquidators[i].delegatecall(abi.encodeWithSelector(liquidator.liquidate.selector, token0, amount, token1, router));
+        for (uint i = 0;i<uniswapV2Routers.length; i++) {
+            (bool success, bytes memory returnData) = address(uniswapSwapper).delegatecall(
+                abi.encodeWithSelector(uniswapSwapper.swap.selector, token0, amount, token1, uniswapV2Routers[i])
+            );
             if (success) {
                 uint amountReturned = abi.decode(returnData, (uint));
                 return amountReturned;
             }
         }
-        console.log(token0, token1, amount);
         revert("Failed to convert token");
     }
 
@@ -188,7 +192,7 @@ contract UniversalSwap {
     }
 
     function _getFinalToken(address finalToken, uint fraction, address startingToken, uint startingTokenAmount) private returns (uint) {
-        (address[] memory underlyingTokens,) = _getUnderlying(finalToken);
+        address[] memory underlyingTokens = _getUnderlying(finalToken);
         uint[] memory underlyingObtained = new uint[](underlyingTokens.length);
         for (uint i = 0; i<underlyingTokens.length; i++) {
             uint obtained;

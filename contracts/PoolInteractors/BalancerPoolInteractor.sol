@@ -107,15 +107,15 @@ contract BalancerPoolInteractor is IPoolInteractor {
     function getUnderlyingTokens(address lpTokenAddress)
         public
         view
-        returns (address[] memory, uint[] memory ratios)
+        returns (address[] memory)
     {
         IPool poolContract = IPool(lpTokenAddress);
         bytes32 poolId = poolContract.getPoolId();
-        (IERC20[] memory tokens, uint256[] memory balances,) = vault.getPoolTokens(poolId);
+        (IERC20[] memory tokens,,) = vault.getPoolTokens(poolId);
         address[] memory underlyingTokens = new address[](tokens.length);
         for (uint i = 0; i<tokens.length; i++) {
             underlyingTokens[i] = address(tokens[i]);
         }
-        return (underlyingTokens, balances);
+        return underlyingTokens;
     }
 }

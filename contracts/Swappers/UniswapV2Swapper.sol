@@ -1,31 +1,23 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
-import "../interfaces/ILiquidator.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../interfaces/IUniswapV2Router02.sol";
 import "../interfaces/IUniswapV2Factory.sol";
 import "hardhat/console.sol";
 
-contract UniswapV2Liquidator is ILiquidator {
-    address public routerAddress;
-    address public factoryAddress;
+contract UniswapV2Swapper {
 
-    constructor(address _routerAddress, address _factoryAddress) {
-        routerAddress = _routerAddress;
-        factoryAddress = _factoryAddress;
-    }
-
-    function liquidate(
-        address toLiquidate,
+    function swap(
+        address inToken,
         uint256 amount,
-        address liquidateTo,
+        address outToken,
         address _routerAddress
     ) external returns (uint256) {
-        if (toLiquidate == liquidateTo) {
+        if (inToken == outToken) {
             return amount;
         }
-        (bool success, ) = toLiquidate.call(
+        (bool success, ) = inToken.call(
             abi.encodeWithSignature(
                 "approve(address,uint256)",
                 _routerAddress,
@@ -37,8 +29,8 @@ contract UniswapV2Liquidator is ILiquidator {
         }
         IUniswapV2Router02 router = IUniswapV2Router02(_routerAddress);
         address[] memory path = new address[](2);
-        path[0] = toLiquidate;
-        path[1] = liquidateTo;
+        path[0] = inToken;
+        path[1] = outToken;
         uint256[] memory amountsOut = router.getAmountsOut(amount, path);
         uint256[] memory amountReturned = router.swapExactTokensForTokens(
             amount,
@@ -50,30 +42,32 @@ contract UniswapV2Liquidator is ILiquidator {
         return amountReturned[amountReturned.length - 1];
     }
 
-    function checkWillLiquidate(
-        address toLiquidate,
+    function checkWillSwap(
+        address inToken,
         uint256 amount,
-        address liquidateTo
+        address outToken,
+        address routerAddress
     ) external view returns (bool) {
-        if (toLiquidate == liquidateTo) {
+        if (inToken == outToken) {
             return true;
         }
         IUniswapV2Router02 router = IUniswapV2Router02(routerAddress);
         address[] memory path = new address[](2);
-        path[0] = toLiquidate;
-        path[1] = liquidateTo;
+        path[0] = inToken;
+        path[1] = outToken;
         uint256[] memory amountsOut = router.getAmountsOut(amount, path);
         return amountsOut[amountsOut.length - 1] > 0;
     }
 
-    function checkLiquidable(address toLiquidate, address liquidateTo)
+    function checkSwappable(address inToken, address outToken, address routerAddress)
         external
         view
         returns (bool)
     {
-        if (toLiquidate == liquidateTo) return true;
+        if (inToken == outToken) return true;
+        address factoryAddress = IUniswapV2Router02(routerAddress).factory();
         IUniswapV2Factory factory = IUniswapV2Factory(factoryAddress);
-        address pair = factory.getPair(toLiquidate, liquidateTo);
+        address pair = factory.getPair(inToken, outToken);
         if (pair == address(0)) {
             return false;
         }

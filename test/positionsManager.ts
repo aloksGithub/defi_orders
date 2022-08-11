@@ -1,10 +1,8 @@
-import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
-import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
 import { assert, expect } from "chai";
 import { ethers, network } from "hardhat";
 import { IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
-import { ERC20, IUniswapV2Pair } from "../typechain-types";
-import {getUnderlyingTokens, getLPTokens, getToken, getTimestamp, getUniversalSwap, deployAndInitializeManager, addresses, getNetworkToken, getLPToken, depositNew, isRoughlyEqual} from "../utils"
+import { ERC20 } from "../typechain-types";
+import {deployAndInitializeManager, addresses, getNetworkToken, getLPToken, depositNew, isRoughlyEqual} from "../utils"
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { BigNumber } from "ethers";
 
@@ -124,17 +122,16 @@ describe ("Position opening", function () {
             liquidationPoints: ["1"]
         }
         await manager.connect(owners[0])["deposit((address,uint256,uint256,uint256,address,address[],uint256[]))"](position1)
-        await ethers.provider.send("hardhat_mine", ["0x10"]);
+        await ethers.provider.send("hardhat_mine", ["0x100"]);
         await manager.connect(owners[1])["deposit((address,uint256,uint256,uint256,address,address[],uint256[]))"](position2)
-        await ethers.provider.send("hardhat_mine", ["0x10"]);
+        await ethers.provider.send("hardhat_mine", ["0x100"]);
         await manager.harvestRewards(0)
         await manager.harvestRewards(1)
         // await manager.close(positionId1, false)
         const sushiContract = await ethers.getContractAt("ERC20", networkAddresses.sushi)
         const sushiBalance1 = await sushiContract.balanceOf(owners[0].address)
         const sushiBalance2 = await sushiContract.balanceOf(owners[1].address)
-        expect(sushiBalance1.div("2")).to.greaterThan(sushiBalance2.mul("95").div(100))
-        expect(sushiBalance2.div("2")).to.lessThan(sushiBalance2.mul("105").div("100"))
+        isRoughlyEqual(sushiBalance1.div("2").mul("1000").div(sushiBalance2), lpBalance1.mul("1000").div(lpBalance2))
         const b1 = await networkTokenContract.balanceOf(owners[0].address)
         const b2 = await networkTokenContract.balanceOf(owners[1].address)
         await manager.connect(owners[0]).close(0, true)
@@ -188,17 +185,15 @@ describe ("Position opening", function () {
         }
         await manager.connect(owners[0])["deposit((address,uint256,uint256,uint256,address,address[],uint256[]))"](position1)
         await ethers.provider.send("hardhat_mine", ["0x100"]);
-        await manager.harvestRewards(3)
-        // await manager.close(positionId1, false)
         const sushiContract = await ethers.getContractAt("ERC20", networkAddresses.sushi)
         const sushiBalance1 = await sushiContract.balanceOf(owners[0].address)
-        const sushiBalance2 = await sushiContract.balanceOf(owners[1].address)
-        expect(sushiBalance1.div("2")).to.greaterThan(sushiBalance2.mul("95").div(100))
-        expect(sushiBalance2.div("2")).to.lessThan(sushiBalance2.mul("105").div("100"))
+        await manager.harvestRewards(3)
+        const sushiBalance2 = await sushiContract.balanceOf(owners[0].address)
+        expect(sushiBalance2.sub(sushiBalance1)).to.greaterThan(0)
         const b1 = await networkTokenContract.balanceOf(owners[0].address)
         await manager.connect(owners[0]).close(3, true)
         const b3 = await networkTokenContract.balanceOf(owners[0].address)
-        expect(b3.sub(b1)).to.greaterThan(lpBalance1)
+        expect(b3.sub(b1)).to.greaterThan(0)
     })
     it("Handles multiple positions", async function () {
         const lpToken = "0x99B42F2B49C395D2a77D973f6009aBb5d67dA343"
@@ -208,6 +203,7 @@ describe ("Position opening", function () {
         const {lpBalance: lpBalance2} = await getLPToken(lpToken, NETWORK, universalSwap, "1", owners[4])
         const {lpBalance: lpBalance3} = await getLPToken(lpToken, NETWORK, universalSwap, "1", owners[5])
         const {lpBalance: lpBalance4} = await getLPToken(lpToken, NETWORK, universalSwap, "1", owners[6])
+        console.log(lpBalance1, lpBalance2, lpBalance3, lpBalance4)
         await depositNew(manager, lpToken, lpBalance1.toString(), networkAddresses.networkToken, [networkAddresses.networkToken], [100], owners[3])
         await depositNew(manager, lpToken, lpBalance2.div("3").toString(), networkAddresses.networkToken, [networkAddresses.networkToken], [100], owners[4])
         await ethers.provider.send("hardhat_mine", ["0x100"]);
@@ -249,8 +245,8 @@ describe ("Position opening", function () {
         }
 
         await getBalances()
-        isRoughlyEqual(owner1Sushi.div(owner2Sushi), lpBalance1.div(lpBalance2.div("3")))
-        isRoughlyEqual(owner1Convex.div(owner2Convex), lpBalance1.div(lpBalance2.div("3")))
+        isRoughlyEqual(owner1Sushi.mul('1000').div(owner2Sushi), lpBalance1.mul('1000').div(lpBalance2.div("3")))
+        isRoughlyEqual(owner1Convex.mul('1000').div(owner2Convex), lpBalance1.mul('1000').div(lpBalance2.div("3")))
 
         await clearRewards()
 

@@ -32,8 +32,15 @@ export const addresses = {
     balancerVault: "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
     sushiMasterChefV1: "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd",
     sushiMasterChefV2: "0xEF0881eC094552b2e128Cf945EF17a6752B4Ec5d",
-    v1MasterChefs: [{address: "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd", rewardGetter: "sushi()"}],
-    sushiV2MasterChefs: [{address: "0xEF0881eC094552b2e128Cf945EF17a6752B4Ec5d", rewardGetter: "SUSHI()"}]
+    uniswapV2Routers: ["0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F", "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"],
+    v1MasterChefs: [{address: "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd", rewardGetter: "sushi()", hasExtraRewards: false}],
+    v2MasterChefs: [{address: "0xEF0881eC094552b2e128Cf945EF17a6752B4Ec5d", rewardGetter: "SUSHI()", hasExtraRewards: true}],
+  },
+  bsc: {
+    networkToken: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+    uniswapV2Routers: ["0x3a6d8cA21D1CF76F653A67577FA0D27453350dD8", "0x10ED43C718714eb63d5aA57B78B54704E256024E"],
+    v1MasterChefs: [{address: "0xDbc1A13490deeF9c3C12b44FE77b503c1B061739", rewardGetter: "BSW()", hasExtraRewards: false}],
+    pancakeV2MasterChef: {address: "0xa5f8C5Dbd5F286960b9d90548680aE5ebFf07652", rewardGetter: "CAKE()", hasExtraRewards: false}
   }
 }
 
@@ -125,38 +132,47 @@ export const getLPTokens = {
   sushiswap: getLpTokenSushiswap
 }
 
-export const getLiqudiators = async () => {
-  const uniswapLiquidatorContract = await ethers.getContractFactory('UniswapV2Liquidator')
-  const sushiswapLiquidatorFactory = await ethers.getContractFactory('UniswapV2Liquidator')
-  const uniswapLiquidator = await uniswapLiquidatorContract.deploy(uniswapRouterV2, uniswapFactoryV2)
-  const sushiswapLiquidator = await sushiswapLiquidatorFactory.deploy(sushiRouterV2, sushiFactoryV2)
-  return [uniswapLiquidator.address, sushiswapLiquidator.address]
-}
-
-export const getPoolInteractors = async (network: string) => {
+const ethereumPoolInteractors = async () => {
   const uniswapPoolInteractorContract = await ethers.getContractFactory('UniswapV2PoolInteractor')
   const uniswapPoolInteractor = await uniswapPoolInteractorContract.deploy()
   const aaveV2PoolInteractorFactory = await ethers.getContractFactory('AaveV2PoolInteractor')
-  // @ts-ignore
-  const aaveV2PoolInteractor = await aaveV2PoolInteractorFactory.deploy(addresses[network].aaveV2LendingPool)
+  const aaveV2PoolInteractor = await aaveV2PoolInteractorFactory.deploy(addresses['ethereum'].aaveV2LendingPool)
   const balancerPoolInteractorFactory = await ethers.getContractFactory('BalancerPoolInteractor')
-  // @ts-ignore
-  const balancerPoolInteractor = await balancerPoolInteractorFactory.deploy(addresses[network].balancerVault)
+  const balancerPoolInteractor = await balancerPoolInteractorFactory.deploy(addresses['ethereum'].balancerVault)
   return {names: ["Uniswap", "SushiSwap", "Aave", "Balancer"], addresses: [uniswapPoolInteractor.address, uniswapPoolInteractor.address, aaveV2PoolInteractor.address, balancerPoolInteractor.address]}
 }
 
-export const getUniversalSwap = async () => {
+const bscPoolInteractors = async () => {
+  const venusPoolInteractorFactory = await ethers.getContractFactory("VenusPoolInteractor")
+  const venusPoolInteractor = await venusPoolInteractorFactory.deploy()
+  const pancakePoolInteractorFactory = await ethers.getContractFactory("UniswapV2PoolInteractor")
+  const pancakePoolInteractor = await pancakePoolInteractorFactory.deploy()
+  return {names: ["Venus", "Pancake", "Biswap"], addresses: [venusPoolInteractor.address, pancakePoolInteractor.address, pancakePoolInteractor.address]}
+}
+
+export const getPoolInteractors = async (network: string) => {
+  const poolInteractorFunctions = {
+    ethereum: ethereumPoolInteractors,
+    bsc: bscPoolInteractors
+  }
+  // @ts-ignore
+  const poolInteractors = await poolInteractorFunctions[network]()
+  return poolInteractors
+}
+
+export const getUniversalSwap = async (network:string) => {
   const universalSwapContract = await ethers.getContractFactory('UniversalSwap')
-  const universalSwap = await universalSwapContract.deploy()
-  const liquidators = await getLiqudiators()
-  const {names, addresses} = await getPoolInteractors('ethereum')
-  await universalSwap.init(liquidators, names, addresses, weth)
+  const swapperFactory = await ethers.getContractFactory('UniswapV2Swapper')
+  const swapper = await swapperFactory.deploy()
+  const {names, addresses: poolInteractors} = await getPoolInteractors(network)
+  // @ts-ignore
+  const universalSwap = await universalSwapContract.deploy(names, poolInteractors, addresses[network].networkToken, addresses[network].uniswapV2Routers, swapper.address)
   return universalSwap
 }
 
-const deployPositionsManager = async () => {
+const deployPositionsManager = async (network:string) => {
   const positionsManagerFactory = await ethers.getContractFactory("PositionsManager")
-  const universalSwap = await getUniversalSwap()
+  const universalSwap = await getUniversalSwap(network)
   const positionsManager = positionsManagerFactory.deploy(universalSwap.address)
   return positionsManager
 }
@@ -173,34 +189,47 @@ const masterChefV1Wrapper = async (network: string) => {
   const wrapperV1 = await wrapperV1Factory.deploy()
   // @ts-ignore
   for (const masterChef of addresses[network].v1MasterChefs) {
-    await wrapperV1.initializeMasterChef(masterChef.address, masterChef.rewardGetter)
+    await wrapperV1.initializeMasterChef(masterChef.address, masterChef.rewardGetter, masterChef.hasExtraRewards)
   }
   return wrapperV1
 }
 
-const sushiMasterChefV2Wrapper = async (network: string) => {
-  const wrapperV2Factory = await ethers.getContractFactory("SushiSwapMasterChefV2Wrapper")
+const masterChefV2Wrapper = async (network: string) => {
+  const wrapperV2Factory = await ethers.getContractFactory("MasterChefV2Wrapper")
   const wrapperV2 = await wrapperV2Factory.deploy()
   // @ts-ignore
-  for (const masterChef of addresses[network].sushiV2MasterChefs) {
-    await wrapperV2.initializeMasterChef(masterChef.address, masterChef.rewardGetter)
+  for (const masterChef of addresses[network].v2MasterChefs) {
+    await wrapperV2.initializeMasterChef(masterChef.address, masterChef.rewardGetter, masterChef.hasExtraRewards)
   }
   return wrapperV2
+}
+
+const pancakeMasterChefWrapper = async () => {
+  const factory = await ethers.getContractFactory("PancakeSwapMasterChefV2Wrapper")
+  const wrapper = await factory.deploy()
+  const masterChef = addresses['bsc'].pancakeV2MasterChef
+  await wrapper.initializeMasterChef(masterChef.address, masterChef.rewardGetter, masterChef.hasExtraRewards)
+  return wrapper
 }
 
 const deployMasterChefBank = async (positionsManager: string, network:string) => {
   const [owner] = await ethers.getSigners()
   const wrapperV1 = await masterChefV1Wrapper(network)
-  const wrapperV2 = await sushiMasterChefV2Wrapper(network)
+  const wrapperV2 = await masterChefV2Wrapper(network)
   const bankFactory = await ethers.getContractFactory("MasterChefBank", owner)
   const masterChefBank = await bankFactory.deploy(positionsManager)
   // @ts-ignore
-  for (const masterChef of addresses[network].sushiV2MasterChefs) {
+  for (const masterChef of addresses[network].v2MasterChefs) {
     await masterChefBank.setMasterChefWrapper(masterChef.address, wrapperV2.address)
   }
   // @ts-ignore
   for (const masterChef of addresses[network].v1MasterChefs) {
     await masterChefBank.setMasterChefWrapper(masterChef.address, wrapperV1.address)
+  }
+  if (network=='bsc') {
+    const pancakeWrapper = await pancakeMasterChefWrapper()
+    const masterChef = addresses['bsc'].pancakeV2MasterChef
+    await masterChefBank.setMasterChefWrapper(masterChef.address, pancakeWrapper.address)
   }
   return masterChefBank
 }
@@ -213,7 +242,7 @@ const deployLiquidityGaugeBank = async (positionsManager: string) => {
 }
 
 export const deployAndInitializeManager = async (network: string) => {
-  const positionsManager = await deployPositionsManager()
+  const positionsManager = await deployPositionsManager(network)
   const erc20Bank = await deployERC20Bank(positionsManager.address)
   const masterChefBank = await deployMasterChefBank(positionsManager.address, network)
   const balancerBank = await deployLiquidityGaugeBank(positionsManager.address)

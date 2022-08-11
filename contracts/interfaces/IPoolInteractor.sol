@@ -22,5 +22,5 @@ interface IPoolInteractor {
     function getUnderlyingTokens(address poolAddress)
         external
         view
-        returns (address[] memory, uint[] memory);
+        returns (address[] memory);
 }

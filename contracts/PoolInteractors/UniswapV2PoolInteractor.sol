@@ -86,17 +86,12 @@ contract UniswapV2PoolInteractor is IPoolInteractor {
     function getUnderlyingTokens(address lpTokenAddress)
         external
         view
-        returns (address[] memory, uint256[] memory balances)
+        returns (address[] memory)
     {
         IUniswapV2Pair poolContract = IUniswapV2Pair(lpTokenAddress);
         address[] memory receivedTokens = new address[](2);
         receivedTokens[0] = poolContract.token0();
         receivedTokens[1] = poolContract.token1();
-        balances = new uint[](2);
-        (uint reserve0, uint reserve1,) = poolContract.getReserves();
-        balances[0] = reserve0;
-        balances[1] = reserve1;
-
-        return (receivedTokens, balances);
+        return receivedTokens;
     }
 }
