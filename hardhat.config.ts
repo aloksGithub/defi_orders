@@ -1,5 +1,6 @@
 import { HardhatUserConfig } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
+require('dotenv').config();
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -14,13 +15,13 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       forking: {
-        url: "https://eth-mainnet.g.alchemy.com/v2/SyReNERkXkZ5_8YG92nOR_haHaN-Saj2",
+        url: process.env.QUICKNODE_BSC!,
       }
     },
     bsc: {
       url: 'http://127.0.0.1:8545',
       forking: {
-        url: "https://bsc-dataseed.binance.org/",
+        url: process.env.QUICKNODE_BSC!,
       }
     }
   },

@@ -3,6 +3,8 @@ import { ethers } from "hardhat";
 import { PositionsManager, UniversalSwap } from "../typechain-types";
 import { BigNumber } from "ethers";
 import { expect } from "chai";
+import {addresses as ethereumAddresses} from "../constants/ethereum_addresses.json"
+import {addresses as bscAddresses} from "../constants/bsc_addresses.json"
 
 const uniswapRouterV2 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
 const sushiRouterV2 = "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
@@ -16,32 +18,8 @@ const dai = "0x6B175474E89094C44Da98b954EedeAC495271d0F"
 const weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
 
 export const addresses = {
-  ethereum: {
-    usdc: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-    usdt: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-    dai: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-    bal: "0xba100000625a3754423978a60c9317c58a424e3D",
-    sushi: "0x6B3595068778DD592e39A122f4f5a5cF09C90fE2",
-    networkToken: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-    uniswapRouterV2: "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D",
-    uniswapFactoryV2: "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
-    sushiRouterV2: "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F",
-    sushiFactoryV2: "0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac",
-    aaveV2LendingPool: "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9",
-    balancerLiquidityGaugeFactory: "0x4E7bBd911cf1EFa442BC1b2e9Ea01ffE785412EC",
-    balancerVault: "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
-    sushiMasterChefV1: "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd",
-    sushiMasterChefV2: "0xEF0881eC094552b2e128Cf945EF17a6752B4Ec5d",
-    uniswapV2Routers: ["0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F", "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"],
-    v1MasterChefs: [{address: "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd", rewardGetter: "sushi()", hasExtraRewards: false}],
-    v2MasterChefs: [{address: "0xEF0881eC094552b2e128Cf945EF17a6752B4Ec5d", rewardGetter: "SUSHI()", hasExtraRewards: true}],
-  },
-  bsc: {
-    networkToken: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-    uniswapV2Routers: ["0x3a6d8cA21D1CF76F653A67577FA0D27453350dD8", "0x10ED43C718714eb63d5aA57B78B54704E256024E"],
-    v1MasterChefs: [{address: "0xDbc1A13490deeF9c3C12b44FE77b503c1B061739", rewardGetter: "BSW()", hasExtraRewards: false}],
-    pancakeV2MasterChef: {address: "0xa5f8C5Dbd5F286960b9d90548680aE5ebFf07652", rewardGetter: "CAKE()", hasExtraRewards: false}
-  }
+  ethereum: ethereumAddresses,
+  bsc: bscAddresses
 }
 
 export async function getTimestamp() {
@@ -147,7 +125,7 @@ const bscPoolInteractors = async () => {
   const venusPoolInteractor = await venusPoolInteractorFactory.deploy()
   const pancakePoolInteractorFactory = await ethers.getContractFactory("UniswapV2PoolInteractor")
   const pancakePoolInteractor = await pancakePoolInteractorFactory.deploy()
-  return {names: ["Venus", "Pancake", "Biswap"], addresses: [venusPoolInteractor.address, pancakePoolInteractor.address, pancakePoolInteractor.address]}
+  return {names: ["Venus", "Pancake LP", "Biswap LP"], addresses: [venusPoolInteractor.address, pancakePoolInteractor.address, pancakePoolInteractor.address]}
 }
 
 export const getPoolInteractors = async (network: string) => {
@@ -264,6 +242,11 @@ export const depositNew = async (manager:PositionsManager, lpToken: string, amou
   const lpTokenContract = await ethers.getContractAt("ERC20", lpToken)
   const [bankId, tokenId] = await manager.recommendBank(lpToken)
   await lpTokenContract.connect(owner).approve(manager.address, amount)
+  const numPositions = await manager.numPositions()
+  const bankAddress = await manager.banks(bankId)
+  const bank = await ethers.getContractAt("BankBase", bankAddress)
+  const rewards = await bank.getRewards(tokenId)
+  const rewardContracts = await Promise.all(rewards.map(async (r)=> await ethers.getContractAt("ERC20", r)))
   const position = {
     user: owner.address,
     bankId,
@@ -274,6 +257,7 @@ export const depositNew = async (manager:PositionsManager, lpToken: string, amou
     liquidationPoints
   }
   await manager.connect(owner)["deposit((address,uint256,uint256,uint256,address,address[],uint256[]))"](position)
+  return {positionId: numPositions, rewards, rewardContracts}
 }
 
 export const isRoughlyEqual = (a:BigNumber, b:BigNumber) => {

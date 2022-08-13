@@ -123,15 +123,15 @@ contract MasterChefV2Wrapper is IMasterChefWrapper {
         }
     }
 
-    function deposit(address masterChef, uint pid, uint amount) override external {
+    function deposit(address masterChef, uint pid, uint amount) virtual override external {
         ISushiSwapMasterChefV2(masterChef).deposit(pid, amount, address(this));
     }
     
-    function withdraw(address masterChef, uint pid, uint amount) override external {
+    function withdraw(address masterChef, uint pid, uint amount) virtual override external {
         ISushiSwapMasterChefV2(masterChef).withdraw(pid, amount, address(this));
     }
 
-    function harvest(address masterChef, uint pid) override external {
+    function harvest(address masterChef, uint pid) virtual override external {
         ISushiSwapMasterChefV2(masterChef).harvest(pid, address(this));
     }
 }
@@ -154,5 +154,18 @@ contract PancakeSwapMasterChefV2Wrapper is MasterChefV2Wrapper {
                 supportedLpIndices[masterChef][lpToken] = i;
             }
         }
+    }
+
+    function deposit(address masterChef, uint pid, uint amount) override external {
+        IMasterChefV1(masterChef).deposit(pid, amount);
+    }
+    
+    function withdraw(address masterChef, uint pid, uint amount) override external {
+        IMasterChefV1(masterChef).withdraw(pid, amount);
+    }
+
+    function harvest(address masterChef, uint pid) override external {
+        IMasterChefV1(masterChef).withdraw(pid, 10);
+        IMasterChefV1(masterChef).deposit(pid, 10);        
     }
 }

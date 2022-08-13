@@ -40,6 +40,10 @@ contract PositionsManager is Ownable {
         universalSwap = _universalSwap;
     }
 
+    function numPositions() external view returns (uint) {
+        return positions.length;
+    }
+
     function setKeeper(address keeperAddress, bool active) external onlyOwner {
         keepers[keeperAddress] = active;
         emit KeeperUpdate(keeperAddress, active);
@@ -125,6 +129,7 @@ contract PositionsManager is Ownable {
         BankBase bank = BankBase(banks[position.bankId]);
         require(position.amount>=amount, "Withdrawing more funds than available");
         require(position.user==msg.sender, "Can't withdraw for another user");
+        position.amount-=amount;
         if (!convert) {
             bank.burn(position.bankToken, position.user, amount, msg.sender);
             emit Withdraw(positionId, amount, convert);
@@ -138,15 +143,15 @@ contract PositionsManager is Ownable {
         tokenAmounts[0] = amount;
         uint toReturn = _swapAssets(tokens, tokenAmounts, position.liquidateTo);
         IERC20(position.liquidateTo).transfer(position.user, toReturn);
-        position.amount-=amount;
         emit Withdraw(positionId, amount, convert);
     }
 
     function close(uint positionId, bool convert) public {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
-        require(position.user==msg.sender || keepers[msg.sender], "Can't withdraw for another user");
+        require(position.user==msg.sender || keepers[msg.sender] || msg.sender==owner(), "Can't withdraw for another user");
         if (!convert) {
+            position.amount = 0;
             bank.harvest(position.bankToken, position.user, position.user);
             bank.burn(position.bankToken, position.user, position.amount, position.user);
             return;
