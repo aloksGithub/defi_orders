@@ -6,17 +6,6 @@ import { expect } from "chai";
 import {addresses as ethereumAddresses} from "../constants/ethereum_addresses.json"
 import {addresses as bscAddresses} from "../constants/bsc_addresses.json"
 
-const uniswapRouterV2 = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
-const sushiRouterV2 = "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F"
-const uniswapFactoryV2 = "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f"
-const sushiFactoryV2 = "0xC0AEe478e3658e2610c5F7A4A2E1777cE9e4f2Ac"
-const aaveV2LendingPool = "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9"
-const balancerLiquidityGaugeFactory = "0x4E7bBd911cf1EFa442BC1b2e9Ea01ffE785412EC"
-const usdc = "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48"
-const usdt = "0xdAC17F958D2ee523a2206206994597C13D831ec7"
-const dai = "0x6B175474E89094C44Da98b954EedeAC495271d0F"
-const weth = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
-
 export const addresses = {
   ethereum: ethereumAddresses,
   bsc: bscAddresses
@@ -27,87 +16,12 @@ export async function getTimestamp() {
   return Math.floor(now/1000)
 }
 
-export async function getToken (token: string, signer:any, ether:string) {
-  const routerV2Conctract = await ethers.getContractAt("IUniswapV2Router02", uniswapRouterV2, signer)
-  const nextMinute = Math.floor((new Date()).getTime()/1000)+60
-  await routerV2Conctract.swapExactETHForTokens(1, [weth, token], signer.address, nextMinute, {from: signer.address, value: ethers.utils.parseEther(ether)})
-  const tokenContract = await ethers.getContractAt("IERC20", token)
-  const tokenBalance = await tokenContract.functions.balanceOf(signer.address);
-  return {tokenBalance, tokenContract}
-}
-
 export async function getNetworkToken (network: string, signer:any, ether:string) {
   // @ts-ignore
   const wethContract = await ethers.getContractAt("IWETH", addresses[network].networkToken)
   await wethContract.connect(signer).deposit({value: ethers.utils.parseEther(ether)})
   const balance = await wethContract.balanceOf(signer.address)
   return {balance, wethContract}
-}
-
-async function getUnderlyingAave (atoken:string) {
-  const aTokenContract = await ethers.getContractAt("IAToken", atoken)
-  const underlying = await aTokenContract.UNDERLYING_ASSET_ADDRESS();
-  return [underlying]
-}
-
-async function getUnderlyingUniswapv2 (lpToken:string) {
-  const pool = await ethers.getContractAt("IUniswapV2Pair", lpToken)
-  const token0 = pool.token0()
-  const token1 = pool.token1()
-  return [token0, token1]
-}
-
-export const getUnderlyingTokens = {
-  aave: getUnderlyingAave,
-  uniswapv2: getUnderlyingUniswapv2,
-  sushiswap: getUnderlyingUniswapv2
-}
-
-async function getLpTokenAave (underlyingTokens: string[], tokenBalances: any[], owner:any) {
-  const lendingPool = await ethers.getContractAt("ILendingPool", aaveV2LendingPool, owner)
-  const underlyingTokenContract = await ethers.getContractAt("ERC20", underlyingTokens[0], owner)
-  await underlyingTokenContract.approve(lendingPool.address, tokenBalances[0].toString())
-  lendingPool.deposit(underlyingTokens[0], tokenBalances[0].toString(), owner.address, "0")
-  const aTokenAddress = await lendingPool.getReserveData(underlyingTokens[0])
-  const aTokenContract = await ethers.getContractAt("IAToken", aTokenAddress.aTokenAddress)
-  const lpBalance = await aTokenContract.balanceOf(owner.address)
-  return lpBalance.toString()
-}
-
-async function getLpTokenUniswapv2 (underlyingTokens: string[], tokenBalances: any[], owner:any) {
-  const routerV2Conctract = await ethers.getContractAt("IUniswapV2Router02", uniswapRouterV2)
-  const timeStamp = await getTimestamp()+100
-  const token0Contract = await ethers.getContractAt("ERC20", underlyingTokens[0])
-  const token1Contract = await ethers.getContractAt("ERC20", underlyingTokens[1])
-  await token0Contract.approve(uniswapRouterV2, tokenBalances[0])
-  await token1Contract.approve(uniswapRouterV2, tokenBalances[1])
-  await routerV2Conctract.addLiquidity(underlyingTokens[0], underlyingTokens[1], tokenBalances[0], tokenBalances[1], "0", "0", owner.address, timeStamp, {from:owner.address})
-  const factoryV2Contract = await ethers.getContractAt("IUniswapV2Factory", uniswapFactoryV2)
-  const pairAddress = await factoryV2Contract.getPair(underlyingTokens[0], underlyingTokens[1])
-  const pairContract = await ethers.getContractAt("IUniswapV2Pair", pairAddress)
-  const lpBalance = await pairContract.balanceOf(owner.address)
-  return lpBalance.toString()
-}
-
-async function getLpTokenSushiswap (underlyingTokens: string[], tokenBalances: any[], owner:any) {
-  const routerV2Conctract = await ethers.getContractAt("IUniswapV2Router02", sushiRouterV2)
-  const timeStamp = await getTimestamp()+100
-  const token0Contract = await ethers.getContractAt("ERC20", underlyingTokens[0])
-  const token1Contract = await ethers.getContractAt("ERC20", underlyingTokens[1])
-  await token0Contract.approve(sushiRouterV2, tokenBalances[0])
-  await token1Contract.approve(sushiRouterV2, tokenBalances[1])
-  await routerV2Conctract.addLiquidity(underlyingTokens[0], underlyingTokens[1], tokenBalances[0], tokenBalances[1], "0", "0", owner.address, timeStamp, {from:owner.address})
-  const factoryV2Contract = await ethers.getContractAt("IUniswapV2Factory", sushiFactoryV2)
-  const pairAddress = await factoryV2Contract.getPair(underlyingTokens[0], underlyingTokens[1])
-  const pairContract = await ethers.getContractAt("IUniswapV2Pair", pairAddress)
-  const lpBalance = await pairContract.balanceOf(owner.address)
-  return lpBalance.toString()
-}
-
-export const getLPTokens = {
-  aave: getLpTokenAave,
-  uniswapv2: getLpTokenUniswapv2,
-  sushiswap: getLpTokenSushiswap
 }
 
 const ethereumPoolInteractors = async () => {
@@ -156,8 +70,7 @@ const deployPositionsManager = async (network:string) => {
 }
 
 const deployERC20Bank = async (positionsManager: string) => {
-  const [owner] = await ethers.getSigners()
-  const bankFactory = await ethers.getContractFactory("ERC20Bank", owner)
+  const bankFactory = await ethers.getContractFactory("ERC20Bank")
   const erc20Bank = await bankFactory.deploy(positionsManager)
   return erc20Bank
 }
@@ -191,10 +104,9 @@ const pancakeMasterChefWrapper = async () => {
 }
 
 const deployMasterChefBank = async (positionsManager: string, network:string) => {
-  const [owner] = await ethers.getSigners()
   const wrapperV1 = await masterChefV1Wrapper(network)
   const wrapperV2 = await masterChefV2Wrapper(network)
-  const bankFactory = await ethers.getContractFactory("MasterChefBank", owner)
+  const bankFactory = await ethers.getContractFactory("MasterChefBank")
   const masterChefBank = await bankFactory.deploy(positionsManager)
   // @ts-ignore
   for (const masterChef of addresses[network].v2MasterChefs) {
@@ -212,21 +124,12 @@ const deployMasterChefBank = async (positionsManager: string, network:string) =>
   return masterChefBank
 }
 
-const deployLiquidityGaugeBank = async (positionsManager: string) => {
-  const [owner] = await ethers.getSigners()
-  const bankFactory = await ethers.getContractFactory("BalancerLiquidityGaugeBank", owner)
-  const balancerBank = await bankFactory.deploy(positionsManager, balancerLiquidityGaugeFactory, addresses.ethereum.bal)
-  return balancerBank
-}
-
 export const deployAndInitializeManager = async (network: string) => {
   const positionsManager = await deployPositionsManager(network)
   const erc20Bank = await deployERC20Bank(positionsManager.address)
   const masterChefBank = await deployMasterChefBank(positionsManager.address, network)
-  const balancerBank = await deployLiquidityGaugeBank(positionsManager.address)
   await positionsManager.addBank(erc20Bank.address)
   await positionsManager.addBank(masterChefBank.address)
-  await positionsManager.addBank(balancerBank.address)
   return positionsManager
 }
 
@@ -238,7 +141,7 @@ export const getLPToken = async (lpToken: string, network: string, universalSwap
   return {lpBalance, lpTokenContract}
 }
 
-export const depositNew = async (manager:PositionsManager, lpToken: string, amount:string, liquidateTo:string, watchedTokens: string[], liquidationPoints: number[], owner:SignerWithAddress) => {
+export const depositNew = async (manager:PositionsManager, lpToken: string, amount:string, liquidateTo:string, watchedTokens: string[], lessThan: boolean[], liquidationPoints: number[], owner:SignerWithAddress) => {
   const lpTokenContract = await ethers.getContractAt("ERC20", lpToken)
   const [bankId, tokenId] = await manager.recommendBank(lpToken)
   await lpTokenContract.connect(owner).approve(manager.address, amount)
@@ -254,9 +157,10 @@ export const depositNew = async (manager:PositionsManager, lpToken: string, amou
     amount,
     liquidateTo,
     watchedTokens,
+    lessThan,
     liquidationPoints
   }
-  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,address,address[],uint256[]))"](position)
+  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,address,address[],bool[],uint256[]))"](position)
   return {positionId: numPositions, rewards, rewardContracts}
 }
 

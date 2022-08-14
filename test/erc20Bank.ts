@@ -4,9 +4,10 @@ import { IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
 import { ERC20 } from "../typechain-types";
 import {deployAndInitializeManager, addresses, getNetworkToken, getLPToken, depositNew, isRoughlyEqual} from "../utils"
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { BigNumber } from "ethers";
+require('dotenv').config();
 
-const NETWORK = 'bsc'
+const NETWORK = process.env.NETWORK!
+// @ts-ignore
 const networkAddresses = addresses[NETWORK]
 
 describe ("Position opening", function () {
@@ -40,6 +41,7 @@ describe ("Position opening", function () {
                 lpBalance0.div("2").toString(),
                 networkAddresses.networkToken,
                 [networkAddresses.networkToken],
+                [false],
                 [100],
                 owners[0]
             )
@@ -49,6 +51,7 @@ describe ("Position opening", function () {
                 lpBalance1.toString(),
                 networkAddresses.networkToken,
                 [networkAddresses.networkToken],
+                [false],
                 [100],
                 owners[1]
             )

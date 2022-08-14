@@ -4,9 +4,10 @@ import { IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
 import { ERC20 } from "../typechain-types";
 import {deployAndInitializeManager, addresses, getNetworkToken, getLPToken, depositNew, isRoughlyEqual} from "../utils"
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { BigNumber } from "ethers";
+require('dotenv').config();
 
-const NETWORK = 'bsc'
+const NETWORK = process.env.NETWORK!
+// @ts-ignore
 const networkAddresses = addresses[NETWORK]
 
 describe ("Position opening", function () {
@@ -37,6 +38,7 @@ describe ("Position opening", function () {
                 lpBalance0.toString(),
                 networkAddresses.networkToken,
                 [networkAddresses.networkToken],
+                [false],
                 [100],
                 owners[0]
             )
@@ -69,6 +71,7 @@ describe ("Position opening", function () {
                 lpBalance0.toString(),
                 networkAddresses.networkToken,
                 [networkAddresses.networkToken],
+                [false],
                 [100],
                 users[0]
             )
@@ -87,6 +90,7 @@ describe ("Position opening", function () {
                 lpBalance1.div("3").toString(),
                 networkAddresses.networkToken,
                 [networkAddresses.networkToken],
+                [false],
                 [100],
                 users[1]
             )
@@ -102,8 +106,8 @@ describe ("Position opening", function () {
 
             await clearRewards(users)
 
-            const {positionId: position2} = await depositNew(manager, lpToken, lpBalance2.toString(), networkAddresses.networkToken, [networkAddresses.networkToken], [100], users[2])
-            const {positionId: position3} = await depositNew(manager, lpToken, lpBalance3.div("2").toString(), networkAddresses.networkToken, [networkAddresses.networkToken], [100], users[3])
+            const {positionId: position2} = await depositNew(manager, lpToken, lpBalance2.toString(), networkAddresses.networkToken, [networkAddresses.networkToken], [false], [100], users[2])
+            const {positionId: position3} = await depositNew(manager, lpToken, lpBalance3.div("2").toString(), networkAddresses.networkToken, [networkAddresses.networkToken], [false], [100], users[3])
             await ethers.provider.send("hardhat_mine", ["0x100"]);
             await manager.connect(users[2]).harvestRewards(position2)
             await manager.connect(users[3]).harvestRewards(position3)
@@ -170,6 +174,7 @@ describe ("Position opening", function () {
                 lpBalance0.toString(),
                 networkAddresses.networkToken,
                 [networkAddresses.networkToken],
+                [false],
                 [100],
                 owner
             )

@@ -13,7 +13,7 @@ contract PositionsManager is Ownable {
     event KeeperUpdate(address keeper, bool active);
     event BankAdded(address bank, uint bankId);
     event BankUpdated(address newBankAddress, address oldBankAddress, uint bankId);
-    event Deposit(uint positionId, uint bankId, uint bankToken, address user, uint amount, address[] watchedTokens, uint[] liquidationPoints);
+    event Deposit(uint positionId, uint bankId, uint bankToken, address user, uint amount, address[] watchedTokens, bool[] lessThan, uint[] liquidationPoints);
     event IncreasePosition(uint positionId, uint amount);
     event Withdraw(uint positionId, uint amount, bool convert);
     event PositionClose(uint positionId, bool convert);
@@ -28,6 +28,7 @@ contract PositionsManager is Ownable {
         uint amount;
         address liquidateTo;
         address[] watchedTokens;
+        bool[] lessThan;
         uint[] liquidationPoints;
     }
 
@@ -94,10 +95,11 @@ contract PositionsManager is Ownable {
         return toReturn;
     }
 
-    function adjustLiquidationPoints(uint positionId, address[] calldata watchedTokens, uint[] calldata liquidationPoints) external {
+    function adjustLiquidationPoints(uint positionId, address[] calldata watchedTokens, bool[] calldata lessThan, uint[] calldata liquidationPoints) external {
         require (watchedTokens.length==liquidationPoints.length && watchedTokens.length>0, "Invalid liquidation request");
         Position storage position = positions[positionId];
         position.watchedTokens = watchedTokens;
+        position.lessThan = lessThan;
         position.liquidationPoints = liquidationPoints;
         emit LiquidationPointsUpdate(positionId, watchedTokens, liquidationPoints);
     }
@@ -113,14 +115,14 @@ contract PositionsManager is Ownable {
     }
 
     function deposit(Position memory position) public returns (uint) {
-        require (position.watchedTokens.length==position.liquidationPoints.length && position.watchedTokens.length>0, "Invalid liquidation request");
+        require (position.watchedTokens.length==position.liquidationPoints.length && position.lessThan.length==position.watchedTokens.length && position.watchedTokens.length>0, "Invalid liquidation request");
         BankBase bank = BankBase(banks[position.bankId]);
         address lpToken = bank.getLPToken(position.bankToken);
         require(UniversalSwap(universalSwap).isSupported(lpToken), "Asset is not currently supported");
         ERC20(lpToken).transferFrom(position.user, address(bank), position.amount);
         bank.mint(position.bankToken, position.user, position.amount);
         positions.push(position);
-        emit Deposit(positions.length-1, position.bankId, position.bankToken, position.user, position.amount, position.watchedTokens, position.liquidationPoints);
+        emit Deposit(positions.length-1, position.bankId, position.bankToken, position.user, position.amount, position.watchedTokens, position.lessThan, position.liquidationPoints);
         return positions.length-1;
     }
 

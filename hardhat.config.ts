@@ -15,14 +15,24 @@ const config: HardhatUserConfig = {
   networks: {
     hardhat: {
       forking: {
-        url: process.env.QUICKNODE_BSC!,
+        url: process.env.BSC_RPC!,
       }
     },
     bsc: {
-      url: 'http://127.0.0.1:8545',
-      forking: {
-        url: process.env.QUICKNODE_BSC!,
-      }
+      url: process.env.BSC_RPC!,
+      // accounts: [process.env.BSC_ACCOUNT!]
+    },
+    bsc_testnet: {
+      url: process.env.BSC_TESTNET_RPC,
+      // accounts: [process.env.BSC_TESTNET_ACCOUNT!]
+    },
+    ethereum: {
+      url: process.env.ETHEREUM_RPC,
+      // accounts: [process.env.ETHEREUM_ACCOUNT!]
+    },
+    ethereum_testnet: {
+      url: process.env.ETHEREUM_TESTNET_RPC,
+      // accounts: [process.env.ETHEREUM_TESTNET_ACCOUNT!]
     }
   },
   mocha: {
