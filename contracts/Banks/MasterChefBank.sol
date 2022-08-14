@@ -8,6 +8,8 @@ import "hardhat/console.sol";
 import "./MasterChefWrappers.sol";
 
 contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
+    event SetMasterChefWrapper(address masterChef, address wrapper);
+
     struct PoolInfo {
         address lpToken;
         uint lpSupply;
@@ -35,6 +37,7 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
             }
         }
         supportedMasterChefs.push(masterChef);
+        emit SetMasterChefWrapper(masterChef, wrapper);
     }
 
     function decodeId(uint id) public view returns (address masterChef, address lpToken, uint pid) {
@@ -120,6 +123,7 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
             pool.rewardDebt[userAddress][reward]+=int(amount*pool.rewardAllocationsPerShare[reward]/PRECISION);
         }
         _mint(userAddress, tokenId, amount, '');
+        emit Mint(tokenId, userAddress, amount);
     }
 
     function burn(uint tokenId, address userAddress, uint amount, address receiver) onlyAuthorized override external {
@@ -139,6 +143,7 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
         _withdraw(masterChef, pid, amount);
         IERC20(lpToken).transfer(receiver, amount);
         _burn(userAddress, tokenId, amount);
+        emit Burn(tokenId, userAddress, amount, receiver);
     }
 
     function harvest(uint tokenId, address userAddress, address receiver) onlyAuthorized override external returns (address[] memory rewardAddresses, uint[] memory rewardAmounts) {
@@ -159,5 +164,6 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
             rewardAddresses[i] = rewards[i];
             rewardAmounts[i] = pendingReward;
         }
+        emit Harvest(tokenId, userAddress, receiver);
     }
 }

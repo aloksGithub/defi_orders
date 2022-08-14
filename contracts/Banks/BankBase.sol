@@ -6,6 +6,10 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
 abstract contract BankBase is Ownable {
+    event Mint(uint tokenId, address userAddress, uint amount);
+    event Burn(uint tokenId, address userAddress, uint amount, address receiver);
+    event Harvest(uint tokenId, address userAddress, address receiver);
+
     address positionsManager;
 
     constructor(address _positionsManager) {

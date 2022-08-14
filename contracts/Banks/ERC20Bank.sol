@@ -48,6 +48,7 @@ contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
         PoolInfo storage pool = poolInfo[tokenId];
         pool.userShares[userAddress]+=amount;
         _mint(userAddress, tokenId, amount, '');
+        emit Mint(tokenId, userAddress, amount);
     }
 
     function burn(uint tokenId, address userAddress, uint amount, address receiver) onlyAuthorized override external {
@@ -59,6 +60,7 @@ contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
         pool.userShares[userAddress]-=amount;
         IERC20(lpToken).transfer(receiver, amount);
         _burn(userAddress, tokenId, amount);
+        emit Burn(tokenId, userAddress, amount, receiver);
     }
 
     function harvest(uint tokenId, address userAddress, address receiver) onlyAuthorized override external view returns (address[] memory rewardAddresses, uint[] memory rewardAmounts) {

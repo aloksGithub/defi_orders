@@ -8,6 +8,8 @@ import "../interfaces/MasterChefInterfaces.sol";
 import "hardhat/console.sol";
 
 abstract contract IMasterChefWrapper is Ownable {
+    event LPTokenAdded(address masterChef, address lpToken, uint poolId);
+
     mapping (address => mapping (uint => address)) supportedLps;
     mapping (address => mapping (address => uint)) supportedLpIndices;
     mapping (address=>address) baseRewards;
@@ -23,6 +25,7 @@ abstract contract IMasterChefWrapper is Ownable {
     function setSupportedLp(address masterChef, uint poolId, address lpToken) virtual external onlyOwner {
         supportedLpIndices[masterChef][lpToken] = poolId;
         supportedLps[masterChef][poolId] = lpToken;
+        emit LPTokenAdded(masterChef, lpToken, poolId);
     }
 
     function getIdFromLpToken(address masterChef, address lpToken) virtual external view returns (bool, uint) {
@@ -46,10 +49,11 @@ contract MasterChefV1Wrapper is IMasterChefWrapper {
         IMasterChefV1 sushiMasterChef = IMasterChefV1(masterChef);
         uint numPools = sushiMasterChef.poolLength();
         // WARNING: Don't forget to change 10 to numPools
-        for (uint i = 0; i<10; i++) {
+        for (uint i = 0; i<numPools; i++) {
             IMasterChefV1.PoolInfo memory pool = sushiMasterChef.poolInfo(i);
             supportedLps[masterChef][i] = pool.lpToken;
             supportedLpIndices[masterChef][pool.lpToken] = i;
+            emit LPTokenAdded(masterChef, pool.lpToken, i);
         }
     }
 
@@ -86,10 +90,11 @@ contract MasterChefV2Wrapper is IMasterChefWrapper {
         ISushiSwapMasterChefV2 sushiMasterChef = ISushiSwapMasterChefV2(masterChef);
         uint numPools = sushiMasterChef.poolLength();
         // WARNING: Don't forget to change 10 to numPools
-        for (uint i = 0; i<10; i++) {
+        for (uint i = 0; i<numPools; i++) {
             address lpToken = sushiMasterChef.lpToken(i);
             supportedLps[masterChef][i] = lpToken;
             supportedLpIndices[masterChef][lpToken] = i;
+            emit LPTokenAdded(masterChef, lpToken, i);
         }
     }
     
@@ -146,12 +151,13 @@ contract PancakeSwapMasterChefV2Wrapper is MasterChefV2Wrapper {
         IPancakeSwapMasterChefV2 pancakeMasterChef = IPancakeSwapMasterChefV2(masterChef);
         uint numPools = pancakeMasterChef.poolLength();
         // WARNING: Don't forget to change 10 to numPools
-        for (uint i = 0; i<10; i++) {
+        for (uint i = 0; i<numPools; i++) {
             address lpToken = pancakeMasterChef.lpToken(i);
             bool isRegular = pancakeMasterChef.poolInfo(i).isRegular;
             if (isRegular) {
                 supportedLps[masterChef][i] = lpToken;
                 supportedLpIndices[masterChef][lpToken] = i;
+                emit LPTokenAdded(masterChef, lpToken, i);
             }
         }
     }

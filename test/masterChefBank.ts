@@ -16,8 +16,11 @@ describe ("Position opening", function () {
     let networkTokenContract: IWETH
     let universalSwap: UniversalSwap
     before(async function () {
-        manager = await deployAndInitializeManager(NETWORK)
         owners = await ethers.getSigners()
+        const adminBalanceBegin = await owners[0].getBalance()
+        manager = await deployAndInitializeManager(NETWORK)
+        const deploymentGas = adminBalanceBegin.sub(await owners[0].getBalance())
+        console.log(deploymentGas)
         const universalSwapAddress = await manager.universalSwap()
         for (const owner of owners) {
             const {wethContract} = await getNetworkToken(NETWORK, owner, '1000.0')
