@@ -191,9 +191,9 @@ contract PositionsManager is Ownable {
         (address[] memory rewards, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, address(this));
         for (uint i = 0; i<rewards.length; i++) {
             (bool success, ) = rewards[i].call(abi.encodeWithSignature("approve(address,uint256)", universalSwap, rewardAmounts[i]));
-        if (!success) {
-            revert("Failed to approve token");
-        }
+            if (!success) {
+                revert("Failed to approve token");
+            }
         }
         newLpTokens = _swapAssets(rewards, rewardAmounts, lpToken);
         ERC20(lpToken).transfer(address(bank), newLpTokens);

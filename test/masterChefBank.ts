@@ -1,16 +1,16 @@
 import { assert, expect } from "chai";
-import { ethers, network } from "hardhat";
+import { ethers } from "hardhat";
+import hre from 'hardhat'
 import { IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
-import { ERC20 } from "../typechain-types";
 import {deployAndInitializeManager, addresses, getNetworkToken, getLPToken, depositNew, isRoughlyEqual} from "../utils"
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 require('dotenv').config();
 
-const NETWORK = process.env.NETWORK!
+const NETWORK = hre.network.name
 // @ts-ignore
 const networkAddresses = addresses[NETWORK]
 
-describe ("Position opening", function () {
+describe ("MasterChefBank Position opening", function () {
     let manager: PositionsManager
     let owners: SignerWithAddress[]
     let networkTokenContract: IWETH
@@ -18,12 +18,11 @@ describe ("Position opening", function () {
     before(async function () {
         owners = await ethers.getSigners()
         const adminBalanceBegin = await owners[0].getBalance()
-        manager = await deployAndInitializeManager(NETWORK)
+        manager = await deployAndInitializeManager()
         const deploymentGas = adminBalanceBegin.sub(await owners[0].getBalance())
-        console.log(deploymentGas)
         const universalSwapAddress = await manager.universalSwap()
         for (const owner of owners) {
-            const {wethContract} = await getNetworkToken(NETWORK, owner, '1000.0')
+            const {wethContract} = await getNetworkToken(owner, '1000.0')
             await wethContract.connect(owner).approve(universalSwapAddress, ethers.utils.parseEther("1000"))
         }
         networkTokenContract = await ethers.getContractAt("IWETH", networkAddresses.networkToken)
@@ -31,7 +30,7 @@ describe ("Position opening", function () {
     })
     it("Opens recompounds and closes position", async function () {
         const test = async (lpToken: string) => {
-            const {lpBalance: lpBalance0, lpTokenContract} = await getLPToken(lpToken, NETWORK, universalSwap, "1", owners[0])
+            const {lpBalance: lpBalance0, lpTokenContract} = await getLPToken(lpToken, universalSwap, "1", owners[0])
             expect(lpBalance0).to.greaterThan(0)
     
             await lpTokenContract.connect(owners[0]).approve(manager.address, lpBalance0)
@@ -62,10 +61,10 @@ describe ("Position opening", function () {
     it("Handles multiple actions", async function () {
         const test = async (lpToken:string) => {
             const users = [owners[3], owners[4], owners[5], owners[6]]
-            const {lpBalance: lpBalance0, lpTokenContract} = await getLPToken(lpToken, NETWORK, universalSwap, "1", owners[3])
-            const {lpBalance: lpBalance1} = await getLPToken(lpToken, NETWORK, universalSwap, "1", owners[4])
-            const {lpBalance: lpBalance2} = await getLPToken(lpToken, NETWORK, universalSwap, "1", owners[5])
-            const {lpBalance: lpBalance3} = await getLPToken(lpToken, NETWORK, universalSwap, "1", owners[6])
+            const {lpBalance: lpBalance0, lpTokenContract} = await getLPToken(lpToken, universalSwap, "1", owners[3])
+            const {lpBalance: lpBalance1} = await getLPToken(lpToken, universalSwap, "1", owners[4])
+            const {lpBalance: lpBalance2} = await getLPToken(lpToken, universalSwap, "1", owners[5])
+            const {lpBalance: lpBalance3} = await getLPToken(lpToken, universalSwap, "1", owners[6])
             const lpBalances = [lpBalance0, lpBalance1, lpBalance2, lpBalance3]
 
             const {positionId: position0, rewards, rewardContracts} = await depositNew(
@@ -167,7 +166,7 @@ describe ("Position opening", function () {
     it("Handles bot liquidation", async function () {
         const test = async (lpToken: string) => {
             const owner = owners[7]
-            const {lpBalance: lpBalance0, lpTokenContract} = await getLPToken(lpToken, NETWORK, universalSwap, "1", owner)
+            const {lpBalance: lpBalance0, lpTokenContract} = await getLPToken(lpToken, universalSwap, "1", owner)
             expect(lpBalance0).to.greaterThan(0)
     
             await lpTokenContract.connect(owner).approve(manager.address, lpBalance0)

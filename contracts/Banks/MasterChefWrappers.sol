@@ -15,6 +15,14 @@ abstract contract IMasterChefWrapper is Ownable {
     mapping (address=>address) baseRewards;
     mapping (address=>bool) hasExtraRewards;
 
+    function addMasterChef(address masterChef, string memory rewardGetter, bool _hasExtraRewards) virtual public onlyOwner {
+        (bool success, bytes memory returnData) = masterChef.call(abi.encodeWithSignature(rewardGetter));
+        if (!success) revert("Failed to get reward token");
+        (address reward) = abi.decode(returnData, (address));
+        baseRewards[masterChef] = reward;
+        hasExtraRewards[masterChef] = _hasExtraRewards;
+    }
+
     function initializeMasterChef(address masterChef, string memory rewardGetter, bool _hasExtraRewards) virtual public onlyOwner {
         (bool success, bytes memory returnData) = masterChef.call(abi.encodeWithSignature(rewardGetter));
         if (!success) revert("Failed to get reward token");
@@ -22,11 +30,7 @@ abstract contract IMasterChefWrapper is Ownable {
         baseRewards[masterChef] = reward;
         hasExtraRewards[masterChef] = _hasExtraRewards;
     }
-    function setSupportedLp(address masterChef, uint poolId, address lpToken) virtual external onlyOwner {
-        supportedLpIndices[masterChef][lpToken] = poolId;
-        supportedLps[masterChef][poolId] = lpToken;
-        emit LPTokenAdded(masterChef, lpToken, poolId);
-    }
+    function setSupportedLp(address masterChef, uint poolId) virtual external;
 
     function getIdFromLpToken(address masterChef, address lpToken) virtual external view returns (bool, uint) {
         uint index = supportedLpIndices[masterChef][lpToken];
@@ -55,6 +59,14 @@ contract MasterChefV1Wrapper is IMasterChefWrapper {
             supportedLpIndices[masterChef][pool.lpToken] = i;
             emit LPTokenAdded(masterChef, pool.lpToken, i);
         }
+    }
+
+    function setSupportedLp(address masterChef, uint poolId) override external onlyOwner {
+        IMasterChefV1 masterChefContract = IMasterChefV1(masterChef);
+        IMasterChefV1.PoolInfo memory pool = masterChefContract.poolInfo(poolId);
+        supportedLps[masterChef][poolId] = pool.lpToken;
+        supportedLpIndices[masterChef][pool.lpToken] = poolId;
+        emit LPTokenAdded(masterChef, pool.lpToken, poolId);
     }
 
     function getLpToken(address masterchef, uint pid) override external view returns (address) {
@@ -96,6 +108,14 @@ contract MasterChefV2Wrapper is IMasterChefWrapper {
             supportedLpIndices[masterChef][lpToken] = i;
             emit LPTokenAdded(masterChef, lpToken, i);
         }
+    }
+    
+    function setSupportedLp(address masterChef, uint poolId) virtual override external onlyOwner {
+        ISushiSwapMasterChefV2 masterChefContract = ISushiSwapMasterChefV2(masterChef);
+        address lpToken = masterChefContract.lpToken(poolId);
+        supportedLps[masterChef][poolId] = lpToken;
+        supportedLpIndices[masterChef][lpToken] = poolId;
+        emit LPTokenAdded(masterChef, lpToken, poolId);
     }
     
     function getLpToken(address masterchef, uint pid) override external view returns (address) {
@@ -159,6 +179,17 @@ contract PancakeSwapMasterChefV2Wrapper is MasterChefV2Wrapper {
                 supportedLpIndices[masterChef][lpToken] = i;
                 emit LPTokenAdded(masterChef, lpToken, i);
             }
+        }
+    }
+
+    function setSupportedLp(address masterChef, uint poolId) virtual override external onlyOwner {
+        IPancakeSwapMasterChefV2 masterChefContract = IPancakeSwapMasterChefV2(masterChef);
+        bool isRegular = masterChefContract.poolInfo(poolId).isRegular;
+        address lpToken = masterChefContract.lpToken(poolId);
+        if (isRegular) {
+            supportedLps[masterChef][poolId] = lpToken;
+            supportedLpIndices[masterChef][lpToken] = poolId;
+            emit LPTokenAdded(masterChef, lpToken, poolId);
         }
     }
 
