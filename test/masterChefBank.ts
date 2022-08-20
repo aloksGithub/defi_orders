@@ -103,7 +103,9 @@ describe ("MasterChefBank Position opening", function () {
             for (const rewardContract of rewardContracts) {
                 const user0Bal = await rewardContract.balanceOf(users[0].address)
                 const user1Bal = await rewardContract.balanceOf(users[1].address)
-                isRoughlyEqual(user0Bal.mul('1000').div(user1Bal), lpBalances[0].mul('1000').div(lpBalances[1].div('3')))
+                if (user1Bal.toNumber()>0) {
+                    isRoughlyEqual(user0Bal.mul('1000').div(user1Bal), lpBalances[0].mul('1000').div(lpBalances[1].div('3')))
+                }
             }
 
             await clearRewards(users)
@@ -117,7 +119,9 @@ describe ("MasterChefBank Position opening", function () {
             for (const rewardContract of rewardContracts) {
                 const user2Bal = await rewardContract.balanceOf(users[2].address)
                 const user3Bal = await rewardContract.balanceOf(users[3].address)
-                isRoughlyEqual(user2Bal.mul('1000').div(user3Bal), lpBalances[2].mul('1000').div(lpBalances[3].div('2')))
+                if (user3Bal.toNumber()>0) {
+                    isRoughlyEqual(user2Bal.mul('1000').div(user3Bal), lpBalances[2].mul('1000').div(lpBalances[3].div('2')))
+                }
             }
             await clearRewards(users)
 
@@ -132,9 +136,11 @@ describe ("MasterChefBank Position opening", function () {
                 const user1Bal = await rewardContract.balanceOf(users[1].address)
                 const user2Bal = await rewardContract.balanceOf(users[2].address)
                 const user3Bal = await rewardContract.balanceOf(users[3].address)
-                isRoughlyEqual(user0Bal.mul('1000').div(user1Bal), lpBalance0.mul('1000').div(lpBalance1.div('3')))
-                isRoughlyEqual(user2Bal.mul('1000').div(user3Bal), lpBalance2.mul('1000').div(lpBalance3.div('2')))
-                isRoughlyEqual(user0Bal.mul('1000').div(user2Bal), lpBalance0.mul('1000').div(lpBalance2.div('2')))
+                if (user1Bal.toNumber()>0) {
+                    isRoughlyEqual(user0Bal.mul('1000').div(user1Bal), lpBalance0.mul('1000').div(lpBalance1.div('3')))
+                    isRoughlyEqual(user2Bal.mul('1000').div(user3Bal), lpBalance2.mul('1000').div(lpBalance3.div('2')))
+                    isRoughlyEqual(user0Bal.mul('1000').div(user2Bal), lpBalance0.mul('1000').div(lpBalance2.div('2')))
+                }
             }
 
             await manager.connect(users[0]).withdraw(position0, lpBalance0.mul("2").div("3"), false)
@@ -154,8 +160,10 @@ describe ("MasterChefBank Position opening", function () {
                 const user1Bal = await rewardContract.balanceOf(users[1].address)
                 const user2Bal = await rewardContract.balanceOf(users[2].address)
                 const user3Bal = await rewardContract.balanceOf(users[3].address)
-                isRoughlyEqual(user0Bal.mul('1000').div(user1Bal), lpBalance0.mul('1000').div(lpBalance1))
-                isRoughlyEqual(user2Bal.mul('1000').div(user3Bal), lpBalance2.mul('1000').div(lpBalance3))
+                if (user1Bal.toNumber()>0) {
+                    isRoughlyEqual(user0Bal.mul('1000').div(user1Bal), lpBalance0.mul('1000').div(lpBalance1))
+                    isRoughlyEqual(user2Bal.mul('1000').div(user3Bal), lpBalance2.mul('1000').div(lpBalance3))
+                }
             }
         }
         const lpTokens = networkAddresses.masterChefLps

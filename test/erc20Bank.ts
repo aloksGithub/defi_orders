@@ -63,12 +63,12 @@ describe ("ERC20Bank Position opening", function () {
             let user1PositionBalance = (await manager.getPosition(positionId2)).amount
             let user1lpBalance = await lpTokenContract.balanceOf(owners[1].address)
             expect(user1PositionBalance).to.equal(lpBalance1)
-            expect(user1lpBalance).to.equal(0)
+            expect(user1lpBalance).to.lessThanOrEqual(100)
             await lpTokenContract.connect(owners[0]).approve(manager.address, lpBalance0.div("2"))
             await manager.connect(owners[0])["deposit(uint256,uint256)"](positionId1, lpBalance0.div("2").toString())
             user0PositionBalance = (await manager.getPosition(positionId1)).amount
             user0lpBalance = await lpTokenContract.balanceOf(owners[0].address)
-            expect(user0lpBalance).to.lessThanOrEqual(1)
+            expect(user0lpBalance).to.lessThanOrEqual(100)
             isRoughlyEqual(user0PositionBalance, lpBalance0)
             // expect(user0PositionBalance).to.equal(lpBalance0)
             await manager.connect(owners[0]).withdraw(positionId1, lpBalance0.div("2"), false)
@@ -86,13 +86,13 @@ describe ("ERC20Bank Position opening", function () {
             user0PositionBalance = (await manager.getPosition(positionId1)).amount
             user0lpBalance = await lpTokenContract.balanceOf(owners[0].address)
             expect(user0PositionBalance).to.equal(0)
-            expect(user0lpBalance).to.equal(lpBalance0)
+            isRoughlyEqual(user0lpBalance, lpBalance0)
             user1PositionBalance = (await manager.getPosition(positionId2)).amount
             const user1LiquidatedBalance = await networkTokenContract.balanceOf(owners[1].address)
             expect(user1PositionBalance).to.equal(0)
             expect(user1LiquidatedBalance).to.greaterThan(ethers.utils.parseEther("1"))
         }
-        const lpTokens = networkAddresses.masterChefLps
+        const lpTokens = networkAddresses.erc20BankLps
         for (const lpToken of lpTokens) {
             await test(lpToken)
         }

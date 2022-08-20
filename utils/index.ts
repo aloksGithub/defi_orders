@@ -45,7 +45,7 @@ const ethereumPoolInteractors = async (verify:boolean=false, log:boolean=false) 
   const uniswapPoolInteractorContract = await ethers.getContractFactory('UniswapV2PoolInteractor')
   const uniswapPoolInteractor = await uniswapPoolInteractorContract.deploy()
   const aaveV2PoolInteractorFactory = await ethers.getContractFactory('AaveV2PoolInteractor')
-  const aaveV2PoolInteractor = await aaveV2PoolInteractorFactory.deploy(addresses['mainnet'].aaveV2LendingPool)
+  const aaveV2PoolInteractor = await aaveV2PoolInteractorFactory.deploy(addresses['mainnet'].aaveV1LendingPool, addresses['mainnet'].aaveV2LendingPool, addresses['mainnet'].aaveV3LendingPool)
   aaveV2PoolInteractor.deployTransaction.hash
   const balancerPoolInteractorFactory = await ethers.getContractFactory('BalancerPoolInteractor')
   const balancerPoolInteractor = await balancerPoolInteractorFactory.deploy(addresses['mainnet'].balancerVault)
@@ -124,6 +124,13 @@ export const getUniversalSwap = async (verify:boolean=false, log:boolean=false) 
   const {names, addresses: poolInteractors} = await getPoolInteractors(verify, log)
   // @ts-ignore
   const universalSwap = await universalSwapContract.deploy(names, poolInteractors, addresses[network].networkToken, addresses[network].uniswapV2Routers, swapper.address)
+  // const owner = (await ethers.getSigners())[0]
+  // const {wethContract} = await getNetworkToken(owner, '1000.0')
+  // await wethContract.connect(owner).approve(universalSwap.address, ethers.utils.parseEther("1000"))
+  // const {lpBalance: lpBalance0, lpTokenContract} = await getLPToken("0xdAC17F958D2ee523a2206206994597C13D831ec7", universalSwap, "1", owner)
+  // await lpTokenContract.transfer(swapper.address, lpBalance0)
+  // await swapper.swap("0xdAC17F958D2ee523a2206206994597C13D831ec7", lpBalance0, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F")
+  // console.log("SUCCESS")
   if (verify) {
     await hre.run("verify:verify", {
       address: swapper.address,

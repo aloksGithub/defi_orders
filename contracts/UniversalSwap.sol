@@ -69,7 +69,7 @@ contract UniversalSwap is Ownable {
         return false;
     }
 
-    function _getUnderlying(address token) private view returns (address[] memory underlyingTokens) {
+    function _getUnderlying(address token) private returns (address[] memory underlyingTokens) {
         ERC20 tokenContract = ERC20(token);
         address poolInteractor;
         IPoolInteractor poolInteractorContract;
@@ -214,7 +214,17 @@ contract UniversalSwap is Ownable {
         (address[] memory simplifiedTokens, uint[] memory simplifiedTokenAmounts) = _simplifyInputTokens(inputTokens, inputTokenAmounts);
         uint commonTokenAmount = _convertAllToOne(simplifiedTokens, simplifiedTokenAmounts, networkToken);
         uint finalTokenObtained = _getFinalToken(outputToken, fractionDenominator, networkToken, commonTokenAmount);
-        IERC20(outputToken).transfer(msg.sender, finalTokenObtained);
+        (bool success, ) = outputToken.call(
+            abi.encodeWithSignature(
+                "transfer(address,uint256)",
+                msg.sender,
+                finalTokenObtained
+            )
+        );
+        if (!success) {
+            revert("Failed to transfer token");
+        }
+        // IERC20(outputToken).transfer(msg.sender, finalTokenObtained);
         return finalTokenObtained;
     }
 }

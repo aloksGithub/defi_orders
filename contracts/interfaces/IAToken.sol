@@ -4,7 +4,11 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IScaledBalanceToken} from "./IScaledBalanceToken.sol";
 
-interface IAToken is IERC20, IScaledBalanceToken {
+interface IAToken1 is IERC20 {
+    function redeem(uint256 _amount) external;
+}
+
+interface IAToken2 is IERC20, IScaledBalanceToken {
     /**
      * @dev Emitted after the mint action
      * @param from The address performing the mint
@@ -99,4 +103,5 @@ interface IAToken is IERC20, IScaledBalanceToken {
         returns (uint256);
 
     function UNDERLYING_ASSET_ADDRESS() external view returns (address);
+    function underlyingAssetAddress() external view returns (address);
 }
