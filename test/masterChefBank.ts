@@ -12,14 +12,12 @@ const networkAddresses = addresses[NETWORK]
 
 describe ("MasterChefBank Position opening", function () {
     let manager: PositionsManager
-    let owners: SignerWithAddress[]
+    let owners: any[]
     let networkTokenContract: IWETH
     let universalSwap: UniversalSwap
     before(async function () {
         owners = await ethers.getSigners()
-        const adminBalanceBegin = await owners[0].getBalance()
         manager = await deployAndInitializeManager()
-        const deploymentGas = adminBalanceBegin.sub(await owners[0].getBalance())
         const universalSwapAddress = await manager.universalSwap()
         for (const owner of owners) {
             const {wethContract} = await getNetworkToken(owner, '1000.0')
@@ -77,7 +75,7 @@ describe ("MasterChefBank Position opening", function () {
                 [100],
                 users[0]
             )
-            const clearRewards = async (usersToClear: SignerWithAddress[]) => {
+            const clearRewards = async (usersToClear: any[]) => {
                 for (const user of usersToClear) {
                     for (const rewardContract of rewardContracts) {
                         const balance = await rewardContract.balanceOf(user.address)

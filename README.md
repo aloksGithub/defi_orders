@@ -6,6 +6,7 @@ A service to bring finance orders such as stop loss and take profit to defi prot
 
 1) Create a .env file using .env.example as a template
 2) Run `yarn` or `npm install`
+3) run `npx hardhat compile`
 
 # Deploying
 

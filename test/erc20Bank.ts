@@ -12,7 +12,7 @@ const networkAddresses = addresses[NETWORK]
 
 describe ("ERC20Bank Position opening", function () {
     let manager: PositionsManager
-    let owners: SignerWithAddress[]
+    let owners: any[]
     let networkTokenContract: IWETH
     let universalSwap: UniversalSwap
     before(async function () {
