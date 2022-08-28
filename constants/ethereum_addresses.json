@@ -28,8 +28,9 @@
         ],
         "erc20BankLps": [
             "0x9bA00D6856a4eDF4665BcA2C2309936572473B7E",
-            "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-            "0x3Ed3B47Dd13EC9a98b44e6204A523E766B225811"
+            "0x0d4a11d5EEaaC28EC3F61d100daF4d40471f1852",
+            "0x3Ed3B47Dd13EC9a98b44e6204A523E766B225811",
+            "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599"
         ],
         "v1MasterChefs": [{"address": "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd", "rewardGetter": "sushi()", "hasExtraRewards": false}],
         "v2MasterChefs": [{"address": "0xEF0881eC094552b2e128Cf945EF17a6752B4Ec5d", "rewardGetter": "SUSHI()", "hasExtraRewards": true}]
