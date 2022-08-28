@@ -9,6 +9,7 @@ import "./libraries/Strings.sol";
 
 contract PositionsManager is Ownable {
     using strings for *;
+    using SafeERC20 for IERC20;
 
     event KeeperUpdate(address keeper, bool active);
     event BankAdded(address bank, uint bankId);
@@ -87,11 +88,6 @@ contract PositionsManager is Ownable {
             IERC20(tokens[i]).approve(universalSwap, tokenAmounts[i]);
         }
         uint toReturn = UniversalSwap(universalSwap).swap(tokens, tokenAmounts, liquidateTo);
-        // (bool success, bytes memory returnData) = universalSwap.delegatecall(abi.encodeWithSignature("swap(address[], uint[], address)", tokens, tokenAmounts, liquidateTo));
-        // if (!success) {
-        //     revert("Failed to convert tokens");
-        // }
-        // (uint toReturn) = abi.decode(returnData, (uint));
         return toReturn;
     }
 
@@ -108,7 +104,7 @@ contract PositionsManager is Ownable {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         address lpToken = bank.getLPToken(position.bankToken);
-        ERC20(lpToken).transferFrom(msg.sender, address(bank), amount);
+        IERC20(lpToken).transferFrom(msg.sender, address(bank), amount);
         bank.mint(position.bankToken, position.user, amount);
         position.amount+=amount;
         emit IncreasePosition(positionId, amount);
@@ -119,7 +115,7 @@ contract PositionsManager is Ownable {
         BankBase bank = BankBase(banks[position.bankId]);
         address lpToken = bank.getLPToken(position.bankToken);
         require(UniversalSwap(universalSwap).isSupported(lpToken), "Asset is not currently supported");
-        ERC20(lpToken).transferFrom(position.user, address(bank), position.amount);
+        IERC20(lpToken).transferFrom(position.user, address(bank), position.amount);
         bank.mint(position.bankToken, position.user, position.amount);
         positions.push(position);
         emit Deposit(positions.length-1, position.bankId, position.bankToken, position.user, position.amount, position.watchedTokens, position.lessThan, position.liquidationPoints);
@@ -196,7 +192,7 @@ contract PositionsManager is Ownable {
             }
         }
         newLpTokens = _swapAssets(rewards, rewardAmounts, lpToken);
-        ERC20(lpToken).transfer(address(bank), newLpTokens);
+        IERC20(lpToken).transfer(address(bank), newLpTokens);
         bank.mint(position.bankToken, position.user, newLpTokens);
         position.amount+=newLpTokens;
         emit HarvestRecompount(positionId, newLpTokens);

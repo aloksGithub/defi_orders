@@ -2,11 +2,22 @@
 pragma solidity ^0.8.9;
 
 import "../interfaces/IPoolInteractor.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../interfaces/IUniswapV2Pair.sol";
-import "hardhat/console.sol";
 
-contract UniswapV2PoolInteractor is IPoolInteractor {
+contract UniswapV2PoolInteractor is IPoolInteractor, Ownable {
+    using strings for *;
+    using SafeERC20 for IERC20;
+
+    string[] supportedProtocols;
+
+    constructor(string[] memory _supportedProtocols) {
+        supportedProtocols = _supportedProtocols;
+    }
+
+    function setSupportedProtocols(string[] memory _supportedProtocols) external onlyOwner {
+        supportedProtocols = _supportedProtocols;
+    }
+
     function burn(address lpTokenAddress, uint256 amount)
         external
         returns (address[] memory, uint256[] memory)
@@ -31,56 +42,22 @@ contract UniswapV2PoolInteractor is IPoolInteractor {
     ) external returns (uint256) {
         IUniswapV2Pair poolContract = IUniswapV2Pair(toMint);
         for (uint256 i = 0; i < underlyingTokens.length; i++) {
-            // ERC20 tokenContract = ERC20(underlyingTokens[i]);
-            (bool success, ) = underlyingTokens[i].call(
-                abi.encodeWithSignature(
-                    "transferFrom(address,address,uint256)",
-                    msg.sender,
-                    toMint,
-                    underlyingAmounts[i]
-                )
-            );
-            if (!success) {
-                revert("Failed to transfer token");
-            }
-            // tokenContract.transferFrom(
-            //     msg.sender,
-            //     toMint,
-            //     underlyingAmounts[i]
-            // );
+            IERC20(underlyingTokens[i]).safeTransferFrom(msg.sender, toMint, underlyingAmounts[i]);
         }
         uint256 minted = poolContract.mint(msg.sender);
         return minted;
     }
 
-    function checkBurnable(address lpTokenAddress, uint256 liquidity)
-        external
-        view
-        returns (
-            bool,
-            address[] memory,
-            uint256[] memory
-        )
-    {
-        IUniswapV2Pair poolContract = IUniswapV2Pair(lpTokenAddress);
-        ERC20 token0 = ERC20(poolContract.token0());
-        ERC20 token1 = ERC20(poolContract.token1());
-        uint256 balance0 = token0.balanceOf(lpTokenAddress);
-        uint256 balance1 = token1.balanceOf(lpTokenAddress);
-        uint256 totalSupply = poolContract.totalSupply();
-        uint256 amount0 = (liquidity * balance0) / totalSupply;
-        uint256 amount1 = (liquidity * balance1) / totalSupply;
-        address[] memory receivedTokens = new address[](2);
-        receivedTokens[0] = poolContract.token0();
-        receivedTokens[1] = poolContract.token1();
-        uint256[] memory receivedTokenAmounts = new uint256[](2);
-        receivedTokenAmounts[0] = amount0;
-        receivedTokenAmounts[1] = amount1;
-        return (
-            amount0 > 0 && amount1 > 0,
-            receivedTokens,
-            receivedTokenAmounts
-        );
+    function testSupported(address token) external view override returns (bool) {
+        string memory name = ERC20(token).name();
+        for (uint i = 0; i<supportedProtocols.length; i++) {
+            if (name.toSlice().startsWith(supportedProtocols[i].toSlice())) {
+                IUniswapV2Pair(token).token0();
+                IUniswapV2Pair(token).token1();
+                return true;
+            }
+        }
+        return false;
     }
 
     function getUnderlyingTokens(address lpTokenAddress)

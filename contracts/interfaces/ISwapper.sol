@@ -8,16 +8,8 @@ interface ISwapper {
         address inToken,
         uint256 amount,
         address outToken,
-        address _routerAddress
+        address self
     ) external returns (uint256);
-
-    function checkWillSwap(
-        address inToken,
-        uint256 amount,
-        address outToken
-    ) external view returns (bool);
-
-    function routerAddress() external returns (address);
 
     function checkSwappable(address inToken, address outToken)
         external

@@ -2,10 +2,8 @@
 pragma solidity ^0.8.9;
 
 import "../interfaces/IPoolInteractor.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../interfaces/ILendingPool.sol";
 import "../interfaces/IAToken.sol";
-import "hardhat/console.sol";
 
 interface IAToken {
     function UNDERLYING_ASSET_ADDRESS() external view returns (address);
@@ -13,6 +11,9 @@ interface IAToken {
 }
 
 contract AaveV2PoolInteractor is IPoolInteractor {
+    using strings for *;
+    using SafeERC20 for IERC20;
+
     address public lendingPool1;
     address public lendingPool2;
     address public lendingPool3;
@@ -99,7 +100,15 @@ contract AaveV2PoolInteractor is IPoolInteractor {
         uint minted = lpTokenContract.balanceOf(msg.sender)-lpBalance;
         require(minted>0, "Failed to mint LP tokens");
         return minted;
-
+    }
+    
+    function testSupported(address token) external override returns (bool) {
+        string memory name = ERC20(token).name();
+        if (name.toSlice().startsWith("Aave".toSlice())) {
+            getUnderlyingTokens(token);
+            return true;
+        }
+        return false;
     }
 
     function getUnderlyingTokens(address lpTokenAddress)

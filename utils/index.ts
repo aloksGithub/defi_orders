@@ -43,42 +43,49 @@ const logDeployment = (contractName: string, contract:Contract) => {
 
 const ethereumPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
   const uniswapPoolInteractorContract = await ethers.getContractFactory('UniswapV2PoolInteractor')
-  const uniswapPoolInteractor = await uniswapPoolInteractorContract.deploy()
+  const uniswapPoolInteractor = await uniswapPoolInteractorContract.deploy(["Uniswap V2", "SushiSwap LP Token"])
   const aaveV2PoolInteractorFactory = await ethers.getContractFactory('AaveV2PoolInteractor')
   const aaveV2PoolInteractor = await aaveV2PoolInteractorFactory.deploy(addresses['mainnet'].aaveV1LendingPool, addresses['mainnet'].aaveV2LendingPool, addresses['mainnet'].aaveV3LendingPool)
-  aaveV2PoolInteractor.deployTransaction.hash
-  const balancerPoolInteractorFactory = await ethers.getContractFactory('BalancerPoolInteractor')
-  const balancerPoolInteractor = await balancerPoolInteractorFactory.deploy(addresses['mainnet'].balancerVault)
   if (verify) {
     await hre.run("verify:verify", {
       address: uniswapPoolInteractor.address,
-      constructorArguments: [],
+      constructorArguments: [["Uniswap V2", "SushiSwap LP Token"]],
       network: 'mainnet'
     })
     await hre.run("verify:verify", {
       address: aaveV2PoolInteractor.address,
-      constructorArguments: [addresses['mainnet'].aaveV2LendingPool],
-      network: 'mainnet'
-    })
-    await hre.run("verify:verify", {
-      address: balancerPoolInteractor.address,
-      constructorArguments: [addresses['mainnet'].balancerVault],
+      constructorArguments: [addresses['mainnet'].aaveV1LendingPool, addresses['mainnet'].aaveV2LendingPool, addresses['mainnet'].aaveV3LendingPool],
       network: 'mainnet'
     })
   }
   if (log) {
     logDeployment('UniswapV2PoolInteractor', uniswapPoolInteractor)
     logDeployment('AaveV2PoolInteractor', aaveV2PoolInteractor)
-    logDeployment('BalancerPoolInteractor', balancerPoolInteractor)
   }
-  return {names: ["Uniswap", "SushiSwap", "Aave", "Balancer"], addresses: [uniswapPoolInteractor.address, uniswapPoolInteractor.address, aaveV2PoolInteractor.address, balancerPoolInteractor.address]}
+  return [uniswapPoolInteractor.address, uniswapPoolInteractor.address, aaveV2PoolInteractor.address]
+}
+
+const ethereumSwappers = async (verify:boolean=false, log:boolean=false) => {
+  const uniswapV2SwapperFactory = await ethers.getContractFactory("UniswapV2Swapper")
+  const uniswapV2Swapper = await uniswapV2SwapperFactory.deploy(addresses['mainnet'].uniswapV2Routers)
+  if (verify) {
+    await hre.run("verify:verify", {
+      address: uniswapV2Swapper.address,
+      constructorArguments: [addresses['mainnet'].uniswapV2Routers],
+      network: 'mainnet'
+    })
+  }
+  if (log) {
+    logDeployment('UniswapV2Swapper', uniswapV2Swapper)
+  }
+  return [uniswapV2Swapper.address]
 }
 
 const bscPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
   const venusPoolInteractorFactory = await ethers.getContractFactory("VenusPoolInteractor")
   const venusPoolInteractor = await venusPoolInteractorFactory.deploy()
   const pancakePoolInteractorFactory = await ethers.getContractFactory("UniswapV2PoolInteractor")
-  const pancakePoolInteractor = await pancakePoolInteractorFactory.deploy()
+  const pancakePoolInteractor = await pancakePoolInteractorFactory.deploy(['Pancake LPs'])
   if (verify) {
     await hre.run("verify:verify", {
       address: venusPoolInteractor.address,
@@ -87,7 +94,7 @@ const bscPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
     })
     await hre.run("verify:verify", {
       address: pancakePoolInteractor.address,
-      constructorArguments: [],
+      constructorArguments: [['Pancake LPs']],
       network: 'bsc'
     })
   }
@@ -95,7 +102,23 @@ const bscPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
     logDeployment('VenusPoolInteractor', venusPoolInteractor)
     logDeployment('UniswapV2PoolInteractor', pancakePoolInteractor)
   }
-  return {names: ["Venus", "Pancake LP", "Biswap LP"], addresses: [venusPoolInteractor.address, pancakePoolInteractor.address, pancakePoolInteractor.address]}
+  return [venusPoolInteractor.address, pancakePoolInteractor.address, pancakePoolInteractor.address]
+}
+
+const bscSwappers = async(verify:boolean=false, log:boolean=false) => {
+  const uniswapV2SwapperFactory = await ethers.getContractFactory("UniswapV2Swapper")
+  const uniswapV2Swapper = await uniswapV2SwapperFactory.deploy(addresses['bsc'].uniswapV2Routers)
+  if (verify) {
+    await hre.run("verify:verify", {
+      address: uniswapV2Swapper.address,
+      constructorArguments: [addresses['bsc'].uniswapV2Routers],
+      network: 'bsc'
+    })
+  }
+  if (log) {
+    logDeployment('UniswapV2Swapper', uniswapV2Swapper)
+  }
+  return [uniswapV2Swapper.address]
 }
 
 export const getPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
@@ -116,36 +139,40 @@ export const getPoolInteractors = async (verify:boolean=false, log:boolean=false
   return poolInteractors
 }
 
+const getSwappers = async (verify:boolean=false, log:boolean=false) => {
+  const network = hre.network.name
+  let swapperFunctions = {
+    mainnet: ethereumSwappers,
+    bsc: bscSwappers,
+    localhost: undefined,
+    hardhat: undefined
+  }
+  // @ts-ignore
+  swapperFunctions.localhost = swapperFunctions[CURRENTLY_FORKING]
+  // @ts-ignore
+  swapperFunctions.hardhat = swapperFunctions[CURRENTLY_FORKING]
+  // @ts-ignore
+  const swappers = await swapperFunctions[network](verify, log)
+  return swappers
+
+}
+
 export const getUniversalSwap = async (verify:boolean=false, log:boolean=false) => {
   const network = hre.network.name
   const universalSwapContract = await ethers.getContractFactory('UniversalSwap')
-  const swapperFactory = await ethers.getContractFactory('UniswapV2Swapper')
-  const swapper = await swapperFactory.deploy()
-  const {names, addresses: poolInteractors} = await getPoolInteractors(verify, log)
+  const swappers = await getSwappers(verify, log)
+  const poolInteractors = await getPoolInteractors(verify, log)
   // @ts-ignore
-  const universalSwap = await universalSwapContract.deploy(names, poolInteractors, addresses[network].networkToken, addresses[network].uniswapV2Routers, swapper.address)
-  // const owner = (await ethers.getSigners())[0]
-  // const {wethContract} = await getNetworkToken(owner, '1000.0')
-  // await wethContract.connect(owner).approve(universalSwap.address, ethers.utils.parseEther("1000"))
-  // const {lpBalance: lpBalance0, lpTokenContract} = await getLPToken("0xdAC17F958D2ee523a2206206994597C13D831ec7", universalSwap, "1", owner)
-  // await lpTokenContract.transfer(swapper.address, lpBalance0)
-  // await swapper.swap("0xdAC17F958D2ee523a2206206994597C13D831ec7", lpBalance0, "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2", "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F")
-  // console.log("SUCCESS")
+  const universalSwap = await universalSwapContract.deploy(poolInteractors, addresses[network].networkToken, swappers)
   if (verify) {
-    await hre.run("verify:verify", {
-      address: swapper.address,
-      constructorArguments: [],
-      network
-    })
     await hre.run("verify:verify", {
       address: universalSwap.address,
       // @ts-ignore
-      constructorArguments: [names, poolInteractors, addresses[network].networkToken, addresses[network].uniswapV2Routers, swapper.address],
+      constructorArguments: [poolInteractors, addresses[network].networkToken, swappers],
       network
     })
   }
   if (log) {
-    logDeployment('UniswapV2Swapper', swapper)
     logDeployment('UniversalSwap', universalSwap)
   }
   return universalSwap
@@ -176,7 +203,7 @@ const deployERC20Bank = async (positionsManager: string, verify:boolean=false, l
   if (verify) {
     await hre.run("verify:verify", {
       address: erc20Bank.address,
-      constructorArguments: [],
+      constructorArguments: [positionsManager],
       network
     })
   }

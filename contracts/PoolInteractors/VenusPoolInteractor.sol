@@ -2,11 +2,12 @@
 pragma solidity ^0.8.9;
 
 import "../interfaces/IPoolInteractor.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "../interfaces/IVToken.sol";
 import "hardhat/console.sol";
 
 contract VenusPoolInteractor is IPoolInteractor {
+    using strings for *;
+    using SafeERC20 for IERC20;
 
     function burn(
         address lpTokenAddress,
@@ -41,6 +42,15 @@ contract VenusPoolInteractor is IPoolInteractor {
         uint mitned = lpTokenContract.balanceOf(address(this))-vBalanceBefore;
         lpTokenContract.transfer(msg.sender, mitned);
         return mitned;
+    }
+    
+    function testSupported(address token) external view override returns (bool) {
+        string memory name = ERC20(token).name();
+        if (name.toSlice().startsWith("Venus".toSlice())) {
+            getUnderlyingTokens(token);
+            return true;
+        }
+        return false;
     }
 
     function getUnderlyingTokens(address lpTokenAddress)

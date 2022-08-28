@@ -18,6 +18,7 @@
         "sushiMasterChefV1": "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd",
         "sushiMasterChefV2": "0xEF0881eC094552b2e128Cf945EF17a6752B4Ec5d",
         "uniswapV2Routers": ["0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F", "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"],
+        "NFTManagers": ["0xC36442b4a4522E871399CD717aBDD847Ab11FE88"],
         "masterChefLps": [
             "0x06da0fd433C1A5d7a4faa01111c044910A184553",
             "0xF1F85b2C54a2bD284B1cf4141D64fD171Bd85539",
