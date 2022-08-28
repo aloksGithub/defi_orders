@@ -10,6 +10,7 @@ var fs = require('fs');
 
 const ENVIRONMENT = process.env.ENVIRONMENT!
 const CURRENTLY_FORKING = process.env.CURRENTLY_FORKING!
+const NUM_INITIALIZE_MASTERCHEFS = 10
 
 export const addresses = {
   mainnet: ethereumAddresses,
@@ -221,7 +222,7 @@ const masterChefV1Wrapper = async (verify:boolean=false, log:boolean=false) => {
   for (const masterChef of addresses[network].v1MasterChefs) {
     await wrapperV1.addMasterChef(masterChef.address, masterChef.rewardGetter, masterChef.hasExtraRewards)
     const masterChefContract = await ethers.getContractAt("IMasterChefV1", masterChef.address)
-    const numPools = ENVIRONMENT==='prod'?(await masterChefContract.poolLength()).toNumber():10
+    const numPools = ENVIRONMENT==='prod'?(await masterChefContract.poolLength()).toNumber():NUM_INITIALIZE_MASTERCHEFS
     for (let i = 0; i<numPools; i++) {
       await wrapperV1.setSupportedLp(masterChef.address, i)
     }
@@ -247,7 +248,7 @@ const masterChefV2Wrapper = async (verify:boolean=false, log:boolean=false) => {
   for (const masterChef of addresses[network].v2MasterChefs) {
     await wrapperV2.addMasterChef(masterChef.address, masterChef.rewardGetter, masterChef.hasExtraRewards)
     const masterChefContract = await ethers.getContractAt("ISushiSwapMasterChefV2", masterChef.address)
-    const numPools = ENVIRONMENT==='prod'?(await masterChefContract.poolLength()).toNumber():10
+    const numPools = ENVIRONMENT==='prod'?(await masterChefContract.poolLength()).toNumber():NUM_INITIALIZE_MASTERCHEFS
     for (let i = 0; i<numPools; i++) {
       await wrapperV2.setSupportedLp(masterChef.address, i)
     }
@@ -271,7 +272,7 @@ const pancakeMasterChefWrapper = async (verify:boolean=false, log:boolean=false)
   const masterChef = addresses['bsc'].pancakeV2MasterChef
   await wrapper.addMasterChef(masterChef.address, masterChef.rewardGetter, masterChef.hasExtraRewards)
   const masterChefContract = await ethers.getContractAt("IPancakeSwapMasterChefV2", masterChef.address)
-  const numPools = ENVIRONMENT==='prod'?(await masterChefContract.poolLength()).toNumber():10
+  const numPools = ENVIRONMENT==='prod'?(await masterChefContract.poolLength()).toNumber():NUM_INITIALIZE_MASTERCHEFS
   for (let i = 0; i<numPools; i++) {
     await wrapper.setSupportedLp(masterChef.address, i)
   }

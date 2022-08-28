@@ -44,11 +44,12 @@ contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
         return "ERC20 Bank";
     }
 
-    function mint(uint tokenId, address userAddress, uint amount) onlyAuthorized override external {
+    function mint(uint tokenId, address userAddress, uint amount) onlyAuthorized override external returns(uint) {
         PoolInfo storage pool = poolInfo[tokenId];
         pool.userShares[userAddress]+=amount;
         _mint(userAddress, tokenId, amount, '');
         emit Mint(tokenId, userAddress, amount);
+        return amount;
     }
 
     function burn(uint tokenId, address userAddress, uint amount, address receiver) onlyAuthorized override external returns (address[] memory outTokens, uint[] memory tokenAmounts){

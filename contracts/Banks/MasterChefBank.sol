@@ -109,7 +109,7 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
         if (!success) revert("Failed to withdraw");
     }
 
-    function mint(uint tokenId, address userAddress, uint amount) onlyAuthorized override external {
+    function mint(uint tokenId, address userAddress, uint amount) onlyAuthorized override external returns(uint) {
         updateToken(tokenId);
         (address masterChef, address lpToken, uint pid) = decodeId(tokenId);
         IERC20(lpToken).approve(masterChef, amount);
@@ -124,6 +124,7 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
         }
         _mint(userAddress, tokenId, amount, '');
         emit Mint(tokenId, userAddress, amount);
+        return amount;
     }
 
     function burn(uint tokenId, address userAddress, uint amount, address receiver) onlyAuthorized override external returns (address[] memory outTokens, uint[] memory tokenAmounts) {

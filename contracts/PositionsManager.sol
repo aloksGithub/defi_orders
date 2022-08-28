@@ -89,7 +89,7 @@ contract PositionsManager is Ownable {
 
     function _swapAssets(address[] memory tokens, uint[] memory tokenAmounts, address liquidateTo) internal returns (uint) {
         for (uint i = 0; i<tokens.length; i++) {
-            IERC20(tokens[i]).approve(universalSwap, tokenAmounts[i]);
+            IERC20(tokens[i]).safeApprove(universalSwap, tokenAmounts[i]);
         }
         uint toReturn = UniversalSwap(universalSwap).swap(tokens, tokenAmounts, liquidateTo);
         return toReturn;
@@ -109,9 +109,9 @@ contract PositionsManager is Ownable {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         address lpToken = bank.getLPToken(position.bankToken);
-        IERC20(lpToken).transferFrom(msg.sender, address(bank), amount);
-        bank.mint(position.bankToken, position.user, amount);
-        position.amount+=amount;
+        IERC20(lpToken).safeTransferFrom(msg.sender, address(bank), amount);
+        uint minted = bank.mint(position.bankToken, position.user, amount);
+        position.amount+=minted;
         emit IncreasePosition(positionId, amount);
     }
 
@@ -119,14 +119,14 @@ contract PositionsManager is Ownable {
         BankBase bank = BankBase(banks[position.bankId]);
         address lpToken = bank.getLPToken(position.bankToken);
         require(UniversalSwap(universalSwap).isSupported(lpToken), "Asset is not currently supported");
-        IERC20(lpToken).transferFrom(position.user, address(bank), position.amount);
-        bank.mint(position.bankToken, position.user, position.amount);
+        IERC20(lpToken).safeTransferFrom(position.user, address(bank), position.amount);
+        uint minted = bank.mint(position.bankToken, position.user, position.amount);
         positions.push();
         Position storage newPosition = positions[positions.length-1];
         newPosition.user = position.user;
         newPosition.bankId = position.bankId;
         newPosition.bankToken = position.bankToken;
-        newPosition.amount = position.amount;
+        newPosition.amount = minted;
         for (uint i = 0; i<position.liquidationPoints.length; i++) {
             newPosition.liquidationPoints.push(position.liquidationPoints[i]);
         }
@@ -166,14 +166,8 @@ contract PositionsManager is Ownable {
         BankBase bank = BankBase(banks[position.bankId]);
         address lpToken = bank.getLPToken(position.bankToken);
         (address[] memory rewards, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, address(this));
-        for (uint i = 0; i<rewards.length; i++) {
-            (bool success, ) = rewards[i].call(abi.encodeWithSignature("approve(address,uint256)", universalSwap, rewardAmounts[i]));
-            if (!success) {
-                revert("Failed to approve token");
-            }
-        }
         newLpTokens = _swapAssets(rewards, rewardAmounts, lpToken);
-        IERC20(lpToken).transfer(address(bank), newLpTokens);
+        IERC20(lpToken).safeTransfer(address(bank), newLpTokens);
         bank.mint(position.bankToken, position.user, newLpTokens);
         position.amount+=newLpTokens;
         emit HarvestRecompount(positionId, newLpTokens);
@@ -190,16 +184,13 @@ contract PositionsManager is Ownable {
         for (uint i = 0; i<rewardAddresses.length; i++) {
             tokens[i] = rewardAddresses[i];
             tokenAmounts[i] = rewardAmounts[i];
-            console.log(rewardAmounts[i]);
-            IERC20(rewardAddresses[i]).safeApprove(universalSwap, rewardAmounts[i]);
         }
         for (uint j = 0; j<outTokens.length; j++) {
             tokens[j+rewardAddresses.length] = outTokens[j];
             tokenAmounts[j+rewardAddresses.length] = outTokenAmounts[j];
-            IERC20(outTokens[j]).safeApprove(universalSwap, outTokenAmounts[j]);
         }
         uint toReturn = _swapAssets(tokens, tokenAmounts, position.liquidationPoints[liquidationIndex].liquidateTo);
-        IERC20(position.liquidationPoints[liquidationIndex].liquidateTo).transfer(position.user, toReturn);
+        IERC20(position.liquidationPoints[liquidationIndex].liquidateTo).safeTransfer(position.user, toReturn);
         position.amount = 0;
         emit PositionClose(positionId);
     }
