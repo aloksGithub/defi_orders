@@ -9,6 +9,7 @@ require('dotenv').config();
 const NETWORK = hre.network.name
 // @ts-ignore
 const networkAddresses = addresses[NETWORK]
+const liquidationPoints = [{liquidateTo: networkAddresses.networkToken, watchedToken: networkAddresses.networkToken, lessThan:true, liquidationPoint: 100}]
 
 describe ("MasterChefBank Position opening", function () {
     let manager: PositionsManager
@@ -36,10 +37,7 @@ describe ("MasterChefBank Position opening", function () {
                 manager,
                 lpToken,
                 lpBalance0.toString(),
-                networkAddresses.networkToken,
-                [networkAddresses.networkToken],
-                [false],
-                [100],
+                liquidationPoints,
                 owners[0]
             )
             const positionInfo1 = await manager.getPosition(positionId)
@@ -47,9 +45,9 @@ describe ("MasterChefBank Position opening", function () {
             await manager.connect(owners[0]).harvestAndRecompound(positionId)
             const positionInfo2 = await manager.getPosition(positionId)
             expect(positionInfo2.amount).to.greaterThan(positionInfo1.amount)
-            await manager.connect(owners[0]).close(positionId, true)
-            const finalBalance = await networkTokenContract.balanceOf(owners[0].address)
-            expect(finalBalance).to.greaterThan(ethers.utils.parseEther("1"))
+            await manager.connect(owners[0]).close(positionId)
+            const finalLpBalance = await lpTokenContract.balanceOf(owners[0].address)
+            expect(finalLpBalance).to.greaterThan(lpBalance0)
         }
         const lpTokens = networkAddresses.masterChefLps
         for (const lpToken of lpTokens) {
@@ -64,15 +62,12 @@ describe ("MasterChefBank Position opening", function () {
             const {lpBalance: lpBalance2} = await getLPToken(lpToken, universalSwap, "1", owners[5])
             const {lpBalance: lpBalance3} = await getLPToken(lpToken, universalSwap, "1", owners[6])
             const lpBalances = [lpBalance0, lpBalance1, lpBalance2, lpBalance3]
-
+            
             const {positionId: position0, rewards, rewardContracts} = await depositNew(
                 manager,
                 lpToken,
                 lpBalance0.toString(),
-                networkAddresses.networkToken,
-                [networkAddresses.networkToken],
-                [false],
-                [100],
+                liquidationPoints,
                 users[0]
             )
             const clearRewards = async (usersToClear: any[]) => {
@@ -88,10 +83,7 @@ describe ("MasterChefBank Position opening", function () {
                 manager,
                 lpToken,
                 lpBalance1.div("3").toString(),
-                networkAddresses.networkToken,
-                [networkAddresses.networkToken],
-                [false],
-                [100],
+                liquidationPoints,
                 users[1]
             )
             await ethers.provider.send("hardhat_mine", ["0x100"]);
@@ -108,8 +100,8 @@ describe ("MasterChefBank Position opening", function () {
 
             await clearRewards(users)
 
-            const {positionId: position2} = await depositNew(manager, lpToken, lpBalance2.toString(), networkAddresses.networkToken, [networkAddresses.networkToken], [false], [100], users[2])
-            const {positionId: position3} = await depositNew(manager, lpToken, lpBalance3.div("2").toString(), networkAddresses.networkToken, [networkAddresses.networkToken], [false], [100], users[3])
+            const {positionId: position2} = await depositNew(manager, lpToken, lpBalance2.toString(), liquidationPoints, users[2])
+            const {positionId: position3} = await depositNew(manager, lpToken, lpBalance3.div("2").toString(), liquidationPoints, users[3])
             await ethers.provider.send("hardhat_mine", ["0x100"]);
             await manager.connect(users[2]).harvestRewards(position2)
             await manager.connect(users[3]).harvestRewards(position3)
@@ -141,7 +133,7 @@ describe ("MasterChefBank Position opening", function () {
                 }
             }
 
-            await manager.connect(users[0]).withdraw(position0, lpBalance0.mul("2").div("3"), false)
+            await manager.connect(users[0]).withdraw(position0, lpBalance0.mul("2").div("3"))
             expect(lpBalance0.mul("2").div("3")).to.equal(await lpTokenContract.balanceOf(users[0].address))
             await lpTokenContract.connect(users[3]).approve(manager.address, lpBalance3.div("2"))
             await manager.connect(users[3])["deposit(uint256,uint256)"](position3, lpBalance3.div("2"))
@@ -180,10 +172,7 @@ describe ("MasterChefBank Position opening", function () {
                 manager,
                 lpToken,
                 lpBalance0.toString(),
-                networkAddresses.networkToken,
-                [networkAddresses.networkToken],
-                [false],
-                [100],
+                liquidationPoints,
                 owner
             )
             const positionInfo1 = await manager.getPosition(positionId)
@@ -191,7 +180,7 @@ describe ("MasterChefBank Position opening", function () {
             await manager.connect(owner).harvestAndRecompound(positionId)
             const positionInfo2 = await manager.getPosition(positionId)
             expect(positionInfo2.amount).to.greaterThan(positionInfo1.amount)
-            await manager.connect(owners[0]).botLiquidate(positionId)
+            await manager.connect(owners[0]).botLiquidate(positionId, 0)
             const finalBalance = await networkTokenContract.balanceOf(owner.address)
             expect(finalBalance).to.greaterThan(ethers.utils.parseEther("1"))
         }

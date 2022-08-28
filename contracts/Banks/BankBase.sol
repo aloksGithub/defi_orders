@@ -26,6 +26,6 @@ abstract contract BankBase is Ownable {
     function getLPToken(uint tokenId) virtual external returns (address);
     function getRewards(uint tokenId) virtual external view returns (address[] memory);
     function mint(uint tokenId, address userAddress, uint amount) virtual external;
-    function burn(uint tokenId, address userAddress, uint amount, address receiver) virtual external;
+    function burn(uint tokenId, address userAddress, uint amount, address receiver) virtual external returns (address[] memory, uint[] memory);
     function harvest(uint tokenId, address userAddress, address receiver) virtual external returns (address[] memory, uint[] memory);
 }

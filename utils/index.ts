@@ -346,7 +346,7 @@ export const getLPToken = async (lpToken: string, universalSwap: UniversalSwap, 
   return {lpBalance, lpTokenContract}
 }
 
-export const depositNew = async (manager:PositionsManager, lpToken: string, amount:string, liquidateTo:string, watchedTokens: string[], lessThan: boolean[], liquidationPoints: number[], owner:any) => {
+export const depositNew = async (manager:PositionsManager, lpToken: string, amount:string, liquidationPoints: any[], owner:any) => {
   const lpTokenContract = await ethers.getContractAt("ERC20", lpToken)
   const [bankId, tokenId] = await manager.recommendBank(lpToken)
   await lpTokenContract.connect(owner).approve(manager.address, amount)
@@ -360,12 +360,9 @@ export const depositNew = async (manager:PositionsManager, lpToken: string, amou
     bankId,
     bankToken: tokenId,
     amount,
-    liquidateTo,
-    watchedTokens,
-    lessThan,
     liquidationPoints
   }
-  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,address,address[],bool[],uint256[]))"](position)
+  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,(address,address,bool,uint256)[]))"](position)
   return {positionId: numPositions, rewards, rewardContracts}
 }
 

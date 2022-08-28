@@ -9,6 +9,7 @@ require('dotenv').config();
 const NETWORK = hre.network.name
 // @ts-ignore
 const networkAddresses = addresses[NETWORK]
+const liquidationPoints = [{liquidateTo: networkAddresses.networkToken, watchedToken: networkAddresses.networkToken, lessThan:true, liquidationPoint: 100}]
 
 describe ("ERC20Bank Position opening", function () {
     let manager: PositionsManager
@@ -39,20 +40,14 @@ describe ("ERC20Bank Position opening", function () {
                 manager,
                 lpToken,
                 lpBalance0.div("2").toString(),
-                networkAddresses.networkToken,
-                [networkAddresses.networkToken],
-                [false],
-                [100],
+                liquidationPoints,
                 owners[0]
             )
             const {positionId: positionId2} = await depositNew(
                 manager,
                 lpToken,
                 lpBalance1.toString(),
-                networkAddresses.networkToken,
-                [networkAddresses.networkToken],
-                [false],
-                [100],
+                liquidationPoints,
                 owners[1]
             )
             let user0PositionBalance = (await manager.getPosition(positionId1)).amount
@@ -71,26 +66,26 @@ describe ("ERC20Bank Position opening", function () {
             expect(user0lpBalance).to.lessThanOrEqual(100)
             isRoughlyEqual(user0PositionBalance, lpBalance0)
             // expect(user0PositionBalance).to.equal(lpBalance0)
-            await manager.connect(owners[0]).withdraw(positionId1, lpBalance0.div("2"), false)
-            await manager.connect(owners[1]).withdraw(positionId2, lpBalance1.div("2"), true)
+            await manager.connect(owners[0]).withdraw(positionId1, lpBalance0.div("2"))
+            await manager.connect(owners[1]).withdraw(positionId2, lpBalance1.div("2"))
             user0PositionBalance = (await manager.getPosition(positionId1)).amount
             user0lpBalance = await lpTokenContract.balanceOf(owners[0].address)
-            // expect(user0PositionBalance).to.equal(lpBalance0.div("2"))
+            isRoughlyEqual(user0PositionBalance, lpBalance0.div("2"))
             isRoughlyEqual(user0lpBalance, lpBalance0.div("2"))
-            // expect(user0lpBalance).to.equal()
             user1PositionBalance = (await manager.getPosition(positionId2)).amount
+            user1lpBalance = await lpTokenContract.balanceOf(owners[1].address)
             isRoughlyEqual(user1PositionBalance, lpBalance1.div("2"))
-            // expect(user1PositionBalance).to.equal(lpBalance1.div("2"))
-            await manager.connect(owners[0]).close(positionId1, false)
-            await manager.connect(owners[0]).botLiquidate(positionId2)
+            isRoughlyEqual(user1lpBalance, lpBalance1.div("2"))
+            await manager.connect(owners[1]).close(positionId2)
+            await manager.connect(owners[0]).botLiquidate(positionId1, 0)
             user0PositionBalance = (await manager.getPosition(positionId1)).amount
             user0lpBalance = await lpTokenContract.balanceOf(owners[0].address)
             expect(user0PositionBalance).to.equal(0)
-            isRoughlyEqual(user0lpBalance, lpBalance0)
+            isRoughlyEqual(user0lpBalance, lpBalance0.div("2"))
             user1PositionBalance = (await manager.getPosition(positionId2)).amount
-            const user1LiquidatedBalance = await networkTokenContract.balanceOf(owners[1].address)
+            user1lpBalance = await lpTokenContract.balanceOf(owners[1].address)
             expect(user1PositionBalance).to.equal(0)
-            expect(user1LiquidatedBalance).to.greaterThan(ethers.utils.parseEther("1"))
+            isRoughlyEqual(user1lpBalance, lpBalance1)
         }
         const lpTokens = networkAddresses.erc20BankLps
         for (const lpToken of lpTokens) {

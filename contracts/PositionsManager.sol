@@ -14,11 +14,11 @@ contract PositionsManager is Ownable {
     event KeeperUpdate(address keeper, bool active);
     event BankAdded(address bank, uint bankId);
     event BankUpdated(address newBankAddress, address oldBankAddress, uint bankId);
-    event Deposit(uint positionId, uint bankId, uint bankToken, address user, uint amount, address[] watchedTokens, bool[] lessThan, uint[] liquidationPoints);
+    event Deposit(uint positionId, uint bankId, uint bankToken, address user, uint amount, LiquidationCondition[] liquidationPoints);
     event IncreasePosition(uint positionId, uint amount);
-    event Withdraw(uint positionId, uint amount, bool convert);
-    event PositionClose(uint positionId, bool convert);
-    event LiquidationPointsUpdate(uint positionId, address[] watchedTokens, uint[] liquidationPoints);
+    event Withdraw(uint positionId, uint amount);
+    event PositionClose(uint positionId);
+    event LiquidationPointsUpdate(uint positionId, LiquidationCondition[] liquidationPoints);
     event Harvest(uint positionId, address[] rewards, uint[] rewardAmounts);
     event HarvestRecompount(uint positionId, uint lpTokens);
 
@@ -27,10 +27,14 @@ contract PositionsManager is Ownable {
         uint bankId;
         uint bankToken;
         uint amount;
+        LiquidationCondition[] liquidationPoints;
+    }
+
+    struct LiquidationCondition {
+        address watchedToken;
         address liquidateTo;
-        address[] watchedTokens;
-        bool[] lessThan;
-        uint[] liquidationPoints;
+        bool lessThan;
+        uint liquidationPoint;
     }
 
     Position[] positions;
@@ -91,13 +95,14 @@ contract PositionsManager is Ownable {
         return toReturn;
     }
 
-    function adjustLiquidationPoints(uint positionId, address[] calldata watchedTokens, bool[] calldata lessThan, uint[] calldata liquidationPoints) external {
-        require (watchedTokens.length==liquidationPoints.length && watchedTokens.length>0, "Invalid liquidation request");
+    function adjustLiquidationPoints(uint positionId, LiquidationCondition[] memory _liquidationPoints) external {
+        require(msg.sender==positions[positionId].user);
         Position storage position = positions[positionId];
-        position.watchedTokens = watchedTokens;
-        position.lessThan = lessThan;
-        position.liquidationPoints = liquidationPoints;
-        emit LiquidationPointsUpdate(positionId, watchedTokens, liquidationPoints);
+        delete position.liquidationPoints;
+        for (uint i = 0; i<_liquidationPoints.length; i++) {
+            position.liquidationPoints.push(_liquidationPoints[i]);
+        }
+        emit LiquidationPointsUpdate(positionId, _liquidationPoints);
     }
 
     function deposit(uint positionId, uint amount) public {
@@ -111,66 +116,42 @@ contract PositionsManager is Ownable {
     }
 
     function deposit(Position memory position) public returns (uint) {
-        require (position.watchedTokens.length==position.liquidationPoints.length && position.lessThan.length==position.watchedTokens.length && position.watchedTokens.length>0, "Invalid liquidation request");
         BankBase bank = BankBase(banks[position.bankId]);
         address lpToken = bank.getLPToken(position.bankToken);
         require(UniversalSwap(universalSwap).isSupported(lpToken), "Asset is not currently supported");
         IERC20(lpToken).transferFrom(position.user, address(bank), position.amount);
         bank.mint(position.bankToken, position.user, position.amount);
-        positions.push(position);
-        emit Deposit(positions.length-1, position.bankId, position.bankToken, position.user, position.amount, position.watchedTokens, position.lessThan, position.liquidationPoints);
+        positions.push();
+        Position storage newPosition = positions[positions.length-1];
+        newPosition.user = position.user;
+        newPosition.bankId = position.bankId;
+        newPosition.bankToken = position.bankToken;
+        newPosition.amount = position.amount;
+        for (uint i = 0; i<position.liquidationPoints.length; i++) {
+            newPosition.liquidationPoints.push(position.liquidationPoints[i]);
+        }
+        emit Deposit(positions.length-1, position.bankId, position.bankToken, position.user, position.amount, position.liquidationPoints);
         return positions.length-1;
     }
 
-    function withdraw(uint positionId, uint amount, bool convert) external {
+    function withdraw(uint positionId, uint amount) external {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         require(position.amount>=amount, "Withdrawing more funds than available");
         require(position.user==msg.sender, "Can't withdraw for another user");
         position.amount-=amount;
-        if (!convert) {
-            bank.burn(position.bankToken, position.user, amount, msg.sender);
-            emit Withdraw(positionId, amount, convert);
-            return;
-        }
-        bank.burn(position.bankToken, position.user, amount, address(this));
-        address lpToken = bank.getLPToken(position.bankToken);
-        address[] memory tokens = new address[](1);
-        tokens[0] = lpToken;
-        uint[] memory tokenAmounts = new uint[](1);
-        tokenAmounts[0] = amount;
-        uint toReturn = _swapAssets(tokens, tokenAmounts, position.liquidateTo);
-        IERC20(position.liquidateTo).transfer(position.user, toReturn);
-        emit Withdraw(positionId, amount, convert);
+        bank.burn(position.bankToken, position.user, amount, msg.sender);
+        emit Withdraw(positionId, amount);
     }
 
-    function close(uint positionId, bool convert) public {
+    function close(uint positionId) public {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         require(position.user==msg.sender || keepers[msg.sender] || msg.sender==owner(), "Can't withdraw for another user");
-        if (!convert) {
-            position.amount = 0;
-            bank.harvest(position.bankToken, position.user, position.user);
-            bank.burn(position.bankToken, position.user, position.amount, position.user);
-            return;
-        }
-        (address[] memory rewardAddresses, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, address(this));
-        bank.burn(position.bankToken, position.user, position.amount, address(this));
-        address lpToken = bank.getLPToken(position.bankToken);
-        // IERC20(lpToken).approve(universalSwap, position.amount);
-        address[] memory tokens = new address[](rewardAddresses.length+1);
-        uint[] memory tokenAmounts = new uint[](rewardAmounts.length+1);
-        tokens[0] = lpToken;
-        tokenAmounts[0] = position.amount;
-        for (uint i = 0; i<rewardAddresses.length; i++) {
-            tokens[i+1] = rewardAddresses[i];
-            tokenAmounts[i+1] = rewardAmounts[i];
-            IERC20(rewardAddresses[i]).approve(universalSwap, rewardAmounts[i]);
-        }
-        uint toReturn = _swapAssets(tokens, tokenAmounts, position.liquidateTo);
-        IERC20(position.liquidateTo).transfer(position.user, toReturn);
         position.amount = 0;
-        emit PositionClose(positionId, convert);
+        bank.harvest(position.bankToken, position.user, position.user);
+        bank.burn(position.bankToken, position.user, position.amount, position.user);
+        emit PositionClose(positionId);
     }
 
     function harvestRewards(uint positionId) external returns (address[] memory rewards, uint[] memory rewardAmounts) {
@@ -198,7 +179,28 @@ contract PositionsManager is Ownable {
         emit HarvestRecompount(positionId, newLpTokens);
     }
 
-    function botLiquidate(uint positionId) external {
-        close(positionId, true);
+    function botLiquidate(uint positionId, uint liquidationIndex) external {
+        Position storage position = positions[positionId];
+        BankBase bank = BankBase(banks[position.bankId]);
+        require(keepers[msg.sender] || msg.sender==owner(), "Unauthorized");
+        (address[] memory rewardAddresses, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, address(this));
+        (address[] memory outTokens, uint[] memory outTokenAmounts) = bank.burn(position.bankToken, position.user, position.amount, address(this));
+        address[] memory tokens = new address[](rewardAddresses.length+outTokens.length);
+        uint[] memory tokenAmounts = new uint[](rewardAmounts.length+outTokenAmounts.length);
+        for (uint i = 0; i<rewardAddresses.length; i++) {
+            tokens[i] = rewardAddresses[i];
+            tokenAmounts[i] = rewardAmounts[i];
+            console.log(rewardAmounts[i]);
+            IERC20(rewardAddresses[i]).safeApprove(universalSwap, rewardAmounts[i]);
+        }
+        for (uint j = 0; j<outTokens.length; j++) {
+            tokens[j+rewardAddresses.length] = outTokens[j];
+            tokenAmounts[j+rewardAddresses.length] = outTokenAmounts[j];
+            IERC20(outTokens[j]).safeApprove(universalSwap, outTokenAmounts[j]);
+        }
+        uint toReturn = _swapAssets(tokens, tokenAmounts, position.liquidationPoints[liquidationIndex].liquidateTo);
+        IERC20(position.liquidationPoints[liquidationIndex].liquidateTo).transfer(position.user, toReturn);
+        position.amount = 0;
+        emit PositionClose(positionId);
     }
 }

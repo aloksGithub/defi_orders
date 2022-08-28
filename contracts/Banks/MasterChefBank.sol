@@ -126,7 +126,7 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
         emit Mint(tokenId, userAddress, amount);
     }
 
-    function burn(uint tokenId, address userAddress, uint amount, address receiver) onlyAuthorized override external {
+    function burn(uint tokenId, address userAddress, uint amount, address receiver) onlyAuthorized override external returns (address[] memory outTokens, uint[] memory tokenAmounts) {
         updateToken(tokenId);
         (address masterChef, address lpToken, uint pid) = decodeId(tokenId);
         PoolInfo storage pool = poolInfo[tokenId];
@@ -144,6 +144,10 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
         IERC20(lpToken).transfer(receiver, amount);
         _burn(userAddress, tokenId, amount);
         emit Burn(tokenId, userAddress, amount, receiver);
+        outTokens = new address[](1);
+        tokenAmounts = new uint[](1);
+        outTokens[0] = lpToken;
+        tokenAmounts[0] = amount;
     }
 
     function harvest(uint tokenId, address userAddress, address receiver) onlyAuthorized override external returns (address[] memory rewardAddresses, uint[] memory rewardAmounts) {
