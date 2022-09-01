@@ -109,22 +109,23 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
         if (!success) revert("Failed to withdraw");
     }
 
-    function mint(uint tokenId, address userAddress, uint amount) onlyAuthorized override external returns(uint) {
+    function mint(uint tokenId, address userAddress, address[] memory suppliedTokens, uint[] memory suppliedAmounts) onlyAuthorized override public returns(uint) {
         updateToken(tokenId);
         (address masterChef, address lpToken, uint pid) = decodeId(tokenId);
-        IERC20(lpToken).approve(masterChef, amount);
-        _deposit(masterChef, pid, amount);
+        require(lpToken==suppliedTokens[0], "Incorrect supplied token");
+        IERC20(lpToken).approve(masterChef, suppliedAmounts[0]);
+        _deposit(masterChef, pid, suppliedAmounts[0]);
         PoolInfo storage pool = poolInfo[tokenId];
-        pool.userShares[userAddress]+=amount;
-        pool.lpSupply+=amount;
+        pool.userShares[userAddress]+=suppliedAmounts[0];
+        pool.lpSupply+=suppliedAmounts[0];
         address[] memory rewards = IMasterChefWrapper(masterChefWrappers[masterChef]).getRewards(masterChef, pid);
         for (uint i = 0; i<rewards.length; i++) {
             address reward = rewards[i];
-            pool.rewardDebt[userAddress][reward]+=int(amount*pool.rewardAllocationsPerShare[reward]/PRECISION);
+            pool.rewardDebt[userAddress][reward]+=int(suppliedAmounts[0]*pool.rewardAllocationsPerShare[reward]/PRECISION);
         }
-        _mint(userAddress, tokenId, amount, '');
-        emit Mint(tokenId, userAddress, amount);
-        return amount;
+        _mint(userAddress, tokenId, suppliedAmounts[0], '');
+        emit Mint(tokenId, userAddress, suppliedAmounts[0]);
+        return suppliedAmounts[0];
     }
 
     function burn(uint tokenId, address userAddress, uint amount, address receiver) onlyAuthorized override external returns (address[] memory outTokens, uint[] memory tokenAmounts) {

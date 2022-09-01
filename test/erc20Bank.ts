@@ -11,7 +11,7 @@ const NETWORK = hre.network.name
 const networkAddresses = addresses[NETWORK]
 const liquidationPoints = [{liquidateTo: networkAddresses.networkToken, watchedToken: networkAddresses.networkToken, lessThan:true, liquidationPoint: 100}]
 
-describe ("ERC20Bank Position opening", function () {
+describe ("ERC20Bank tests", function () {
     let manager: PositionsManager
     let owners: any[]
     let networkTokenContract: IWETH
@@ -60,7 +60,7 @@ describe ("ERC20Bank Position opening", function () {
             expect(user1PositionBalance).to.equal(lpBalance1)
             expect(user1lpBalance).to.lessThanOrEqual(100)
             await lpTokenContract.connect(owners[0]).approve(manager.address, lpBalance0.div("2"))
-            await manager.connect(owners[0])["deposit(uint256,uint256)"](positionId1, lpBalance0.div("2").toString())
+            await manager.connect(owners[0])["deposit(uint256,address[],uint256[])"](positionId1, [lpToken], [ lpBalance0.div("2").toString()])
             user0PositionBalance = (await manager.getPosition(positionId1)).amount
             user0lpBalance = await lpTokenContract.balanceOf(owners[0].address)
             expect(user0lpBalance).to.lessThanOrEqual(100)

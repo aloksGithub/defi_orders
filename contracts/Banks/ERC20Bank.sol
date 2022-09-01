@@ -3,7 +3,9 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import "./BankBase.sol";
+import "hardhat/console.sol";
 
 contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
 
@@ -32,24 +34,25 @@ contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
         return decodeId(id);
     }
     
-    function getIdFromLpToken(address lpToken) override external pure returns (bool, uint) {
+    function getIdFromLpToken(address lpToken) override external view returns (bool, uint) {
+        try IERC721(lpToken).supportsInterface(0x80ac58cd) {return (false, 0);} catch {}
+        try ERC20(lpToken).name() {} catch {return (false, 0);}
+        try ERC20(lpToken).totalSupply() {} catch {return (false, 0);}
+        try ERC20(lpToken).balanceOf(address(0)) {} catch {return (false, 0);}
+        try ERC20(lpToken).decimals() {} catch {return (false, 0);}
         return (true, encodeId(lpToken));
-    }
-
-    function getRewards(uint tokenId) override external pure returns (address[] memory rewardsArray) {
-        return rewardsArray;
     }
 
     function name() override public pure returns (string memory) {
         return "ERC20 Bank";
     }
 
-    function mint(uint tokenId, address userAddress, uint amount) onlyAuthorized override external returns(uint) {
+    function mint(uint tokenId, address userAddress, address[] memory suppliedTokens, uint[] memory suppliedAmounts) onlyAuthorized override public returns(uint) {
         PoolInfo storage pool = poolInfo[tokenId];
-        pool.userShares[userAddress]+=amount;
-        _mint(userAddress, tokenId, amount, '');
-        emit Mint(tokenId, userAddress, amount);
-        return amount;
+        pool.userShares[userAddress]+=suppliedAmounts[0];
+        _mint(userAddress, tokenId, suppliedAmounts[0], '');
+        emit Mint(tokenId, userAddress, suppliedAmounts[0]);
+        return suppliedAmounts[0];
     }
 
     function burn(uint tokenId, address userAddress, uint amount, address receiver) onlyAuthorized override external returns (address[] memory outTokens, uint[] memory tokenAmounts){
@@ -66,9 +69,5 @@ contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
         tokenAmounts = new uint[](1);
         outTokens[0] = lpToken;
         tokenAmounts[0] = amount;        
-    }
-
-    function harvest(uint tokenId, address userAddress, address receiver) onlyAuthorized override external view returns (address[] memory rewardAddresses, uint[] memory rewardAmounts) {
-        return (rewardAddresses, rewardAmounts);
     }
 }

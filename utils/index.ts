@@ -86,7 +86,7 @@ const bscPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
   const venusPoolInteractorFactory = await ethers.getContractFactory("VenusPoolInteractor")
   const venusPoolInteractor = await venusPoolInteractorFactory.deploy()
   const pancakePoolInteractorFactory = await ethers.getContractFactory("UniswapV2PoolInteractor")
-  const pancakePoolInteractor = await pancakePoolInteractorFactory.deploy(['Pancake LPs'])
+  const pancakePoolInteractor = await pancakePoolInteractorFactory.deploy(['Pancake LPs', 'Biswap LPs'])
   if (verify) {
     await hre.run("verify:verify", {
       address: venusPoolInteractor.address,
@@ -95,7 +95,7 @@ const bscPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
     })
     await hre.run("verify:verify", {
       address: pancakePoolInteractor.address,
-      constructorArguments: [['Pancake LPs']],
+      constructorArguments: [['Pancake LPs', 'Biswap LPs']],
       network: 'bsc'
     })
   }
@@ -140,6 +140,24 @@ export const getPoolInteractors = async (verify:boolean=false, log:boolean=false
   return poolInteractors
 }
 
+const nftPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
+  const network = hre.network.name
+  const factory = await ethers.getContractFactory("UniswapV3PoolInteractor")
+  const interactor = await factory.deploy(["Uniswap V3 Positions NFT-V1"])
+  
+  if (verify) {
+    await hre.run("verify:verify", {
+      address: interactor.address,
+      constructorArguments: [["Uniswap V3 Positions NFT-V1"]],
+      network
+    })
+  }
+  if (log) {
+    logDeployment('UniswapV3PoolInteractor', interactor)
+  }
+  return [interactor.address]
+}
+
 const getSwappers = async (verify:boolean=false, log:boolean=false) => {
   const network = hre.network.name
   let swapperFunctions = {
@@ -163,8 +181,9 @@ export const getUniversalSwap = async (verify:boolean=false, log:boolean=false) 
   const universalSwapContract = await ethers.getContractFactory('UniversalSwap')
   const swappers = await getSwappers(verify, log)
   const poolInteractors = await getPoolInteractors(verify, log)
+  const nftInteractors = await nftPoolInteractors(verify, log)
   // @ts-ignore
-  const universalSwap = await universalSwapContract.deploy(poolInteractors, addresses[network].networkToken, swappers)
+  const universalSwap = await universalSwapContract.deploy(poolInteractors, nftInteractors, addresses[network].networkToken, swappers)
   if (verify) {
     await hre.run("verify:verify", {
       address: universalSwap.address,
@@ -212,6 +231,37 @@ const deployERC20Bank = async (positionsManager: string, verify:boolean=false, l
     logDeployment('ERC20Bank', erc20Bank)
   }
   return erc20Bank
+}
+
+const deployERC721Bank = async (positionsManager: string, verify:boolean=false, log:boolean=false) => {
+  const network = hre.network.name
+  const bankFactory = await ethers.getContractFactory("ERC721Bank")
+  const erc721Bank = await bankFactory.deploy(positionsManager)
+  const wrapperFactory = await ethers.getContractFactory("UniswapV3Wrapper")
+  const wrapper = await wrapperFactory.deploy()
+  // @ts-ignore
+  for (const manager of addresses[network].NFTManagers) {
+    await erc721Bank.addManager(manager)
+    await erc721Bank.setWrapper(manager, wrapper.address)
+  }
+  if (verify) {
+    await hre.run("verify:verify", {
+      address: erc721Bank.address,
+      constructorArguments: [positionsManager],
+      network
+    })
+    await hre.run("verify:verify", {
+      address: wrapper.address,
+      // @ts-ignore
+      constructorArguments: [],
+      network
+    })
+  }
+  if (log) {
+    logDeployment('erc721Bank', erc721Bank)
+    logDeployment('UniswapV3Wrapper', wrapper)
+  }
+  return erc721Bank
 }
 
 const masterChefV1Wrapper = async (verify:boolean=false, log:boolean=false) => {
@@ -332,8 +382,10 @@ export const deployAndInitializeManager = async (verify:boolean=false, log:boole
   }
   const positionsManager = await deployPositionsManager(verify, log)
   const erc20Bank = await deployERC20Bank(positionsManager.address, verify, log)
+  const erc721Bank = await deployERC721Bank(positionsManager.address, verify, log)
   const masterChefBank = await deployMasterChefBank(positionsManager.address, verify, log)
   await positionsManager.addBank(erc20Bank.address)
+  await positionsManager.addBank(erc721Bank.address)
   await positionsManager.addBank(masterChefBank.address)
   return positionsManager
 }
@@ -349,7 +401,9 @@ export const getLPToken = async (lpToken: string, universalSwap: UniversalSwap, 
 
 export const depositNew = async (manager:PositionsManager, lpToken: string, amount:string, liquidationPoints: any[], owner:any) => {
   const lpTokenContract = await ethers.getContractAt("ERC20", lpToken)
-  const [bankId, tokenId] = await manager.recommendBank(lpToken)
+  const [bankIds, tokenIds] = await manager.recommendBank(lpToken)
+  const bankId = bankIds.slice(-1)[0]
+  const tokenId = tokenIds.slice(-1)[0]
   await lpTokenContract.connect(owner).approve(manager.address, amount)
   const numPositions = await manager.numPositions()
   const bankAddress = await manager.banks(bankId)
@@ -363,8 +417,54 @@ export const depositNew = async (manager:PositionsManager, lpToken: string, amou
     amount,
     liquidationPoints
   }
-  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,(address,address,bool,uint256)[]))"](position)
+  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,(address,address,bool,uint256)[]),address[],uint256[])"](position, [lpToken], [amount])
   return {positionId: numPositions, rewards, rewardContracts}
+}
+
+export const getNFT = async (universalSwap:UniversalSwap, etherAmount:string, manager:string, pool:string, owner:any) => {
+  const network = hre.network.name
+  // @ts-ignore
+  const networkToken = addresses[network].networkToken
+  const networkTokenContract = await ethers.getContractAt("IERC20", networkToken)
+  await networkTokenContract.connect(owner).approve(universalSwap.address, ethers.utils.parseEther(etherAmount))
+  const abi = ethers.utils.defaultAbiCoder;
+  const data = abi.encode(
+    ["int24","int24"], // encode as address array
+    [-887000, 887000]);
+  const tx = await universalSwap.connect(owner).swapForNFT([networkToken], [ethers.utils.parseEther(etherAmount)], {pool, manager, tokenId: 0, data})
+  const rc = await tx.wait()
+  const event = rc.events?.find(event => event.event === 'NFTMinted')
+  // @ts-ignore
+  const [managerAddress, id] = event?.args
+  return id;
+}
+
+export const depositNewNFT = async (manager:PositionsManager, nftManager:string, id:string, liquidationPoints: any[], owner:any) => {
+  const [bankIds] = await manager.recommendBank(nftManager)
+  const bankId = bankIds.slice(-1)[0]
+  const managerContract = await ethers.getContractAt("IERC721", nftManager)
+  await managerContract.connect(owner).approve(manager.address, id)
+  const numPositions = await manager.numPositions()
+  const bankAddress = await manager.banks(bankId)
+  const bank = await ethers.getContractAt("ERC721Bank", bankAddress)
+  const bankToken = await bank.encodeId(id, nftManager)
+  const rewards = await bank.getRewards(bankToken)
+  const rewardContracts = await Promise.all(rewards.map(async (r)=> await ethers.getContractAt("ERC20", r)))
+  const position = {
+    user: owner.address,
+    bankId,
+    bankToken,
+    amount:0,
+    liquidationPoints
+  }
+  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,(address,address,bool,uint256)[]),address[],uint256[])"](position, [nftManager], [id])
+  return {positionId: numPositions, rewards, rewardContracts}
+}
+
+export const checkNFTLiquidity = async (manager:string, id:string) => {
+  const nftManager = await ethers.getContractAt("INonfungiblePositionManager", manager)
+  const data = await nftManager.positions(id)
+  return data.liquidity
 }
 
 export const isRoughlyEqual = (a:BigNumber, b:BigNumber) => {

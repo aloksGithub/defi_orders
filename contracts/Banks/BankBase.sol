@@ -26,9 +26,23 @@ abstract contract BankBase is Ownable {
 
     function name() virtual external pure returns (string memory);
     function getIdFromLpToken(address lpToken) virtual external view returns (bool, uint);
-    function getLPToken(uint tokenId) virtual external returns (address);
-    function getRewards(uint tokenId) virtual external view returns (address[] memory);
-    function mint(uint tokenId, address userAddress, uint amount) virtual external returns (uint);
+    function getUnderlyingForFirstDeposit(uint tokenId) virtual public returns (address[] memory underlying) {
+        underlying = new address[](1);
+        underlying[0] = getLPToken(tokenId);
+    }
+    function getUnderlyingForRecurringDeposit(uint tokenId) virtual external returns (address[] memory) {
+        return getUnderlyingForFirstDeposit(tokenId);
+    }
+    function getLPToken(uint tokenId) virtual public returns (address);
+    function getRewards(uint tokenId) virtual external view returns (address[] memory rewardsArray) {
+        return rewardsArray;
+    }
+    function mint(uint tokenId, address userAddress, address[] memory suppliedTokens, uint[] memory suppliedAmounts) virtual public returns (uint);
+    function mintRecurring(uint tokenId, address userAddress, address[] memory suppliedTokens, uint[] memory suppliedAmounts) virtual external returns (uint) {
+        return mint(tokenId, userAddress, suppliedTokens, suppliedAmounts);
+    }
     function burn(uint tokenId, address userAddress, uint amount, address receiver) virtual external returns (address[] memory, uint[] memory);
-    function harvest(uint tokenId, address userAddress, address receiver) virtual external returns (address[] memory, uint[] memory);
+    function harvest(uint tokenId, address userAddress, address receiver) onlyAuthorized virtual external returns (address[] memory rewardAddresses, uint[] memory rewardAmounts) {
+        return (rewardAddresses, rewardAmounts);
+    }
 }

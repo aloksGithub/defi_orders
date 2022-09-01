@@ -20,7 +20,7 @@ contract PositionsManager is Ownable {
     event PositionClose(uint positionId);
     event LiquidationPointsUpdate(uint positionId, LiquidationCondition[] liquidationPoints);
     event Harvest(uint positionId, address[] rewards, uint[] rewardAmounts);
-    event HarvestRecompount(uint positionId, uint lpTokens);
+    event HarvestRecompound(uint positionId, uint lpTokens);
 
     struct Position {
         address user;
@@ -69,22 +69,29 @@ contract PositionsManager is Ownable {
         position = positions[positionId];
     }
 
-    function recommendBank(address lpToken) external view returns (uint, uint) {
-        uint erc20BankId;
-        uint erc20BankTokenId;
+    function recommendBank(address lpToken) external view returns (uint[] memory, uint[] memory) {
+        bool[] memory supportedBank = new bool[](banks.length);
+        uint[] memory tokenIds = new uint[](banks.length);
+        uint numSupported = 0;
         for (uint i = 0; i<banks.length; i++) {
-            string memory name = BankBase(banks[i]).name();
-            if (name.toSlice().startsWith("ERC20 Bank".toSlice())) {
-                (,erc20BankTokenId) = BankBase(banks[i]).getIdFromLpToken(lpToken);
-                erc20BankId = i;
-                continue;
-            }
             (bool success, uint tokenId) = BankBase(banks[i]).getIdFromLpToken(lpToken);
             if (success) {
-                return (i, tokenId);
+                numSupported+=1;
+                supportedBank[i] = true;
+                tokenIds[i] = tokenId;
             }
         }
-        return (erc20BankId, erc20BankTokenId);
+        uint[] memory bankIds = new uint[](numSupported);
+        uint[] memory tokenIds2 = new uint[](numSupported);
+        uint idx = 0;
+        for (uint j = 0; j<banks.length; j++) {
+            if (supportedBank[j]) {
+                bankIds[idx] = j;
+                tokenIds2[idx] = tokenIds[j];
+                idx+=1;
+            }
+        }
+        return (bankIds, tokenIds2);
     }
 
     function _swapAssets(address[] memory tokens, uint[] memory tokenAmounts, address liquidateTo) internal returns (uint) {
@@ -93,6 +100,24 @@ contract PositionsManager is Ownable {
         }
         uint toReturn = UniversalSwap(universalSwap).swap(tokens, tokenAmounts, liquidateTo);
         return toReturn;
+    }
+
+    function _swapForMultiple(address[] memory inTokens, uint[] memory tokenAmounts, address[] memory outTokens) internal returns (uint[] memory) {
+        for (uint i = 0; i<inTokens.length; i++) {
+            IERC20(inTokens[i]).safeApprove(universalSwap, tokenAmounts[i]);
+        }
+        address networkToken = UniversalSwap(universalSwap).networkToken();
+        uint networkTokenMinted = UniversalSwap(universalSwap).swap(inTokens, tokenAmounts, networkToken);
+        IERC20(networkToken).safeApprove(universalSwap, networkTokenMinted);
+        uint[] memory outTokenAmounts = new uint[](outTokens.length);
+        address[] memory temp = new address[](1);
+        uint[] memory tempAmount = new uint[](1);
+        temp[0] = networkToken;
+        tempAmount[0] = networkTokenMinted/outTokens.length;
+        for (uint j = 0; j<outTokens.length; j++) {
+            outTokenAmounts[j] = UniversalSwap(universalSwap).swap(temp, tempAmount, outTokens[j]);
+        }
+        return outTokenAmounts;
     }
 
     function adjustLiquidationPoints(uint positionId, LiquidationCondition[] memory _liquidationPoints) external {
@@ -105,22 +130,57 @@ contract PositionsManager is Ownable {
         emit LiquidationPointsUpdate(positionId, _liquidationPoints);
     }
 
-    function deposit(uint positionId, uint amount) public {
+    function deposit(uint positionId, address[] memory suppliedTokens, uint[] memory suppliedAmounts) public {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
-        address lpToken = bank.getLPToken(position.bankToken);
-        IERC20(lpToken).safeTransferFrom(msg.sender, address(bank), amount);
-        uint minted = bank.mint(position.bankToken, position.user, amount);
+        address[] memory underlying = bank.getUnderlyingForRecurringDeposit(position.bankToken);
+        for (uint i = 0; i<suppliedTokens.length; i++) {
+            IERC20(suppliedTokens[i]).safeTransferFrom(msg.sender, address(this), suppliedAmounts[i]);
+        }
+        if (!_checkArraysMatch(underlying, suppliedTokens)) {
+            suppliedAmounts = _swapForMultiple(suppliedTokens, suppliedAmounts, underlying);
+            suppliedTokens = underlying;
+        }
+        for (uint i = 0; i<suppliedTokens.length; i++) {
+            IERC20(suppliedTokens[i]).safeTransfer(address(bank), suppliedAmounts[i]);
+        }
+        uint minted = bank.mintRecurring(position.bankToken, position.user, suppliedTokens, suppliedAmounts);
         position.amount+=minted;
-        emit IncreasePosition(positionId, amount);
+        emit IncreasePosition(positionId, minted);
     }
 
-    function deposit(Position memory position) public returns (uint) {
+    function _checkArraysMatch(address[] memory array1, address[] memory array2) internal pure returns (bool) {
+        if (array1.length!=array2.length) return false;
+        for (uint i = 0; i<array1.length; i++) {
+            bool matchFound = false;
+            for (uint j = 0; j<array2.length; j++) {
+                if (array1[i]==array2[j]) {
+                    matchFound = true;
+                    break;
+                }
+            }
+            if (!matchFound) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function deposit(Position memory position, address[] memory suppliedTokens, uint[] memory suppliedAmounts) public returns (uint) {
         BankBase bank = BankBase(banks[position.bankId]);
-        address lpToken = bank.getLPToken(position.bankToken);
-        require(UniversalSwap(universalSwap).isSupported(lpToken), "Asset is not currently supported");
-        IERC20(lpToken).safeTransferFrom(position.user, address(bank), position.amount);
-        uint minted = bank.mint(position.bankToken, position.user, position.amount);
+        // Maybe remove this check for uniswap v3
+        // address lpToken = bank.getLPToken(position.bankToken);
+        // require(UniversalSwap(universalSwap).isSupported(lpToken), "Asset is not currently supported");
+        address[] memory underlying = bank.getUnderlyingForFirstDeposit(position.bankToken);
+        if (!_checkArraysMatch(underlying, suppliedTokens)) {
+            suppliedAmounts = _swapForMultiple(suppliedTokens, suppliedAmounts, underlying);
+            suppliedTokens = underlying;
+        }
+        for (uint i = 0; i<suppliedTokens.length; i++) {
+            (bool success, ) = suppliedTokens[i].call(abi.encodeWithSignature("transferFrom(address,address,uint256)", msg.sender, address(bank), suppliedAmounts[i]));
+            require(success, "Failed to transfer asset to bank");
+        }
+        uint minted = bank.mint(position.bankToken, position.user, suppliedTokens, suppliedAmounts);
         positions.push();
         Position storage newPosition = positions[positions.length-1];
         newPosition.user = position.user;
@@ -130,7 +190,7 @@ contract PositionsManager is Ownable {
         for (uint i = 0; i<position.liquidationPoints.length; i++) {
             newPosition.liquidationPoints.push(position.liquidationPoints[i]);
         }
-        emit Deposit(positions.length-1, position.bankId, position.bankToken, position.user, position.amount, position.liquidationPoints);
+        emit Deposit(positions.length-1, newPosition.bankId, newPosition.bankToken, newPosition.user, newPosition.amount, newPosition.liquidationPoints);
         return positions.length-1;
     }
 
@@ -144,13 +204,13 @@ contract PositionsManager is Ownable {
         emit Withdraw(positionId, amount);
     }
 
-    function close(uint positionId) public {
+    function close(uint positionId) external {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         require(position.user==msg.sender || keepers[msg.sender] || msg.sender==owner(), "Can't withdraw for another user");
-        position.amount = 0;
         bank.harvest(position.bankToken, position.user, position.user);
         bank.burn(position.bankToken, position.user, position.amount, position.user);
+        position.amount = 0;
         emit PositionClose(positionId);
     }
 
@@ -164,13 +224,17 @@ contract PositionsManager is Ownable {
     function harvestAndRecompound(uint positionId) external returns (uint newLpTokens) {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
-        address lpToken = bank.getLPToken(position.bankToken);
+        address[] memory underlying = bank.getUnderlyingForRecurringDeposit(position.bankToken);
         (address[] memory rewards, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, address(this));
-        newLpTokens = _swapAssets(rewards, rewardAmounts, lpToken);
-        IERC20(lpToken).safeTransfer(address(bank), newLpTokens);
-        bank.mint(position.bankToken, position.user, newLpTokens);
-        position.amount+=newLpTokens;
-        emit HarvestRecompount(positionId, newLpTokens);
+        if (!_checkArraysMatch(underlying, rewards)) {
+            rewardAmounts = _swapForMultiple(rewards, rewardAmounts, underlying);
+        }
+        for (uint i = 0; i<underlying.length; i++) {
+            IERC20(underlying[i]).safeTransfer(address(bank), rewardAmounts[i]);
+        }
+        uint minted = bank.mintRecurring(position.bankToken, position.user, underlying, rewardAmounts);
+        position.amount+=minted;
+        emit HarvestRecompound(positionId, newLpTokens);
     }
 
     function botLiquidate(uint positionId, uint liquidationIndex) external {

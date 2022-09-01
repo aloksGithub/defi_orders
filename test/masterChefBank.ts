@@ -11,7 +11,7 @@ const NETWORK = hre.network.name
 const networkAddresses = addresses[NETWORK]
 const liquidationPoints = [{liquidateTo: networkAddresses.networkToken, watchedToken: networkAddresses.networkToken, lessThan:true, liquidationPoint: 100}]
 
-describe ("MasterChefBank Position opening", function () {
+describe ("MasterChefBank tests", function () {
     let manager: PositionsManager
     let owners: any[]
     let networkTokenContract: IWETH
@@ -136,7 +136,7 @@ describe ("MasterChefBank Position opening", function () {
             await manager.connect(users[0]).withdraw(position0, lpBalance0.mul("2").div("3"))
             expect(lpBalance0.mul("2").div("3")).to.equal(await lpTokenContract.balanceOf(users[0].address))
             await lpTokenContract.connect(users[3]).approve(manager.address, lpBalance3.div("2"))
-            await manager.connect(users[3])["deposit(uint256,uint256)"](position3, lpBalance3.div("2"))
+            await manager.connect(users[3])["deposit(uint256,address[],uint256[])"](position3, [lpToken], [lpBalance3.div("2")])
             await clearRewards(users)
             
             await ethers.provider.send("hardhat_mine", ["0x100"]);
