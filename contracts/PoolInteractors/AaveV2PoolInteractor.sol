@@ -2,8 +2,8 @@
 pragma solidity ^0.8.9;
 
 import "../interfaces/IPoolInteractor.sol";
-import "../interfaces/ILendingPool.sol";
-import "../interfaces/IAToken.sol";
+import "../interfaces/AAVE/ILendingPool.sol";
+import "../interfaces/AAVE/IAToken.sol";
 
 interface IAToken {
     function UNDERLYING_ASSET_ADDRESS() external view returns (address);

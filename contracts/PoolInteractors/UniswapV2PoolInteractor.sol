@@ -2,7 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "../interfaces/IPoolInteractor.sol";
-import "../interfaces/IUniswapV2Pair.sol";
+import "../interfaces/UniswapV2/IUniswapV2Pair.sol";
 
 contract UniswapV2PoolInteractor is IPoolInteractor, Ownable {
     using strings for *;

@@ -5,10 +5,8 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Banks/BankBase.sol";
 import "./UniversalSwap.sol";
-import "./libraries/Strings.sol";
 
 contract PositionsManager is Ownable {
-    using strings for *;
     using SafeERC20 for IERC20;
 
     event KeeperUpdate(address keeper, bool active);

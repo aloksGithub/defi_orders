@@ -2,7 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "../interfaces/IPoolInteractor.sol";
-import "../interfaces/IVToken.sol";
+import "../interfaces/Venus/IVToken.sol";
 import "hardhat/console.sol";
 
 contract VenusPoolInteractor is IPoolInteractor {
