@@ -394,7 +394,7 @@ export const getLPToken = async (lpToken: string, universalSwap: UniversalSwap, 
   const network = hre.network.name
   const lpTokenContract = await ethers.getContractAt("ERC20", lpToken)
   // @ts-ignore
-  await universalSwap.connect(owner).swap([addresses[network].networkToken], [ethers.utils.parseEther(etherAmount)], lpToken)
+  await universalSwap.connect(owner)["swap(address[],uint256[],address,uint256)"]([addresses[network].networkToken], [ethers.utils.parseEther(etherAmount)], lpToken, 0)
   const lpBalance = await lpTokenContract.balanceOf(owner.address)
   return {lpBalance, lpTokenContract}
 }
@@ -417,7 +417,7 @@ export const depositNew = async (manager:PositionsManager, lpToken: string, amou
     amount,
     liquidationPoints
   }
-  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,(address,address,bool,uint256)[]),address[],uint256[])"](position, [lpToken], [amount])
+  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,(address,address,bool,uint256)[]),address[],uint256[],uint256[])"](position, [lpToken], [amount], [0])
   return {positionId: numPositions, rewards, rewardContracts}
 }
 
@@ -457,7 +457,7 @@ export const depositNewNFT = async (manager:PositionsManager, nftManager:string,
     amount:0,
     liquidationPoints
   }
-  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,(address,address,bool,uint256)[]),address[],uint256[])"](position, [nftManager], [id])
+  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,(address,address,bool,uint256)[]),address[],uint256[],uint256[])"](position, [nftManager], [id], [0])
   return {positionId: numPositions, rewards, rewardContracts}
 }
 

@@ -5,22 +5,8 @@ import "../interfaces/IPoolInteractor.sol";
 import "../interfaces/UniswapV3/INonfungiblePositionManager.sol";
 import "../interfaces/UniswapV3/IUniswapV3Pool.sol";
 import "../libraries/Strings.sol";
+import "../interfaces/INFTPoolInteractor.sol";
 import "hardhat/console.sol";
-
-interface INFTPoolInteractor {
-    function setSupportedProtocols(string[] memory _supportedProtocols) external;
-    function burn(Asset memory asset) external returns (address[] memory receivedTokens, uint256[] memory receivedTokenAmounts);
-    function mint(Asset memory toMint, address[] memory underlyingTokens, uint256[] memory underlyingAmounts) external returns (uint256);
-    function testSupported(address token) external view returns (bool);
-    function getUnderlyingTokens(address lpTokenAddress) external view returns (address[] memory);
-}
-
-struct Asset {
-    address pool;
-    address manager;
-    uint tokenId;
-    bytes data;
-}
 
 contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
     using strings for *;
@@ -47,8 +33,8 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
         INonfungiblePositionManager.CollectParams memory params = INonfungiblePositionManager.CollectParams(
             asset.tokenId,
             address(this),
-            2**128 - 1,
-            2**128 - 1
+            uint128(token0Amount),
+            uint128(token1Amount)
         );
         INonfungiblePositionManager(asset.manager).collect(params);
         receivedTokens = new address[](2);
@@ -57,6 +43,7 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
         receivedTokenAmounts = new uint[](2);
         receivedTokenAmounts[0] = token0Amount;
         receivedTokenAmounts[1] = token1Amount;
+        IERC721(asset.manager).transferFrom(address(this), msg.sender, asset.tokenId);
         IERC20(token0).safeTransfer(msg.sender, token0Amount);
         IERC20(token1).safeTransfer(msg.sender, token1Amount);
     }

@@ -93,7 +93,7 @@ describe ("MasterChefBank tests", function () {
             for (const rewardContract of rewardContracts) {
                 const user0Bal = await rewardContract.balanceOf(users[0].address)
                 const user1Bal = await rewardContract.balanceOf(users[1].address)
-                if (user1Bal.toNumber()>0) {
+                if (user1Bal.div("1000000000000").toNumber()>0) {
                     isRoughlyEqual(user0Bal.mul('1000').div(user1Bal), lpBalances[0].mul('1000').div(lpBalances[1].div('3')))
                 }
             }
@@ -109,7 +109,7 @@ describe ("MasterChefBank tests", function () {
             for (const rewardContract of rewardContracts) {
                 const user2Bal = await rewardContract.balanceOf(users[2].address)
                 const user3Bal = await rewardContract.balanceOf(users[3].address)
-                if (user3Bal.toNumber()>0) {
+                if (user3Bal.div("1000000000000").toNumber()>0) {
                     isRoughlyEqual(user2Bal.mul('1000').div(user3Bal), lpBalances[2].mul('1000').div(lpBalances[3].div('2')))
                 }
             }
@@ -126,7 +126,7 @@ describe ("MasterChefBank tests", function () {
                 const user1Bal = await rewardContract.balanceOf(users[1].address)
                 const user2Bal = await rewardContract.balanceOf(users[2].address)
                 const user3Bal = await rewardContract.balanceOf(users[3].address)
-                if (user1Bal.toNumber()>0) {
+                if (user1Bal.div("1000000000000").toNumber()>0) {
                     isRoughlyEqual(user0Bal.mul('1000').div(user1Bal), lpBalance0.mul('1000').div(lpBalance1.div('3')))
                     isRoughlyEqual(user2Bal.mul('1000').div(user3Bal), lpBalance2.mul('1000').div(lpBalance3.div('2')))
                     isRoughlyEqual(user0Bal.mul('1000').div(user2Bal), lpBalance0.mul('1000').div(lpBalance2.div('2')))
@@ -136,7 +136,7 @@ describe ("MasterChefBank tests", function () {
             await manager.connect(users[0]).withdraw(position0, lpBalance0.mul("2").div("3"))
             expect(lpBalance0.mul("2").div("3")).to.equal(await lpTokenContract.balanceOf(users[0].address))
             await lpTokenContract.connect(users[3]).approve(manager.address, lpBalance3.div("2"))
-            await manager.connect(users[3])["deposit(uint256,address[],uint256[])"](position3, [lpToken], [lpBalance3.div("2")])
+            await manager.connect(users[3])["deposit(uint256,address[],uint256[],uint256[])"](position3, [lpToken], [lpBalance3.div("2")], [0])
             await clearRewards(users)
             
             await ethers.provider.send("hardhat_mine", ["0x100"]);
@@ -150,7 +150,7 @@ describe ("MasterChefBank tests", function () {
                 const user1Bal = await rewardContract.balanceOf(users[1].address)
                 const user2Bal = await rewardContract.balanceOf(users[2].address)
                 const user3Bal = await rewardContract.balanceOf(users[3].address)
-                if (user1Bal.toNumber()>0) {
+                if (user1Bal.div("1000000000000").toNumber()>0) {
                     isRoughlyEqual(user0Bal.mul('1000').div(user1Bal), lpBalance0.mul('1000').div(lpBalance1))
                     isRoughlyEqual(user2Bal.mul('1000').div(user3Bal), lpBalance2.mul('1000').div(lpBalance3))
                 }
@@ -180,7 +180,7 @@ describe ("MasterChefBank tests", function () {
             await manager.connect(owner).harvestAndRecompound(positionId)
             const positionInfo2 = await manager.getPosition(positionId)
             expect(positionInfo2.amount).to.greaterThan(positionInfo1.amount)
-            await manager.connect(owners[0]).botLiquidate(positionId, 0)
+            await manager.connect(owners[0]).botLiquidate(positionId, 0, 0)
             const finalBalance = await networkTokenContract.balanceOf(owner.address)
             expect(finalBalance).to.greaterThan(ethers.utils.parseEther("1"))
         }

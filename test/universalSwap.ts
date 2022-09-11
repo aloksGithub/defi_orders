@@ -1,9 +1,6 @@
-import { time, loadFixture } from "@nomicfoundation/hardhat-network-helpers";
-import { anyValue } from "@nomicfoundation/hardhat-chai-matchers/withArgs";
-import { assert, expect } from "chai";
+import { expect } from "chai";
 import { ethers } from "hardhat";
 import { IWETH, UniversalSwap } from "../typechain-types";
-import { ERC20, IUniswapV2Pair } from "../typechain-types";
 import { getUniversalSwap, addresses, getNetworkToken, getNFT, isRoughlyEqual } from "../utils"
 
 // @ts-ignore
@@ -32,7 +29,7 @@ describe("UniversalSwap tests", function () {
             const balance = await contract.balanceOf(owners[0].address)
             expect(balance).to.greaterThan(0)
             await contract.approve(universalSwap.address, balance)
-            universalSwap.swap([currentToken], [balance], token)
+            universalSwap["swap(address[],uint256[],address,uint256)"]([currentToken], [balance], token, 0)
             currentToken = token
         }
         const endingbalance = await networkTokenContract.balanceOf(owners[0].address)

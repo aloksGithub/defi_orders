@@ -4,36 +4,11 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Banks/BankBase.sol";
+import "./interfaces/IPositionsManager.sol";
 import "./UniversalSwap.sol";
 
-contract PositionsManager is Ownable {
+contract PositionsManager is IPositionsManager, Ownable {
     using SafeERC20 for IERC20;
-
-    event KeeperUpdate(address keeper, bool active);
-    event BankAdded(address bank, uint bankId);
-    event BankUpdated(address newBankAddress, address oldBankAddress, uint bankId);
-    event Deposit(uint positionId, uint bankId, uint bankToken, address user, uint amount, LiquidationCondition[] liquidationPoints);
-    event IncreasePosition(uint positionId, uint amount);
-    event Withdraw(uint positionId, uint amount);
-    event PositionClose(uint positionId);
-    event LiquidationPointsUpdate(uint positionId, LiquidationCondition[] liquidationPoints);
-    event Harvest(uint positionId, address[] rewards, uint[] rewardAmounts);
-    event HarvestRecompound(uint positionId, uint lpTokens);
-
-    struct Position {
-        address user;
-        uint bankId;
-        uint bankToken;
-        uint amount;
-        LiquidationCondition[] liquidationPoints;
-    }
-
-    struct LiquidationCondition {
-        address watchedToken;
-        address liquidateTo;
-        bool lessThan;
-        uint liquidationPoint;
-    }
 
     Position[] positions;
     address[] public banks;
@@ -44,29 +19,35 @@ contract PositionsManager is Ownable {
         universalSwap = _universalSwap;
     }
 
+    /// @inheritdoc IPositionsManager
     function numPositions() external view returns (uint) {
         return positions.length;
     }
 
+    /// @inheritdoc IPositionsManager
     function setKeeper(address keeperAddress, bool active) external onlyOwner {
         keepers[keeperAddress] = active;
         emit KeeperUpdate(keeperAddress, active);
     }
 
+    /// @inheritdoc IPositionsManager
     function addBank(address bank) external onlyOwner {
         banks.push(bank);
         emit BankAdded(bank, banks.length-1);
     }
 
+    /// @inheritdoc IPositionsManager
     function migrateBank(uint bankId, address newBankAddress) external onlyOwner {
         emit BankUpdated(newBankAddress, banks[bankId], bankId);
         banks[bankId] = newBankAddress;
     }
 
+    /// @inheritdoc IPositionsManager
     function getPosition(uint positionId) external view returns (Position memory position) {
         position = positions[positionId];
     }
 
+    /// @inheritdoc IPositionsManager
     function recommendBank(address lpToken) external view returns (uint[] memory, uint[] memory) {
         bool[] memory supportedBank = new bool[](banks.length);
         uint[] memory tokenIds = new uint[](banks.length);
@@ -92,32 +73,7 @@ contract PositionsManager is Ownable {
         return (bankIds, tokenIds2);
     }
 
-    function _swapAssets(address[] memory tokens, uint[] memory tokenAmounts, address liquidateTo) internal returns (uint) {
-        for (uint i = 0; i<tokens.length; i++) {
-            IERC20(tokens[i]).safeApprove(universalSwap, tokenAmounts[i]);
-        }
-        uint toReturn = UniversalSwap(universalSwap).swap(tokens, tokenAmounts, liquidateTo);
-        return toReturn;
-    }
-
-    function _swapForMultiple(address[] memory inTokens, uint[] memory tokenAmounts, address[] memory outTokens) internal returns (uint[] memory) {
-        for (uint i = 0; i<inTokens.length; i++) {
-            IERC20(inTokens[i]).safeApprove(universalSwap, tokenAmounts[i]);
-        }
-        address networkToken = UniversalSwap(universalSwap).networkToken();
-        uint networkTokenMinted = UniversalSwap(universalSwap).swap(inTokens, tokenAmounts, networkToken);
-        IERC20(networkToken).safeApprove(universalSwap, networkTokenMinted);
-        uint[] memory outTokenAmounts = new uint[](outTokens.length);
-        address[] memory temp = new address[](1);
-        uint[] memory tempAmount = new uint[](1);
-        temp[0] = networkToken;
-        tempAmount[0] = networkTokenMinted/outTokens.length;
-        for (uint j = 0; j<outTokens.length; j++) {
-            outTokenAmounts[j] = UniversalSwap(universalSwap).swap(temp, tempAmount, outTokens[j]);
-        }
-        return outTokenAmounts;
-    }
-
+    /// @inheritdoc IPositionsManager
     function adjustLiquidationPoints(uint positionId, LiquidationCondition[] memory _liquidationPoints) external {
         require(msg.sender==positions[positionId].user);
         Position storage position = positions[positionId];
@@ -128,7 +84,8 @@ contract PositionsManager is Ownable {
         emit LiquidationPointsUpdate(positionId, _liquidationPoints);
     }
 
-    function deposit(uint positionId, address[] memory suppliedTokens, uint[] memory suppliedAmounts) public {
+    /// @inheritdoc IPositionsManager
+    function deposit(uint positionId, address[] memory suppliedTokens, uint[] memory suppliedAmounts, uint[] memory minAmountsUsed) public {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         address[] memory underlying = bank.getUnderlyingForRecurringDeposit(position.bankToken);
@@ -136,7 +93,10 @@ contract PositionsManager is Ownable {
             IERC20(suppliedTokens[i]).safeTransferFrom(msg.sender, address(this), suppliedAmounts[i]);
         }
         if (!_checkArraysMatch(underlying, suppliedTokens)) {
-            suppliedAmounts = _swapForMultiple(suppliedTokens, suppliedAmounts, underlying);
+            for (uint i = 0; i<suppliedTokens.length; i++) {
+                IERC20(suppliedTokens[i]).safeApprove(universalSwap, suppliedAmounts[i]);
+            }
+            suppliedAmounts = UniversalSwap(universalSwap).swap(suppliedTokens, suppliedAmounts, underlying, minAmountsUsed);
             suppliedTokens = underlying;
         }
         for (uint i = 0; i<suppliedTokens.length; i++) {
@@ -164,14 +124,18 @@ contract PositionsManager is Ownable {
         return true;
     }
 
-    function deposit(Position memory position, address[] memory suppliedTokens, uint[] memory suppliedAmounts) public returns (uint) {
+    /// @inheritdoc IPositionsManager
+    function deposit(Position memory position, address[] memory suppliedTokens, uint[] memory suppliedAmounts, uint[] memory minAmountsUsed) public returns (uint) {
         BankBase bank = BankBase(banks[position.bankId]);
-        // Maybe remove this check for uniswap v3
+        // TODO: Decide if isSupported check stays
         // address lpToken = bank.getLPToken(position.bankToken);
         // require(UniversalSwap(universalSwap).isSupported(lpToken), "Asset is not currently supported");
         address[] memory underlying = bank.getUnderlyingForFirstDeposit(position.bankToken);
         if (!_checkArraysMatch(underlying, suppliedTokens)) {
-            suppliedAmounts = _swapForMultiple(suppliedTokens, suppliedAmounts, underlying);
+            for (uint i = 0; i<suppliedTokens.length; i++) {
+                IERC20(suppliedTokens[i]).safeApprove(universalSwap, suppliedAmounts[i]);
+            }
+            suppliedAmounts = UniversalSwap(universalSwap).swap(suppliedTokens, suppliedAmounts, underlying, minAmountsUsed);
             suppliedTokens = underlying;
         }
         for (uint i = 0; i<suppliedTokens.length; i++) {
@@ -192,6 +156,7 @@ contract PositionsManager is Ownable {
         return positions.length-1;
     }
 
+    /// @inheritdoc IPositionsManager
     function withdraw(uint positionId, uint amount) external {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
@@ -202,6 +167,7 @@ contract PositionsManager is Ownable {
         emit Withdraw(positionId, amount);
     }
 
+    /// @inheritdoc IPositionsManager
     function close(uint positionId) external {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
@@ -212,6 +178,7 @@ contract PositionsManager is Ownable {
         emit PositionClose(positionId);
     }
 
+    /// @inheritdoc IPositionsManager
     function harvestRewards(uint positionId) external returns (address[] memory rewards, uint[] memory rewardAmounts) {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
@@ -219,13 +186,18 @@ contract PositionsManager is Ownable {
         emit Harvest(positionId, rewards, rewardAmounts);
     }
 
+    /// @inheritdoc IPositionsManager
     function harvestAndRecompound(uint positionId) external returns (uint newLpTokens) {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         address[] memory underlying = bank.getUnderlyingForRecurringDeposit(position.bankToken);
         (address[] memory rewards, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, address(this));
         if (!_checkArraysMatch(underlying, rewards)) {
-            rewardAmounts = _swapForMultiple(rewards, rewardAmounts, underlying);
+            uint[] memory minAmountsUsed = new uint[](rewards.length);
+            for (uint i = 0; i<rewards.length; i++) {
+                IERC20(rewards[i]).safeApprove(universalSwap, rewardAmounts[i]);
+            }
+            rewardAmounts = UniversalSwap(universalSwap).swap(rewards, rewardAmounts, underlying, minAmountsUsed);
         }
         for (uint i = 0; i<underlying.length; i++) {
             IERC20(underlying[i]).safeTransfer(address(bank), rewardAmounts[i]);
@@ -235,7 +207,8 @@ contract PositionsManager is Ownable {
         emit HarvestRecompound(positionId, newLpTokens);
     }
 
-    function botLiquidate(uint positionId, uint liquidationIndex) external {
+    /// @inheritdoc IPositionsManager
+    function botLiquidate(uint positionId, uint liquidationIndex, uint minAmountOut) external {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         require(keepers[msg.sender] || msg.sender==owner(), "Unauthorized");
@@ -251,7 +224,10 @@ contract PositionsManager is Ownable {
             tokens[j+rewardAddresses.length] = outTokens[j];
             tokenAmounts[j+rewardAddresses.length] = outTokenAmounts[j];
         }
-        uint toReturn = _swapAssets(tokens, tokenAmounts, position.liquidationPoints[liquidationIndex].liquidateTo);
+        for (uint i = 0; i<tokens.length; i++) {
+            IERC20(tokens[i]).safeApprove(universalSwap, tokenAmounts[i]);
+        }
+        uint toReturn = UniversalSwap(universalSwap).swap(tokens, tokenAmounts, position.liquidationPoints[liquidationIndex].liquidateTo, minAmountOut);
         IERC20(position.liquidationPoints[liquidationIndex].liquidateTo).safeTransfer(position.user, toReturn);
         position.amount = 0;
         emit PositionClose(positionId);

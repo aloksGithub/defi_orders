@@ -3,16 +3,15 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./interfaces/IPoolInteractor.sol";
-import "./PoolInteractors/UniswapV3PoolInteractor.sol";
 import "./interfaces/ISwapper.sol";
+import "./interfaces/IUniversalSwap.sol";
 import "./libraries/Strings.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./Swappers/UniswapV2Swapper.sol";
 import "hardhat/console.sol";
 
-contract UniversalSwap is Ownable {
+contract UniversalSwap is IUniversalSwap, Ownable {
     using Address for address;
     using strings for *;
     using SafeERC20 for IERC20;
@@ -37,14 +36,17 @@ contract UniversalSwap is Ownable {
         _swappers = _swappers;
     }
 
+    /// @inheritdoc IUniversalSwap
     function setPoolInteractors(address[] calldata _poolInteractors) external onlyOwner {
         poolInteractors = _poolInteractors;
     }
 
+    /// @inheritdoc IUniversalSwap
     function setNFTPoolInteractors(address[] calldata _nftPoolInteractors) external onlyOwner {
         nftPoolInteractors = _nftPoolInteractors;
     }
 
+    /// @inheritdoc IUniversalSwap
     function isSupported(address token) public returns (bool) {
         if (_isSimpleToken(token)) return true;
         if (_isPoolToken(token)) return true;
@@ -84,7 +86,7 @@ contract UniversalSwap is Ownable {
         return address(0);
     }
 
-    function _getUnderlying(address token) private returns (address[] memory underlyingTokens) {
+    function _getUnderlying(address token) internal returns (address[] memory underlyingTokens) {
         address poolInteractor = _getProtocol(token);
         if (poolInteractor==address(0)) {
             if (_isSimpleToken(token)) {
@@ -100,14 +102,14 @@ contract UniversalSwap is Ownable {
         }
     }
 
-    function _burn(address token, uint amount) private returns (address[] memory underlyingTokens, uint[] memory underlyingTokenAmounts) {
+    function _burn(address token, uint amount) internal returns (address[] memory underlyingTokens, uint[] memory underlyingTokenAmounts) {
         IERC20 tokenContract = IERC20(token);
         address poolInteractor = _getProtocol(token);
         tokenContract.safeApprove(poolInteractor, amount);
         (underlyingTokens, underlyingTokenAmounts) = IPoolInteractor(poolInteractor).burn(token, amount);
     }
 
-    function _convertSimpleTokens(address token0, uint amount, address token1) private returns (uint) {
+    function _convertSimpleTokens(address token0, uint amount, address token1) internal returns (uint) {
         if (token0==token1 || amount==0) return amount;
         for (uint i = 0;i<swappers.length; i++) {
             (bool success, bytes memory returnData) = swappers[i].delegatecall(
@@ -121,7 +123,7 @@ contract UniversalSwap is Ownable {
         revert("Failed to convert token");
     }
 
-    function _convertAllToOne(address[] memory inputTokens, uint[] memory inputTokenAmounts, address toToken) private returns (uint) {
+    function _convertAllToOne(address[] memory inputTokens, uint[] memory inputTokenAmounts, address toToken) internal returns (uint) {
         uint amount = 0;
         for (uint i = 0; i<inputTokens.length; i++) {
             amount+=_convertSimpleTokens(inputTokens[i], inputTokenAmounts[i], toToken);
@@ -129,7 +131,7 @@ contract UniversalSwap is Ownable {
         return amount;
     }
 
-    function _simplifyInputTokens(address[] memory inputTokens, uint[] memory inputTokenAmounts) private returns (address[] memory, uint[] memory) {
+    function _simplifyInputTokens(address[] memory inputTokens, uint[] memory inputTokenAmounts) internal returns (address[] memory, uint[] memory) {
         bool allSimiplified = true;
         address[] memory updatedTokens = inputTokens;
         uint[] memory updatedTokenAmounts = inputTokenAmounts;
@@ -164,7 +166,7 @@ contract UniversalSwap is Ownable {
         }
     }
 
-    function _mint(address toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts) private returns (uint amountMinted) {
+    function _mint(address toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts) internal returns (uint amountMinted) {
         if (toMint==underlyingTokens[0]) return underlyingAmounts[0];
         address poolInteractor = _getProtocol(toMint);
         for (uint i = 0; i<underlyingTokens.length; i++) {
@@ -173,7 +175,7 @@ contract UniversalSwap is Ownable {
         amountMinted = IPoolInteractor(poolInteractor).mint(toMint, underlyingTokens, underlyingAmounts);
     }
 
-    function _getFinalToken(address finalToken, uint fraction, address startingToken, uint startingTokenAmount) private returns (uint) {
+    function _getFinalToken(address finalToken, uint fraction, address startingToken, uint startingTokenAmount) internal returns (uint) {
         address[] memory underlyingTokens = _getUnderlying(finalToken);
         uint[] memory underlyingObtained = new uint[](underlyingTokens.length);
         for (uint i = 0; i<underlyingTokens.length; i++) {
@@ -189,14 +191,58 @@ contract UniversalSwap is Ownable {
         return minted;
     }
 
-    function swap(address[] memory inputTokens, uint[] memory inputTokenAmounts, address outputToken) public returns (uint) {
+    function _convert(address[] memory inputTokens, uint[] memory inputTokenAmounts, address[] memory outputTokens, uint[] memory outputRatios) internal returns (uint[] memory tokensObtained) {
+        (address[] memory simplifiedTokens, uint[] memory simplifiedTokenAmounts) = _simplifyInputTokens(inputTokens, inputTokenAmounts);
+        uint commonTokenAmount = _convertAllToOne(simplifiedTokens, simplifiedTokenAmounts, networkToken);
+        tokensObtained = new uint[](outputTokens.length);
+        uint totalFraction = 0;
+        for (uint i = 0; i<outputTokens.length; i++) {
+            totalFraction+=outputRatios[i];
+        }
+        for (uint i = 0; i<outputTokens.length; i++) {
+            uint tokensUsed = outputRatios[i]*commonTokenAmount/totalFraction;
+            tokensObtained[i] = _getFinalToken(outputTokens[i], fractionDenominator, networkToken, tokensUsed);
+        }
+    }
+
+    /// @inheritdoc IUniversalSwap
+    function swap(address[] memory inputTokens, uint[] memory inputTokenAmounts, address[] memory outputTokens, uint[] memory outputRatios, uint[] memory minAmountsOut) public returns (uint[] memory tokensObtained) {
+        for (uint i = 0; i<inputTokenAmounts.length; i++) {
+            IERC20(inputTokens[i]).safeTransferFrom(msg.sender, address(this), inputTokenAmounts[i]);
+        }
+        tokensObtained = _convert(inputTokens, inputTokenAmounts, outputTokens, outputRatios);
+        for (uint i = 0; i<outputTokens.length; i++) {
+            IERC20(outputTokens[i]).safeTransfer(msg.sender, tokensObtained[i]);
+            require(minAmountsOut[i]<=tokensObtained[i], "Too much slippage");
+        }
+    }
+
+    /// @inheritdoc IUniversalSwap
+    function swap(address[] memory inputTokens, uint[] memory inputTokenAmounts, address[] memory outputTokens, uint[] memory minAmountsOut) public returns (uint[] memory tokensObtained) {
+        uint[] memory ratios = new uint[](outputTokens.length);
+        for (uint j = 0; j<outputTokens.length; j++) {
+            ratios[j] = 1;
+        }
+        for (uint i = 0; i<inputTokenAmounts.length; i++) {
+            IERC20(inputTokens[i]).safeTransferFrom(msg.sender, address(this), inputTokenAmounts[i]);
+        }
+        tokensObtained = _convert(inputTokens, inputTokenAmounts, outputTokens, ratios);
+        for (uint i = 0; i<outputTokens.length; i++) {
+            IERC20(outputTokens[i]).safeTransfer(msg.sender, tokensObtained[i]);
+            require(minAmountsOut[i]<=tokensObtained[i], "Too much slippage");
+        }
+    }
+
+    /// @inheritdoc IUniversalSwap
+    function swap(address[] memory inputTokens, uint[] memory inputTokenAmounts, address outputToken, uint minAmountOut) public returns (uint finalTokenObtained) {
         for (uint i = 0; i<inputTokenAmounts.length; i++) {
             IERC20(inputTokens[i]).safeTransferFrom(msg.sender, address(this), inputTokenAmounts[i]);
         }
         (address[] memory simplifiedTokens, uint[] memory simplifiedTokenAmounts) = _simplifyInputTokens(inputTokens, inputTokenAmounts);
         uint commonTokenAmount = _convertAllToOne(simplifiedTokens, simplifiedTokenAmounts, networkToken);
-        uint finalTokenObtained = _getFinalToken(outputToken, fractionDenominator, networkToken, commonTokenAmount);
+        finalTokenObtained = _getFinalToken(outputToken, fractionDenominator, networkToken, commonTokenAmount);
         IERC20(outputToken).safeTransfer(msg.sender, finalTokenObtained);
+        require(finalTokenObtained>=minAmountOut, "Too much slippage");
         return finalTokenObtained;
     }
 
@@ -217,16 +263,7 @@ contract UniversalSwap is Ownable {
         return true;
     }
 
-    function _swapForMultiple(address[] memory inputTokens, uint[] memory inputTokenAmounts, address[] memory outTokens) internal returns (uint[] memory) {
-        (address[] memory simplifiedTokens, uint[] memory simplifiedTokenAmounts) = _simplifyInputTokens(inputTokens, inputTokenAmounts);
-        uint networkTokenMinted = _convertAllToOne(simplifiedTokens, simplifiedTokenAmounts, networkToken);
-        uint[] memory outTokenAmounts = new uint[](outTokens.length);
-        for (uint j = 0; j<outTokens.length; j++) {
-            outTokenAmounts[j] = _getFinalToken(outTokens[j], fractionDenominator, networkToken, networkTokenMinted/outTokens.length);
-        }
-        return outTokenAmounts;
-    }
-
+    /// @inheritdoc IUniversalSwap
     function swapForNFT(address[] memory inputTokens, uint[] memory inputTokenAmounts, Asset memory nft) public returns (uint) {
         for (uint i = 0; i<inputTokenAmounts.length; i++) {
             IERC20(inputTokens[i]).safeTransferFrom(msg.sender, address(this), inputTokenAmounts[i]);
@@ -236,7 +273,11 @@ contract UniversalSwap is Ownable {
                 INFTPoolInteractor poolInteractor = INFTPoolInteractor(nftPoolInteractors[i]);
                 address[] memory underlyingTokens = poolInteractor.getUnderlyingTokens(nft.pool);
                 if (!_checkArraysMatch(underlyingTokens, inputTokens)) {
-                    inputTokenAmounts = _swapForMultiple(inputTokens, inputTokenAmounts, underlyingTokens);
+                    uint[] memory ratios = new uint[](underlyingTokens.length);
+                    for (uint j = 0; j<underlyingTokens.length; j++) {
+                        ratios[j] = 1;
+                    }
+                    inputTokenAmounts = _convert(inputTokens, inputTokenAmounts, underlyingTokens, ratios);
                     inputTokens = underlyingTokens;
                 }
                 for (uint j = 0; j<inputTokens.length; j++) {
@@ -251,6 +292,7 @@ contract UniversalSwap is Ownable {
         revert("Failed to convert");
     }
 
+    /// @inheritdoc IUniversalSwap
     function swapNFT(Asset memory nft, address outputToken) external returns (uint) {
         for (uint i = 0; i<nftPoolInteractors.length; i++) {
             if (INFTPoolInteractor(nftPoolInteractors[i]).testSupported(nft.manager)) {  
