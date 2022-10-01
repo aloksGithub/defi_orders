@@ -43,6 +43,15 @@ interface IPositionsManager {
     /// @notice Returns number of positions that have been opened
     /// @return positions Number of positions that have been opened
     function numPositions() external view returns (uint positions);
+    
+    /// @notice Returns number of interactions (Deposits, withdrawals, harvests, etc.) for a position
+    /// @param positionId Id for position
+    /// @return interactions Number of interactions for position
+    function numPositionInteractions(uint positionId) external view returns (uint interactions);
+    
+    /// @notice Returns number of banks
+    /// @return positions Number of banks
+    function numBanks() external view returns (uint positions);
 
     /// @notice Set the address for the EOA that can be used to trigger liquidations
     function setKeeper(address keeperAddress, bool active) external;
@@ -64,8 +73,9 @@ interface IPositionsManager {
     /// @dev bankToken for ERC721 banks is not supported and will always be 0
     /// @param token The token for which to get supported banks
     /// @return banks List of banks that support the token
+    /// @return bankNames Names of recommended banks
     /// @return bankTokens token IDs corresponding to the provided token for each of the banks
-    function recommendBank(address token) external view returns (uint[] memory banks, uint[] memory bankTokens);
+    function recommendBank(address token) external view returns (uint[] memory banks, string[] memory bankNames, uint[] memory bankTokens);
 
     /// @notice Change the liquidation conditions for a position
     /// @param positionId position ID
@@ -98,6 +108,11 @@ interface IPositionsManager {
     /// @notice Withdraws all funds from a position
     /// @param positionId Position ID
     function close(uint positionId) external;
+
+    /// @notice Close a function and convert all assets to USDC
+    /// @notice This function is intended to be called using callstatic, just to check the USD value of the position
+    /// @return usdcValue The value of the position in terms of USDC
+    function closeToUSDC(uint positionId) external returns (uint usdcValue);
 
     /// @notice Harvest and receive the rewards for a position
     /// @param positionId Position ID

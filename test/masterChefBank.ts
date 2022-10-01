@@ -43,6 +43,7 @@ describe ("MasterChefBank tests", function () {
             const positionInfo1 = await manager.getPosition(positionId)
             await ethers.provider.send("hardhat_mine", ["0x100"]);
             await manager.connect(owners[0]).harvestAndRecompound(positionId)
+            await manager.callStatic.closeToUSDC(positionId)
             const positionInfo2 = await manager.getPosition(positionId)
             expect(positionInfo2.amount).to.greaterThan(positionInfo1.amount)
             await manager.connect(owners[0]).close(positionId)

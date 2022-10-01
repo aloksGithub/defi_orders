@@ -36,6 +36,7 @@ contract UniswapV2Swapper is ISwapper, Ownable {
             return amount;
         }
         uint numRouters = UniswapV2Swapper(self).getNumRouters();
+        bool isSignificant = false;
         for (uint i = 0; i<numRouters; i++) {
             address _routerAddress = UniswapV2Swapper(self).routers(i);
             IERC20(inToken).safeApprove(_routerAddress, amount);
@@ -44,9 +45,15 @@ contract UniswapV2Swapper is ISwapper, Ownable {
             path[0] = inToken;
             path[1] = outToken;
             uint256[] memory amountsOut = router.getAmountsOut(amount, path);
+            if (amountsOut[amountsOut.length - 1]>0) {
+                isSignificant = true;
+            }
             try router.swapExactTokensForTokens(amount, amountsOut[amountsOut.length - 1], path, address(this), block.timestamp) returns (uint256[] memory amountReturned) {
                 return amountReturned[amountReturned.length - 1];
             } catch {continue;}
+        }
+        if (!isSignificant) {
+            return 0;
         }
         revert("Failed to convert");
     }

@@ -40,14 +40,14 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
         emit SetMasterChefWrapper(masterChef, wrapper);
     }
 
-    function decodeId(uint id) public view returns (address masterChef, address lpToken, uint pid) {
+    function decodeId(uint id) public override view returns (address lpToken, address masterChef, uint pid) {
         pid = id>>160;
         masterChef = address(uint160(id & ((1 << 160) - 1)));
         lpToken = IMasterChefWrapper(masterChefWrappers[masterChef]).getLpToken(masterChef, pid);
     }
 
     function getLPToken(uint id) override public view returns (address tokenAddress) {
-        (,tokenAddress,) = decodeId(id);
+        (tokenAddress,,) = decodeId(id);
     }
 
     function name() override public pure returns (string memory) {
@@ -66,7 +66,7 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
     }
 
     function getRewards(uint tokenId) override external view returns (address[] memory) {
-        (address masterChef,, uint pid) = decodeId(tokenId);
+        (, address masterChef, uint pid) = decodeId(tokenId);
         IMasterChefWrapper wrapper = IMasterChefWrapper(masterChefWrappers[masterChef]);
         return wrapper.getRewards(masterChef, pid);
     }
@@ -80,7 +80,7 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
     }
 
     function updateToken(uint tokenId) onlyAuthorized internal {
-        (address masterChef, address lpToken, uint pid) = decodeId(tokenId);
+        (address lpToken, address masterChef, uint pid) = decodeId(tokenId);
         PoolInfo storage pool = poolInfo[tokenId];
         uint lpSupply = pool.lpSupply;
         if (lpSupply>0) {
@@ -111,7 +111,7 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
 
     function mint(uint tokenId, address userAddress, address[] memory suppliedTokens, uint[] memory suppliedAmounts) onlyAuthorized override public returns(uint) {
         updateToken(tokenId);
-        (address masterChef, address lpToken, uint pid) = decodeId(tokenId);
+        (address lpToken, address masterChef, uint pid) = decodeId(tokenId);
         require(lpToken==suppliedTokens[0], "Incorrect supplied token");
         IERC20(lpToken).approve(masterChef, suppliedAmounts[0]);
         _deposit(masterChef, pid, suppliedAmounts[0]);
@@ -130,7 +130,7 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
 
     function burn(uint tokenId, address userAddress, uint amount, address receiver) onlyAuthorized override external returns (address[] memory outTokens, uint[] memory tokenAmounts) {
         updateToken(tokenId);
-        (address masterChef, address lpToken, uint pid) = decodeId(tokenId);
+        (address lpToken, address masterChef, uint pid) = decodeId(tokenId);
         PoolInfo storage pool = poolInfo[tokenId];
         if (amount == 0) {
             amount = balanceOf(userAddress, tokenId);
@@ -155,7 +155,7 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
     function harvest(uint tokenId, address userAddress, address receiver) onlyAuthorized override external returns (address[] memory rewardAddresses, uint[] memory rewardAmounts) {
         updateToken(tokenId);
         PoolInfo storage pool = poolInfo[tokenId];
-        (address masterChef,, uint pid) = decodeId(tokenId);
+        (, address masterChef, uint pid) = decodeId(tokenId);
         address[] memory rewards = IMasterChefWrapper(masterChefWrappers[masterChef]).getRewards(masterChef, pid);
         rewardAddresses = new address[](rewards.length);
         rewardAmounts = new uint[](rewards.length);

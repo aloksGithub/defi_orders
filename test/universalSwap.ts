@@ -46,7 +46,7 @@ describe("UniversalSwap tests", function () {
             expect(liquidity).to.greaterThan(0)
             expect(id).to.greaterThan(0)
             await manager.approve(universalSwap.address, id)
-            await universalSwap.swapNFT({pool, manager:managerAddress, tokenId: id, data:[]}, networkAddresses.networkToken)
+            await universalSwap.swapNFT({pool, manager:managerAddress, liquidity: 0, tokenId: id, data:[]}, networkAddresses.networkToken)
             const endingbalance = await networkTokenContract.balanceOf(owners[0].address)
             isRoughlyEqual(startingBalance, endingbalance)
         }

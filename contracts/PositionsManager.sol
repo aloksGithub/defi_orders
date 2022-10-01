@@ -11,17 +11,32 @@ contract PositionsManager is IPositionsManager, Ownable {
     using SafeERC20 for IERC20;
 
     Position[] positions;
+    mapping (uint=>bool) public positionClosed; // Is position open
+    mapping (uint=>uint[]) public positionInteractions;
+    mapping (address=>uint) public numUserPositions; // Number of positions for user
+    mapping (address=>uint[]) public userPositions; // Mapping from user address to a list of position IDs belonging to the user
     address[] public banks;
     address public universalSwap;
+    address usdc;
     mapping (address=>bool) keepers;
 
-    constructor(address _universalSwap) {
+    constructor(address _universalSwap, address _usdc) {
         universalSwap = _universalSwap;
+        usdc = _usdc;
     }
 
     /// @inheritdoc IPositionsManager
     function numPositions() external view returns (uint) {
         return positions.length;
+    }
+
+    /// @inheritdoc IPositionsManager
+    function numPositionInteractions(uint positionId) external view returns (uint) {
+        return positionInteractions[positionId].length;
+    }
+
+    function numBanks() external view returns (uint) {
+        return banks.length;
     }
 
     /// @inheritdoc IPositionsManager
@@ -48,7 +63,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function recommendBank(address lpToken) external view returns (uint[] memory, uint[] memory) {
+    function recommendBank(address lpToken) external view returns (uint[] memory, string[] memory, uint[] memory) {
         bool[] memory supportedBank = new bool[](banks.length);
         uint[] memory tokenIds = new uint[](banks.length);
         uint numSupported = 0;
@@ -61,16 +76,18 @@ contract PositionsManager is IPositionsManager, Ownable {
             }
         }
         uint[] memory bankIds = new uint[](numSupported);
+        string[] memory bankNames = new string[](numSupported);
         uint[] memory tokenIds2 = new uint[](numSupported);
         uint idx = 0;
         for (uint j = 0; j<banks.length; j++) {
             if (supportedBank[j]) {
                 bankIds[idx] = j;
+                bankNames[idx] = BankBase(banks[j]).name();
                 tokenIds2[idx] = tokenIds[j];
                 idx+=1;
             }
         }
-        return (bankIds, tokenIds2);
+        return (bankIds, bankNames, tokenIds2);
     }
 
     /// @inheritdoc IPositionsManager
@@ -104,6 +121,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         }
         uint minted = bank.mintRecurring(position.bankToken, position.user, suppliedTokens, suppliedAmounts);
         position.amount+=minted;
+        positionInteractions[positionId].push(block.number);
         emit IncreasePosition(positionId, minted);
     }
 
@@ -152,7 +170,10 @@ contract PositionsManager is IPositionsManager, Ownable {
         for (uint i = 0; i<position.liquidationPoints.length; i++) {
             newPosition.liquidationPoints.push(position.liquidationPoints[i]);
         }
+        userPositions[position.user].push(positions.length-1);
+        numUserPositions[position.user]+=1;
         emit Deposit(positions.length-1, newPosition.bankId, newPosition.bankToken, newPosition.user, newPosition.amount, newPosition.liquidationPoints);
+        positionInteractions[positions.length-1].push(block.number);
         return positions.length-1;
     }
 
@@ -164,6 +185,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         require(position.user==msg.sender, "Can't withdraw for another user");
         position.amount-=amount;
         bank.burn(position.bankToken, position.user, amount, msg.sender);
+        positionInteractions[positionId].push(block.number);
         emit Withdraw(positionId, amount);
     }
 
@@ -175,7 +197,38 @@ contract PositionsManager is IPositionsManager, Ownable {
         bank.harvest(position.bankToken, position.user, position.user);
         bank.burn(position.bankToken, position.user, position.amount, position.user);
         position.amount = 0;
+        positionClosed[positionId] = true;
+        positionInteractions[positionId].push(block.number);
         emit PositionClose(positionId);
+    }
+
+    /// @inheritdoc IPositionsManager
+    function closeToUSDC(uint positionId) external returns (uint) {
+        Position storage position = positions[positionId];
+        BankBase bank = BankBase(banks[position.bankId]);
+        require(keepers[msg.sender] || msg.sender==owner(), "Unauthorized");
+        (address[] memory rewardAddresses, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, address(this));
+        (address[] memory outTokens, uint[] memory outTokenAmounts) = bank.burn(position.bankToken, position.user, position.amount, address(this));
+        address[] memory tokens = new address[](rewardAddresses.length+outTokens.length);
+        uint[] memory tokenAmounts = new uint[](rewardAmounts.length+outTokenAmounts.length);
+        for (uint i = 0; i<rewardAddresses.length; i++) {
+            tokens[i] = rewardAddresses[i];
+            tokenAmounts[i] = rewardAmounts[i];
+        }
+        for (uint j = 0; j<outTokens.length; j++) {
+            tokens[j+rewardAddresses.length] = outTokens[j];
+            tokenAmounts[j+rewardAddresses.length] = outTokenAmounts[j];
+        }
+        for (uint i = 0; i<tokens.length; i++) {
+            IERC20(tokens[i]).safeApprove(universalSwap, tokenAmounts[i]);
+        }
+        uint toReturn = UniversalSwap(universalSwap).swap(tokens, tokenAmounts, usdc, 0);
+        IERC20(usdc).safeTransfer(position.user, toReturn);
+        position.amount = 0;
+        positionClosed[positionId] = true;
+        emit PositionClose(positionId);
+        positionInteractions[positionId].push(block.number);
+        return toReturn;
     }
 
     /// @inheritdoc IPositionsManager
@@ -204,6 +257,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         }
         uint minted = bank.mintRecurring(position.bankToken, position.user, underlying, rewardAmounts);
         position.amount+=minted;
+        positionInteractions[positionId].push(block.number);
         emit HarvestRecompound(positionId, newLpTokens);
     }
 
@@ -230,6 +284,8 @@ contract PositionsManager is IPositionsManager, Ownable {
         uint toReturn = UniversalSwap(universalSwap).swap(tokens, tokenAmounts, position.liquidationPoints[liquidationIndex].liquidateTo, minAmountOut);
         IERC20(position.liquidationPoints[liquidationIndex].liquidateTo).safeTransfer(position.user, toReturn);
         position.amount = 0;
+        positionClosed[positionId] = true;
+        positionInteractions[positionId].push(block.number);
         emit PositionClose(positionId);
     }
 }

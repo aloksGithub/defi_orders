@@ -39,14 +39,14 @@ contract ERC721Bank is BankBase {
         revert("NFT manager not supported");
     }
 
-    function decodeId(uint id) public view returns (address nftManager, uint pos_id, address poolAddress) {
+    function decodeId(uint id) public override view returns (address poolAddress, address nftManager, uint pos_id) {
         nftManager = nftManagers[id>>240];
         pos_id = uint240(id & ((1 << 240) - 1));
         poolAddress = IERC721Wrapper(erc721Wrappers[nftManager]).getPoolAddress(nftManager, pos_id);
     }
 
     function getLPToken(uint id) override public view returns (address tokenAddress) {
-        (,,tokenAddress) = decodeId(id);
+        (tokenAddress,,) = decodeId(id);
     }
     
     function getIdFromLpToken(address manager) override public view returns (bool, uint) {
@@ -70,7 +70,7 @@ contract ERC721Bank is BankBase {
 
     function mintRecurring(uint tokenId, address userAddress, address[] memory suppliedTokens, uint[] memory suppliedAmounts) onlyAuthorized override external returns (uint) {
         require(poolInfo[tokenId].user==userAddress, "User doesn't own the asset");
-        (address manager, uint id,) = decodeId(tokenId);
+        (,address manager, uint id) = decodeId(tokenId);
         address wrapper = erc721Wrappers[manager];
 
         (bool success, bytes memory returnData) = wrapper.delegatecall(abi.encodeWithSelector(IERC721Wrapper.deposit.selector, manager, id, suppliedTokens, suppliedAmounts));
@@ -82,7 +82,7 @@ contract ERC721Bank is BankBase {
 
     function burn(uint tokenId, address userAddress, uint amount, address receiver) onlyAuthorized override external returns (address[] memory outTokens, uint[] memory tokenAmounts) {
         require(poolInfo[tokenId].user==userAddress, "User doesn't own the asset");
-        (address manager, uint id,) = decodeId(tokenId);
+        (,address manager, uint id) = decodeId(tokenId);
         address wrapper = erc721Wrappers[manager];
         (bool success, bytes memory returnData) = wrapper.delegatecall(abi.encodeWithSelector(IERC721Wrapper.withdraw.selector, manager, id, amount, receiver));
         if (!success) revert("Failed to withdraw");
@@ -94,7 +94,7 @@ contract ERC721Bank is BankBase {
 
     function harvest(uint tokenId, address userAddress, address receiver) onlyAuthorized override external returns (address[] memory rewardAddresses, uint[] memory rewardAmounts) {
         require(poolInfo[tokenId].user==userAddress, "User doesn't own the asset");
-        (address manager, uint id,) = decodeId(tokenId);
+        (,address manager, uint id) = decodeId(tokenId);
         address wrapper = erc721Wrappers[manager];
         (bool success, bytes memory returnData) = wrapper.delegatecall(abi.encodeWithSelector(IERC721Wrapper.harvest.selector, manager, id, receiver));
         if (!success) revert("Failed to withdraw");
@@ -105,13 +105,13 @@ contract ERC721Bank is BankBase {
     }
     
     function getUnderlyingForFirstDeposit(uint tokenId) override view public returns (address[] memory underlying) {
-        (address manager,,) = decodeId(tokenId);
+        (,address manager,) = decodeId(tokenId);
         underlying = new address[](1);
         underlying[0] = manager;
     }
 
     function getUnderlyingForRecurringDeposit(uint tokenId) override view public returns (address[] memory) {
-        (address manager,, address pool) = decodeId(tokenId);
+        (address pool, address manager,) = decodeId(tokenId);
         IERC721Wrapper wrapper = IERC721Wrapper(erc721Wrappers[manager]);
         return wrapper.getERC20Base(pool);
     }

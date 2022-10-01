@@ -25,6 +25,11 @@ interface IUniversalSwap {
     /// @return supported Wether the provided token is supported or not
     function isSupported(address token) external returns (bool supported);
 
+    /// @notice Gets the underlying tokens for an ERC20 or ERC721 contract
+    /// @param token Contract address for token whose underlying assets need to be determined
+    /// @return underlyingTokens Underlying tokens for specified token
+    function getUnderlying(address token) external returns (address[] memory underlyingTokens);
+
     /// @notice Swap ERC20 tokens for multiple ERC20 tokens in provided ratio
     /// @dev Before calling, make sure UniversalSwap contract has approvals according to inputTokenAmounts
     /// @param inputTokens ERC20 tokens to be converted

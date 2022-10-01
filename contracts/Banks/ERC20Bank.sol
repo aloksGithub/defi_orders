@@ -26,12 +26,12 @@ contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
         return uint256(uint160(tokenAddress));
     }
 
-    function decodeId(uint id) public pure returns (address tokenAddress) {
-        return address(uint160(id));
+    function decodeId(uint id) public override pure returns (address, address, uint) {
+        return (address(uint160(id)), address(0), 0);
     }
 
     function getLPToken(uint id) override public pure returns (address tokenAddress) {
-        return decodeId(id);
+        (tokenAddress,,) = decodeId(id);
     }
     
     function getIdFromLpToken(address lpToken) override external view returns (bool, uint) {
@@ -56,7 +56,7 @@ contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
     }
 
     function burn(uint tokenId, address userAddress, uint amount, address receiver) onlyAuthorized override external returns (address[] memory outTokens, uint[] memory tokenAmounts){
-        address lpToken = decodeId(tokenId);
+        (address lpToken,,) = decodeId(tokenId);
         PoolInfo storage pool = poolInfo[tokenId];
         if (amount == 0) {
             amount = balanceOf(userAddress, tokenId);

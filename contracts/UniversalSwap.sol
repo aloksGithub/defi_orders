@@ -83,10 +83,17 @@ contract UniversalSwap is IUniversalSwap, Ownable {
                 }
             } catch {}
         }
+        for (uint i = 0; i<nftPoolInteractors.length; i++) {
+            try INFTPoolInteractor(nftPoolInteractors[i]).testSupportedPool(token) returns (bool supported) {
+                if (supported==true) {
+                    return nftPoolInteractors[i];
+                }
+            } catch {}
+        }
         return address(0);
     }
 
-    function _getUnderlying(address token) internal returns (address[] memory underlyingTokens) {
+    function getUnderlying(address token) public returns (address[] memory underlyingTokens) {
         address poolInteractor = _getProtocol(token);
         if (poolInteractor==address(0)) {
             if (_isSimpleToken(token)) {
@@ -176,7 +183,7 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     }
 
     function _getFinalToken(address finalToken, uint fraction, address startingToken, uint startingTokenAmount) internal returns (uint) {
-        address[] memory underlyingTokens = _getUnderlying(finalToken);
+        address[] memory underlyingTokens = getUnderlying(finalToken);
         uint[] memory underlyingObtained = new uint[](underlyingTokens.length);
         for (uint i = 0; i<underlyingTokens.length; i++) {
             uint obtained;
@@ -293,7 +300,7 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     }
 
     /// @inheritdoc IUniversalSwap
-    function swapNFT(Asset memory nft, address outputToken) external returns (uint) {
+    function swapNFT(Asset memory nft, address outputToken) public returns (uint) {
         for (uint i = 0; i<nftPoolInteractors.length; i++) {
             if (INFTPoolInteractor(nftPoolInteractors[i]).testSupported(nft.manager)) {  
                 IERC721(nft.manager).transferFrom(msg.sender, nftPoolInteractors[i], nft.tokenId);              
@@ -307,4 +314,14 @@ contract UniversalSwap is IUniversalSwap, Ownable {
         }
         revert("Failed to convert");
     }
+
+    // function swap(address[] memory inputTokens, uint[] memory inputTokenAmounts, Asset[] memory nfts, address outputToken, uint minAmountOut) external returns (uint) {
+    //     uint tokenObtained = 0;
+    //     for (uint i = 0; i<nfts.length; i++) {
+    //         tokenObtained+=swapNFT(nfts[i], outputToken);
+    //     }
+    //     tokenObtained+=swap(inputTokens, inputTokenAmounts, outputToken, 0);
+    //     require(tokenObtained>=minAmountOut, "Failed slippage check");
+    //     return tokenObtained;
+    // }
 }

@@ -12,14 +12,14 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
     using strings for *;
     using SafeERC20 for IERC20;
 
-    string[] supportedProtocols;
+    address[] supportedManagers;
 
-    constructor(string[] memory _supportedProtocols) {
-        supportedProtocols = _supportedProtocols;
+    constructor(address[] memory _supportedManagers) {
+        supportedManagers = _supportedManagers;
     }
 
-    function setSupportedProtocols(string[] memory _supportedProtocols) external onlyOwner {
-        supportedProtocols = _supportedProtocols;
+    function setSupportedManagers(address[] memory _supportedManagers) external onlyOwner {
+        supportedManagers = _supportedManagers;
     }
     
     function burn(Asset memory asset) external returns (address[] memory receivedTokens, uint256[] memory receivedTokenAmounts) {
@@ -70,13 +70,24 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
     }
 
     function testSupported(address token) external view returns (bool) {
-        string memory name = ERC20(token).name();
-        for (uint i = 0; i<supportedProtocols.length; i++) {
-            if (name.toSlice().startsWith(supportedProtocols[i].toSlice())) {
+        for (uint i = 0; i<supportedManagers.length; i++) {
+            if (token==supportedManagers[i]) {
                 return true;
             }
         }
         return false;
+    }
+
+    function testSupportedPool(address poolAddress) external view returns (bool) {
+        IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
+        try pool.factory() returns (address factory) {
+            for (uint i = 0; i<supportedManagers.length; i++) {
+                if (factory==INonfungiblePositionManager(supportedManagers[i]).factory()) {
+                    return true;
+                }
+            }
+            return false;
+        } catch {return false;} 
     }
 
     function getUnderlyingTokens(address lpTokenAddress) public view returns (address[] memory) {

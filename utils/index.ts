@@ -143,12 +143,14 @@ export const getPoolInteractors = async (verify:boolean=false, log:boolean=false
 const nftPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
   const network = hre.network.name
   const factory = await ethers.getContractFactory("UniswapV3PoolInteractor")
-  const interactor = await factory.deploy(["Uniswap V3 Positions NFT-V1"])
+  // @ts-ignore
+  const interactor = await factory.deploy(addresses[network].NFTManagers)
   
   if (verify) {
     await hre.run("verify:verify", {
       address: interactor.address,
-      constructorArguments: [["Uniswap V3 Positions NFT-V1"]],
+      // @ts-ignore
+      constructorArguments: [addresses[network].NFTManagers],
       network
     })
   }
@@ -202,7 +204,8 @@ const deployPositionsManager = async (verify:boolean=false, log:boolean=false) =
   const network = hre.network.name
   const positionsManagerFactory = await ethers.getContractFactory("PositionsManager")
   const universalSwap = await getUniversalSwap(verify, log)
-  const positionsManager = await positionsManagerFactory.deploy(universalSwap.address)
+  // @ts-ignore
+  const positionsManager = await positionsManagerFactory.deploy(universalSwap.address, addresses[network].usdc)
   if (verify) {
     await hre.run("verify:verify", {
       address: positionsManager.address,
@@ -392,6 +395,9 @@ export const deployAndInitializeManager = async (verify:boolean=false, log:boole
 
 export const getLPToken = async (lpToken: string, universalSwap: UniversalSwap, etherAmount: string, owner:SignerWithAddress) => {
   const network = hre.network.name
+  // @ts-ignore
+  const wethContract = await ethers.getContractAt("IWETH", addresses[network].networkToken)
+  await wethContract.connect(owner).approve(universalSwap.address, ethers.utils.parseEther(etherAmount))
   const lpTokenContract = await ethers.getContractAt("ERC20", lpToken)
   // @ts-ignore
   await universalSwap.connect(owner)["swap(address[],uint256[],address,uint256)"]([addresses[network].networkToken], [ethers.utils.parseEther(etherAmount)], lpToken, 0)
@@ -401,7 +407,7 @@ export const getLPToken = async (lpToken: string, universalSwap: UniversalSwap, 
 
 export const depositNew = async (manager:PositionsManager, lpToken: string, amount:string, liquidationPoints: any[], owner:any) => {
   const lpTokenContract = await ethers.getContractAt("ERC20", lpToken)
-  const [bankIds, tokenIds] = await manager.recommendBank(lpToken)
+  const [bankIds, bankNames, tokenIds] = await manager.recommendBank(lpToken)
   const bankId = bankIds.slice(-1)[0]
   const tokenId = tokenIds.slice(-1)[0]
   await lpTokenContract.connect(owner).approve(manager.address, amount)
@@ -431,7 +437,7 @@ export const getNFT = async (universalSwap:UniversalSwap, etherAmount:string, ma
   const data = abi.encode(
     ["int24","int24"], // encode as address array
     [-887000, 887000]);
-  const tx = await universalSwap.connect(owner).swapForNFT([networkToken], [ethers.utils.parseEther(etherAmount)], {pool, manager, tokenId: 0, data})
+  const tx = await universalSwap.connect(owner).swapForNFT([networkToken], [ethers.utils.parseEther(etherAmount)], {pool, manager, tokenId: 0, liquidity: 0, data})
   const rc = await tx.wait()
   const event = rc.events?.find(event => event.event === 'NFTMinted')
   // @ts-ignore
