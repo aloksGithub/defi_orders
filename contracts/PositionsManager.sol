@@ -12,7 +12,8 @@ contract PositionsManager is IPositionsManager, Ownable {
 
     Position[] positions;
     mapping (uint=>bool) public positionClosed; // Is position open
-    mapping (uint=>uint[]) public positionInteractions;
+    // mapping (uint=>uint[]) public positionInteractions;
+    mapping (uint=>uint[2][]) public positionInteractions; // Mapping from position Id to block numbers and interaction types for all position interactions
     mapping (address=>uint) public numUserPositions; // Number of positions for user
     mapping (address=>uint[]) public userPositions; // Mapping from user address to a list of position IDs belonging to the user
     address[] public banks;
@@ -31,8 +32,8 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function numPositionInteractions(uint positionId) external view returns (uint) {
-        return positionInteractions[positionId].length;
+    function getPositionInteractions(uint positionId) external view returns (uint[2][] memory) {
+        return positionInteractions[positionId];
     }
 
     function numBanks() external view returns (uint) {
@@ -121,7 +122,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         }
         uint minted = bank.mintRecurring(position.bankToken, position.user, suppliedTokens, suppliedAmounts);
         position.amount+=minted;
-        positionInteractions[positionId].push(block.number);
+        positionInteractions[positionId].push([block.number, 0]);
         emit IncreasePosition(positionId, minted);
     }
 
@@ -173,7 +174,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         userPositions[position.user].push(positions.length-1);
         numUserPositions[position.user]+=1;
         emit Deposit(positions.length-1, newPosition.bankId, newPosition.bankToken, newPosition.user, newPosition.amount, newPosition.liquidationPoints);
-        positionInteractions[positions.length-1].push(block.number);
+        positionInteractions[positions.length-1].push([block.number, 0]);
         return positions.length-1;
     }
 
@@ -185,7 +186,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         require(position.user==msg.sender, "Can't withdraw for another user");
         position.amount-=amount;
         bank.burn(position.bankToken, position.user, amount, msg.sender);
-        positionInteractions[positionId].push(block.number);
+        positionInteractions[positionId].push([block.number, 1]);
         emit Withdraw(positionId, amount);
     }
 
@@ -198,7 +199,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         bank.burn(position.bankToken, position.user, position.amount, position.user);
         position.amount = 0;
         positionClosed[positionId] = true;
-        positionInteractions[positionId].push(block.number);
+        positionInteractions[positionId].push([block.number, 1]);
         emit PositionClose(positionId);
     }
 
@@ -227,7 +228,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         position.amount = 0;
         positionClosed[positionId] = true;
         emit PositionClose(positionId);
-        positionInteractions[positionId].push(block.number);
+        positionInteractions[positionId].push([block.number, 1]);
         return toReturn;
     }
 
@@ -236,6 +237,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         (rewards, rewardAmounts) = bank.harvest(position.bankToken, position.user, position.user);
+        positionInteractions[positionId].push([block.number, 2]);
         emit Harvest(positionId, rewards, rewardAmounts);
     }
 
@@ -257,7 +259,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         }
         uint minted = bank.mintRecurring(position.bankToken, position.user, underlying, rewardAmounts);
         position.amount+=minted;
-        positionInteractions[positionId].push(block.number);
+        positionInteractions[positionId].push([block.number, 3]);
         emit HarvestRecompound(positionId, newLpTokens);
     }
 
@@ -285,7 +287,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         IERC20(position.liquidationPoints[liquidationIndex].liquidateTo).safeTransfer(position.user, toReturn);
         position.amount = 0;
         positionClosed[positionId] = true;
-        positionInteractions[positionId].push(block.number);
+        positionInteractions[positionId].push([block.number, 4]);
         emit PositionClose(positionId);
     }
 }

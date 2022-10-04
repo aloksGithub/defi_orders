@@ -294,6 +294,18 @@ contract UniversalSwap is IUniversalSwap, Ownable {
                 IERC721(nft.manager).transferFrom(address(this), msg.sender, tokenId);
                 emit NFTMinted(nft.manager, tokenId);
                 return tokenId;
+
+                // (bool success, bytes memory returnData) = nftPoolInteractors[i].delegatecall(abi.encodeWithSelector(
+                //     INFTPoolInteractor(nftPoolInteractors[i]).mint.selector,
+                //     nft, inputTokens, inputTokenAmounts
+                // ));
+                // if (success) {
+                //     uint tokenId = abi.decode(returnData, (uint));
+                //     emit NFTMinted(nft.manager, tokenId);
+                //     return tokenId;
+                // } else {
+                //     revert("OOPS")
+                // }
             }
         }
         revert("Failed to convert");

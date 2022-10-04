@@ -144,13 +144,13 @@ const nftPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
   const network = hre.network.name
   const factory = await ethers.getContractFactory("UniswapV3PoolInteractor")
   // @ts-ignore
-  const interactor = await factory.deploy(addresses[network].NFTManagers)
+  const interactor = await factory.deploy(addresses[network].NFTManagers, addresses[network].uniswapV2Routers[0])
   
   if (verify) {
     await hre.run("verify:verify", {
       address: interactor.address,
       // @ts-ignore
-      constructorArguments: [addresses[network].NFTManagers],
+      constructorArguments: [addresses[network].NFTManagers, addresses[network].uniswapV2Routers[0]],
       network
     })
   }
@@ -427,6 +427,23 @@ export const depositNew = async (manager:PositionsManager, lpToken: string, amou
   return {positionId: numPositions, rewards, rewardContracts}
 }
 
+const getNearestUsableTick = (currentTick: number, space: number) => {
+  // 0 is always a valid tick
+  if(currentTick == 0){
+      return 0
+  }
+  // Determines direction
+  const direction = (currentTick >= 0) ? 1 : -1
+  // Changes direction
+  currentTick *= direction
+  // Calculates nearest tick based on how close the current tick remainder is to space / 2
+  let nearestTick = (currentTick%space <= space/2) ? currentTick - (currentTick%space) : currentTick + (space-(currentTick%space))
+  // Changes direction back
+  nearestTick *= direction
+  
+  return nearestTick
+}
+
 export const getNFT = async (universalSwap:UniversalSwap, etherAmount:string, manager:string, pool:string, owner:any) => {
   const network = hre.network.name
   // @ts-ignore
@@ -434,10 +451,14 @@ export const getNFT = async (universalSwap:UniversalSwap, etherAmount:string, ma
   const networkTokenContract = await ethers.getContractAt("IERC20", networkToken)
   await networkTokenContract.connect(owner).approve(universalSwap.address, ethers.utils.parseEther(etherAmount))
   const abi = ethers.utils.defaultAbiCoder;
+  const poolContract = await ethers.getContractAt("IUniswapV3Pool", pool)
+  const {tick} = await poolContract.slot0()
+  const tickSpacing = await poolContract.tickSpacing()
+  const nearestTick = getNearestUsableTick(tick, tickSpacing)
   const data = abi.encode(
     ["int24","int24"], // encode as address array
-    [-887000, 887000]);
-  const tx = await universalSwap.connect(owner).swapForNFT([networkToken], [ethers.utils.parseEther(etherAmount)], {pool, manager, tokenId: 0, liquidity: 0, data})
+    [nearestTick-2500*tickSpacing, nearestTick+20*tickSpacing]);
+  const tx = await universalSwap.connect(owner).swapForNFT([networkToken], [ethers.utils.parseEther(etherAmount)], {pool, manager, tokenId: 0, liquidity: 0, data}, {gasLimit: 30000000})
   const rc = await tx.wait()
   const event = rc.events?.find(event => event.event === 'NFTMinted')
   // @ts-ignore

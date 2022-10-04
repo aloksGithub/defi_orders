@@ -1,45 +1,64 @@
 {
-    "addresses": {
-        "usdc": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-        "usdt": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-        "dai": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
-        "bal": "0xba100000625a3754423978a60c9317c58a424e3D",
-        "sushi": "0x6B3595068778DD592e39A122f4f5a5cF09C90fE2",
-        "networkToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
-        "aaveV1LendingPool": "0x398eC7346DcD622eDc5ae82352F02bE94C62d119",
-        "aaveV2LendingPool": "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9",
-        "aaveV3LendingPool": "0x0000000000000000000000000000000000000000",
-        "balancerLiquidityGaugeFactory": "0x4E7bBd911cf1EFa442BC1b2e9Ea01ffE785412EC",
-        "balancerVault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
-        "uniswapV2Routers": ["0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F", "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"],
-        "uniswapV3Routers": ["0xE592427A0AEce92De3Edee1F18E0157C05861564"],
-        "NFTManagers": ["0xC36442b4a4522E871399CD717aBDD847Ab11FE88"],
-        "masterChefLps": [
-            "0x06da0fd433C1A5d7a4faa01111c044910A184553",
-            "0xF1F85b2C54a2bD284B1cf4141D64fD171Bd85539",
-            "0x33F6DDAEa2a8a54062E021873bCaEE006CdF4007",
-            "0x99B42F2B49C395D2a77D973f6009aBb5d67dA343",
-            "0x269Db91Fc3c7fCC275C2E6f22e5552504512811c"
-        ],
-        "erc20BankLps": [
-            "0x9bA00D6856a4eDF4665BcA2C2309936572473B7E",
-            "0x0d4a11d5EEaaC28EC3F61d100daF4d40471f1852",
-            "0x3Ed3B47Dd13EC9a98b44e6204A523E766B225811",
-            "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599"
-        ],
-        "universwalSwapTestingTokens": [
-            "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-            "0xdAC17F958D2ee523a2206206994597C13D831ec7",
-            "0x9bA00D6856a4eDF4665BcA2C2309936572473B7E",
-            "0xba100000625a3754423978a60c9317c58a424e3D",
-            "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
-            "0x853d955aCEf822Db058eb8505911ED77F175b99e"
-        ],
-        "nftBasaedPairs": [
-            "0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168",
-            "0x4585FE77225b41b697C938B018E2Ac67Ac5a20c0"
-        ],
-        "v1MasterChefs": [{"address": "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd", "rewardGetter": "sushi()", "hasExtraRewards": false}],
-        "v2MasterChefs": [{"address": "0xEF0881eC094552b2e128Cf945EF17a6752B4Ec5d", "rewardGetter": "SUSHI()", "hasExtraRewards": true}]
-    }
+  "addresses": {
+    "usdc": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    "usdt": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+    "dai": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
+    "bal": "0xba100000625a3754423978a60c9317c58a424e3D",
+    "sushi": "0x6B3595068778DD592e39A122f4f5a5cF09C90fE2",
+    "networkToken": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+    "aaveV1LendingPool": "0x398eC7346DcD622eDc5ae82352F02bE94C62d119",
+    "aaveV2LendingPool": "0x7d2768dE32b0b80b7a3454c06BdAc94A69DDc7A9",
+    "aaveV3LendingPool": "0x0000000000000000000000000000000000000000",
+    "balancerLiquidityGaugeFactory": "0x4E7bBd911cf1EFa442BC1b2e9Ea01ffE785412EC",
+    "balancerVault": "0xBA12222222228d8Ba445958a75a0704d566BF2C8",
+    "uniswapV2Routers": [
+      "0xd9e1cE17f2641f24aE83637ab66a2cca9C378B9F",
+      "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
+    ],
+    "uniswapV3Routers": ["0xE592427A0AEce92De3Edee1F18E0157C05861564"],
+    "NFTManagers": ["0xC36442b4a4522E871399CD717aBDD847Ab11FE88"],
+    "masterChefLps": [
+      "0x06da0fd433C1A5d7a4faa01111c044910A184553",
+      "0xF1F85b2C54a2bD284B1cf4141D64fD171Bd85539",
+      "0x33F6DDAEa2a8a54062E021873bCaEE006CdF4007",
+      "0x99B42F2B49C395D2a77D973f6009aBb5d67dA343",
+      "0x269Db91Fc3c7fCC275C2E6f22e5552504512811c"
+    ],
+    "erc20BankLps": [
+      "0x9bA00D6856a4eDF4665BcA2C2309936572473B7E",
+      "0x0d4a11d5EEaaC28EC3F61d100daF4d40471f1852",
+      "0x3Ed3B47Dd13EC9a98b44e6204A523E766B225811",
+      "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599"
+    ],
+    "universwalSwapTestingTokens": [
+      "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+      "0x9bA00D6856a4eDF4665BcA2C2309936572473B7E",
+      "0xba100000625a3754423978a60c9317c58a424e3D",
+      "0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599",
+      "0x853d955aCEf822Db058eb8505911ED77F175b99e"
+    ],
+    "nftBasaedPairs": [
+      "0x5777d92f208679DB4b9778590Fa3CAB3aC9e2168",
+      "0x3416cf6c708da44db2624d63ea0aaef7113527c6",
+      "0x6c6bc977e13df9b0de53b251522280bb72383700",
+      "0xCBCdF9626bC03E24f779434178A73a0B4bad62eD",
+      "0x7bea39867e4169dbe237d55c8242a8f2fcdcc387",
+      "0x3730ecd0aa7eb9b35a4e89b032bef80a1a41aa7f"
+    ],
+    "v1MasterChefs": [
+      {
+        "address": "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd",
+        "rewardGetter": "sushi()",
+        "hasExtraRewards": false
+      }
+    ],
+    "v2MasterChefs": [
+      {
+        "address": "0xEF0881eC094552b2e128Cf945EF17a6752B4Ec5d",
+        "rewardGetter": "SUSHI()",
+        "hasExtraRewards": true
+      }
+    ]
+  }
 }

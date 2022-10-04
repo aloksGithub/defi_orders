@@ -44,11 +44,12 @@ interface IPositionsManager {
     /// @return positions Number of positions that have been opened
     function numPositions() external view returns (uint positions);
     
-    /// @notice Returns number of interactions (Deposits, withdrawals, harvests, etc.) for a position
-    /// @param positionId Id for position
-    /// @return interactions Number of interactions for position
-    function numPositionInteractions(uint positionId) external view returns (uint interactions);
-    
+    /// @notice Returns a list of position interactions, each interaction is a two element array consisting of block number and interaction type
+    /// @notice Interaction type 0 is deposit, 1 is withdraw, 2 is harvest, 3 is compound and 4 is bot liquidation
+    /// @param positionId position ID
+    /// @return interactions List of position interactions
+    function getPositionInteractions(uint positionId) external view returns (uint[2][] memory interactions);
+
     /// @notice Returns number of banks
     /// @return positions Number of banks
     function numBanks() external view returns (uint positions);
@@ -66,6 +67,7 @@ interface IPositionsManager {
     function migrateBank(uint bankId, address newBankAddress) external;
 
     /// @notice Get a position
+    /// @param positionId position ID
     /// @return position Position details
     function getPosition(uint positionId) external view returns (Position memory position);
 
