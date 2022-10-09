@@ -31,7 +31,7 @@ contract UniswapV2Swapper is ISwapper, Ownable {
         uint256 amount,
         address outToken,
         address self
-    ) external returns (uint256) {
+    ) payable external returns (uint256) {
         if (inToken == outToken) {
             return amount;
         }

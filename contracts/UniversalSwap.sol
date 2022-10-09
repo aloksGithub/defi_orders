@@ -7,8 +7,10 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./interfaces/IPoolInteractor.sol";
 import "./interfaces/ISwapper.sol";
 import "./interfaces/IUniversalSwap.sol";
+import "./interfaces/IWETH.sol";
 import "./libraries/Strings.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 import "hardhat/console.sol";
 
 contract UniversalSwap is IUniversalSwap, Ownable {
@@ -53,7 +55,16 @@ contract UniversalSwap is IUniversalSwap, Ownable {
         return false;
     }
 
+    function _getWETH() internal returns (uint networkTokenObtained){
+        uint startingBalance = IERC20(networkToken).balanceOf(address(this));
+        if (msg.value>0) {
+            IWETH(payable(networkToken)).deposit{value:msg.value}();
+        }
+        networkTokenObtained = IERC20(networkToken).balanceOf(address(this))-startingBalance;
+    }
+
     function _isSimpleToken(address token) internal returns (bool) {
+        if (token==networkToken) return true;
         if (_isPoolToken(token)) return false;
         for (uint i = 0;i<swappers.length; i++) {
             bool liquidable = ISwapper(swappers[i]).checkSwappable(token, networkToken);
@@ -189,7 +200,7 @@ contract UniversalSwap is IUniversalSwap, Ownable {
             uint obtained;
             if (_isSimpleToken(underlyingTokens[i])) {
                 obtained = _convertSimpleTokens(startingToken, fraction*startingTokenAmount/(fractionDenominator*underlyingTokens.length), underlyingTokens[i]);
-                } else {
+            } else {
                 obtained = _getFinalToken(underlyingTokens[i], fraction/(underlyingTokens.length*fractionDenominator), startingToken, startingTokenAmount);
             }
             underlyingObtained[i] = obtained;
@@ -200,7 +211,8 @@ contract UniversalSwap is IUniversalSwap, Ownable {
 
     function _convert(address[] memory inputTokens, uint[] memory inputTokenAmounts, address[] memory outputTokens, uint[] memory outputRatios) internal returns (uint[] memory tokensObtained) {
         (address[] memory simplifiedTokens, uint[] memory simplifiedTokenAmounts) = _simplifyInputTokens(inputTokens, inputTokenAmounts);
-        uint commonTokenAmount = _convertAllToOne(simplifiedTokens, simplifiedTokenAmounts, networkToken);
+        uint commonTokenAmount = _getWETH();
+        commonTokenAmount+=_convertAllToOne(simplifiedTokens, simplifiedTokenAmounts, networkToken);
         tokensObtained = new uint[](outputTokens.length);
         uint totalFraction = 0;
         for (uint i = 0; i<outputTokens.length; i++) {
@@ -213,7 +225,13 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     }
 
     /// @inheritdoc IUniversalSwap
-    function swap(address[] memory inputTokens, uint[] memory inputTokenAmounts, address[] memory outputTokens, uint[] memory outputRatios, uint[] memory minAmountsOut) public returns (uint[] memory tokensObtained) {
+    function swap(
+        address[] memory inputTokens,
+        uint[] memory inputTokenAmounts,
+        address[] memory outputTokens,
+        uint[] memory outputRatios,
+        uint[] memory minAmountsOut
+    ) payable public returns (uint[] memory tokensObtained) {
         for (uint i = 0; i<inputTokenAmounts.length; i++) {
             IERC20(inputTokens[i]).safeTransferFrom(msg.sender, address(this), inputTokenAmounts[i]);
         }
@@ -222,35 +240,6 @@ contract UniversalSwap is IUniversalSwap, Ownable {
             IERC20(outputTokens[i]).safeTransfer(msg.sender, tokensObtained[i]);
             require(minAmountsOut[i]<=tokensObtained[i], "Too much slippage");
         }
-    }
-
-    /// @inheritdoc IUniversalSwap
-    function swap(address[] memory inputTokens, uint[] memory inputTokenAmounts, address[] memory outputTokens, uint[] memory minAmountsOut) public returns (uint[] memory tokensObtained) {
-        uint[] memory ratios = new uint[](outputTokens.length);
-        for (uint j = 0; j<outputTokens.length; j++) {
-            ratios[j] = 1;
-        }
-        for (uint i = 0; i<inputTokenAmounts.length; i++) {
-            IERC20(inputTokens[i]).safeTransferFrom(msg.sender, address(this), inputTokenAmounts[i]);
-        }
-        tokensObtained = _convert(inputTokens, inputTokenAmounts, outputTokens, ratios);
-        for (uint i = 0; i<outputTokens.length; i++) {
-            IERC20(outputTokens[i]).safeTransfer(msg.sender, tokensObtained[i]);
-            require(minAmountsOut[i]<=tokensObtained[i], "Too much slippage");
-        }
-    }
-
-    /// @inheritdoc IUniversalSwap
-    function swap(address[] memory inputTokens, uint[] memory inputTokenAmounts, address outputToken, uint minAmountOut) public returns (uint finalTokenObtained) {
-        for (uint i = 0; i<inputTokenAmounts.length; i++) {
-            IERC20(inputTokens[i]).safeTransferFrom(msg.sender, address(this), inputTokenAmounts[i]);
-        }
-        (address[] memory simplifiedTokens, uint[] memory simplifiedTokenAmounts) = _simplifyInputTokens(inputTokens, inputTokenAmounts);
-        uint commonTokenAmount = _convertAllToOne(simplifiedTokens, simplifiedTokenAmounts, networkToken);
-        finalTokenObtained = _getFinalToken(outputToken, fractionDenominator, networkToken, commonTokenAmount);
-        IERC20(outputToken).safeTransfer(msg.sender, finalTokenObtained);
-        require(finalTokenObtained>=minAmountOut, "Too much slippage");
-        return finalTokenObtained;
     }
 
     function _checkArraysMatch(address[] memory array1, address[] memory array2) internal pure returns (bool) {
@@ -279,61 +268,97 @@ contract UniversalSwap is IUniversalSwap, Ownable {
             if (INFTPoolInteractor(nftPoolInteractors[i]).testSupported(nft.manager)) {
                 INFTPoolInteractor poolInteractor = INFTPoolInteractor(nftPoolInteractors[i]);
                 address[] memory underlyingTokens = poolInteractor.getUnderlyingTokens(nft.pool);
-                if (!_checkArraysMatch(underlyingTokens, inputTokens)) {
-                    uint[] memory ratios = new uint[](underlyingTokens.length);
-                    for (uint j = 0; j<underlyingTokens.length; j++) {
-                        ratios[j] = 1;
-                    }
-                    inputTokenAmounts = _convert(inputTokens, inputTokenAmounts, underlyingTokens, ratios);
-                    inputTokens = underlyingTokens;
+                uint[] memory ratios = new uint[](underlyingTokens.length);
+                {(int24 tick0, int24 tick1,,) = abi.decode(nft.data, (int24, int24, uint, uint));
+                (uint ratio0, uint ratio1) = poolInteractor.getRatio(nft.pool, tick0, tick1);
+                ratios[0] = ratio0;
+                ratios[1] = ratio1;}
+                inputTokenAmounts = _convert(inputTokens, inputTokenAmounts, underlyingTokens, ratios);
+                (bool success, bytes memory returnData) = nftPoolInteractors[i].delegatecall(
+                    abi.encodeWithSelector(INFTPoolInteractor(nftPoolInteractors[i]).mint.selector, nft, underlyingTokens, inputTokenAmounts)
+                );
+                if (success) {
+                    uint tokenId = abi.decode(returnData, (uint));
+                    emit NFTMinted(nft.manager, tokenId);
+                    return tokenId;
+                } else {
+                    revert("Failed to get NFT");
                 }
-                for (uint j = 0; j<inputTokens.length; j++) {
-                    IERC20(inputTokens[j]).safeTransfer(nftPoolInteractors[i], inputTokenAmounts[j]);
-                }
-                uint tokenId = INFTPoolInteractor(nftPoolInteractors[i]).mint(nft, inputTokens, inputTokenAmounts);
-                IERC721(nft.manager).transferFrom(address(this), msg.sender, tokenId);
-                emit NFTMinted(nft.manager, tokenId);
-                return tokenId;
-
-                // (bool success, bytes memory returnData) = nftPoolInteractors[i].delegatecall(abi.encodeWithSelector(
-                //     INFTPoolInteractor(nftPoolInteractors[i]).mint.selector,
-                //     nft, inputTokens, inputTokenAmounts
-                // ));
-                // if (success) {
-                //     uint tokenId = abi.decode(returnData, (uint));
-                //     emit NFTMinted(nft.manager, tokenId);
-                //     return tokenId;
-                // } else {
-                //     revert("OOPS")
-                // }
             }
         }
         revert("Failed to convert");
     }
 
     /// @inheritdoc IUniversalSwap
-    function swapNFT(Asset memory nft, address outputToken) public returns (uint) {
+    function swapNFT(Asset memory nft, address outputToken, uint minAmount) public returns (uint) {
         for (uint i = 0; i<nftPoolInteractors.length; i++) {
-            if (INFTPoolInteractor(nftPoolInteractors[i]).testSupported(nft.manager)) {  
-                IERC721(nft.manager).transferFrom(msg.sender, nftPoolInteractors[i], nft.tokenId);              
-                (address[] memory inputTokens, uint[] memory inputTokenAmounts) = INFTPoolInteractor(nftPoolInteractors[i]).burn(nft);
+            if (INFTPoolInteractor(nftPoolInteractors[i]).testSupported(nft.manager)) {
+                IERC721(nft.manager).transferFrom(msg.sender, address(this), nft.tokenId);
+                bytes memory returnData = nftPoolInteractors[i].functionDelegateCall(
+                    abi.encodeWithSelector(INFTPoolInteractor(nftPoolInteractors[i]).burn.selector, nft)
+                );
+                (address[] memory inputTokens, uint[] memory inputTokenAmounts) = abi.decode(returnData, (address[], uint[]));
                 (address[] memory simplifiedTokens, uint[] memory simplifiedTokenAmounts) = _simplifyInputTokens(inputTokens, inputTokenAmounts);
                 uint commonTokenAmount = _convertAllToOne(simplifiedTokens, simplifiedTokenAmounts, networkToken);
                 uint finalTokenObtained = _getFinalToken(outputToken, fractionDenominator, networkToken, commonTokenAmount);
                 IERC20(outputToken).safeTransfer(msg.sender, finalTokenObtained);
+                require(finalTokenObtained>minAmount, "Failed slippage check");
                 return finalTokenObtained;
             }
         }
         revert("Failed to convert");
     }
 
-    // function swap(address[] memory inputTokens, uint[] memory inputTokenAmounts, Asset[] memory nfts, address outputToken, uint minAmountOut) external returns (uint) {
-    //     uint tokenObtained = 0;
-    //     for (uint i = 0; i<nfts.length; i++) {
-    //         tokenObtained+=swapNFT(nfts[i], outputToken);
-    //     }
-    //     tokenObtained+=swap(inputTokens, inputTokenAmounts, outputToken, 0);
-    //     require(tokenObtained>=minAmountOut, "Failed slippage check");
-    //     return tokenObtained;
-    // }
+    function swapERC20(
+        address[] memory inputTokens,
+        uint[] memory inputTokenAmounts,
+        Asset[] memory nfts,
+        address outputToken,
+        uint minAmountOut
+    ) payable external returns (uint tokenObtained) {
+        tokenObtained = 0;
+        for (uint i = 0; i<nfts.length; i++) {
+            tokenObtained+=swapNFT(nfts[i], outputToken, 0);
+        }
+        address[] memory wanted = new address[](1);
+        uint[] memory ratios = new uint[](1);
+        uint[] memory slippage = new uint[](1);
+        wanted[0] = outputToken;
+        ratios[0] = 1;
+        slippage[0] = minAmountOut;
+        uint[] memory temp = swap(inputTokens, inputTokenAmounts, wanted, ratios, slippage);
+        tokenObtained+=temp[0];
+    }
+
+    function swapERC721(
+        address[] memory inputTokens,
+        uint[] memory inputTokenAmounts,
+        Asset[] memory nfts,
+        Asset memory nftToGet
+    ) payable external returns (uint) {
+        uint networkTokenObtained = 0;
+        for (uint i = 0; i<nfts.length; i++) {
+            networkTokenObtained+=swapNFT(nfts[i], networkToken, 0);
+        }
+        bool found = false;
+        for (uint i = 0; i<inputTokens.length; i++) {
+            if (inputTokens[i]==networkToken) {
+                inputTokenAmounts[i]+=networkTokenObtained;
+                found = true;
+            }
+        }
+        if (!found) {
+            address[] memory updatedTokens = new address[](inputTokens.length+1);
+            uint[] memory updatedAmounts = new uint[](inputTokens.length+1);
+            updatedTokens[0] = networkToken;
+            updatedAmounts[0] = networkTokenObtained;
+            for (uint i = 0; i<inputTokens.length; i++) {
+                updatedTokens[i+1] = inputTokens[i];
+                updatedAmounts[i+1] = inputTokenAmounts[i];
+            }
+            inputTokens = updatedTokens;
+            inputTokenAmounts = updatedAmounts;
+        }
+        return swapForNFT(inputTokens, inputTokenAmounts, nftToGet);
+    }
 }

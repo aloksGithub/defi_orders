@@ -14,7 +14,7 @@ describe("UniversalSwap tests", function () {
         universalSwap = await getUniversalSwap()
         owners = await ethers.getSigners()
         for (const owner of owners) {
-            const {wethContract} = await getNetworkToken(owner, '1000.0')
+            const {wethContract} = await getNetworkToken(owner, '100.0')
             await wethContract.connect(owner).approve(universalSwap.address, ethers.utils.parseEther("1000"))
         }
         networkTokenContract = await ethers.getContractAt("IWETH", networkAddresses.networkToken)
@@ -29,7 +29,7 @@ describe("UniversalSwap tests", function () {
             const balance = await contract.balanceOf(owners[0].address)
             expect(balance).to.greaterThan(0)
             await contract.approve(universalSwap.address, balance)
-            universalSwap["swap(address[],uint256[],address,uint256)"]([currentToken], [balance], token, 0)
+            await universalSwap.swap([currentToken], [balance], [token], [1], [0])
             currentToken = token
         }
         const endingbalance = await networkTokenContract.balanceOf(owners[0].address)
@@ -39,14 +39,15 @@ describe("UniversalSwap tests", function () {
         const getNFTForPool = async (pool:string) => {
             const managerAddress = networkAddresses.NFTManagers[0]
             const startingBalance = await networkTokenContract.balanceOf(owners[0].address)
-            const id = await getNFT(universalSwap, "10", managerAddress, pool, owners[0])
+            const id = await getNFT(universalSwap, "1", managerAddress, pool, owners[0])
             const manager = await ethers.getContractAt("INonfungiblePositionManager", managerAddress)
             const result = await manager.positions(id)
             const liquidity = result[7]
             expect(liquidity).to.greaterThan(0)
             expect(id).to.greaterThan(0)
             await manager.approve(universalSwap.address, id)
-            await universalSwap.swapNFT({pool, manager:managerAddress, liquidity: 0, tokenId: id, data:[]}, networkAddresses.networkToken)
+            await universalSwap.connect(owners[0]).swapERC20([], [], [{pool, manager:managerAddress, liquidity, tokenId: id, data:[]}], networkAddresses.networkToken, 0)
+            // await universalSwap.swapNFT({pool, manager:managerAddress, liquidity, tokenId: id, data:[]}, networkAddresses.networkToken, 0)
             const endingbalance = await networkTokenContract.balanceOf(owners[0].address)
             isRoughlyEqual(startingBalance, endingbalance)
         }

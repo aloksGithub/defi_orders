@@ -1,5 +1,5 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import hre from 'hardhat'
 import { PositionsManager, UniversalSwap } from "../typechain-types";
 import { BigNumber, Contract } from "ethers";
@@ -144,13 +144,13 @@ const nftPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
   const network = hre.network.name
   const factory = await ethers.getContractFactory("UniswapV3PoolInteractor")
   // @ts-ignore
-  const interactor = await factory.deploy(addresses[network].NFTManagers, addresses[network].uniswapV2Routers[0])
+  const interactor = await factory.deploy(addresses[network].NFTManagers)
   
   if (verify) {
     await hre.run("verify:verify", {
       address: interactor.address,
       // @ts-ignore
-      constructorArguments: [addresses[network].NFTManagers, addresses[network].uniswapV2Routers[0]],
+      constructorArguments: [addresses[network].NFTManagers],
       network
     })
   }
@@ -202,14 +202,21 @@ export const getUniversalSwap = async (verify:boolean=false, log:boolean=false) 
 
 const deployPositionsManager = async (verify:boolean=false, log:boolean=false) => {
   const network = hre.network.name
+  const feeModelFactory = await ethers.getContractFactory("DefaultFeeModel")
+  const feeModel = await feeModelFactory.deploy()
   const positionsManagerFactory = await ethers.getContractFactory("PositionsManager")
   const universalSwap = await getUniversalSwap(verify, log)
   // @ts-ignore
-  const positionsManager = await positionsManagerFactory.deploy(universalSwap.address, addresses[network].usdc)
+  const positionsManager = await positionsManagerFactory.deploy(universalSwap.address, addresses[network].usdc, feeModel.address)
   if (verify) {
     await hre.run("verify:verify", {
       address: positionsManager.address,
       constructorArguments: [universalSwap.address],
+      network
+    })
+    await hre.run("verify:verify", {
+      address: feeModel.address,
+      constructorArguments: [],
       network
     })
   }
@@ -400,7 +407,7 @@ export const getLPToken = async (lpToken: string, universalSwap: UniversalSwap, 
   await wethContract.connect(owner).approve(universalSwap.address, ethers.utils.parseEther(etherAmount))
   const lpTokenContract = await ethers.getContractAt("ERC20", lpToken)
   // @ts-ignore
-  await universalSwap.connect(owner)["swap(address[],uint256[],address,uint256)"]([addresses[network].networkToken], [ethers.utils.parseEther(etherAmount)], lpToken, 0)
+  await universalSwap.connect(owner).swap([addresses[network].networkToken], [ethers.utils.parseEther(etherAmount)], [lpToken], [1], [0])
   const lpBalance = await lpTokenContract.balanceOf(owner.address)
   return {lpBalance, lpTokenContract}
 }
@@ -456,9 +463,13 @@ export const getNFT = async (universalSwap:UniversalSwap, etherAmount:string, ma
   const tickSpacing = await poolContract.tickSpacing()
   const nearestTick = getNearestUsableTick(tick, tickSpacing)
   const data = abi.encode(
-    ["int24","int24"], // encode as address array
-    [nearestTick-2500*tickSpacing, nearestTick+20*tickSpacing]);
-  const tx = await universalSwap.connect(owner).swapForNFT([networkToken], [ethers.utils.parseEther(etherAmount)], {pool, manager, tokenId: 0, liquidity: 0, data}, {gasLimit: 30000000})
+    ["int24","int24","uint256","uint256"],
+    [nearestTick-2500*tickSpacing, nearestTick+20*tickSpacing, 0, 0]);
+  // const tx = await universalSwap.connect(owner).swapForNFT([networkToken], [ethers.utils.parseEther(etherAmount)], {pool, manager, tokenId: 0, liquidity: 0, data}, {gasLimit: 30000000})
+  const tx = await universalSwap.connect(owner).swapERC721(
+    [networkToken], [ethers.utils.parseEther((+etherAmount).toString())], [], {pool, manager, tokenId: 0, liquidity: 0, data},
+    // {value: ethers.utils.parseEther((+etherAmount).toString())}
+  )
   const rc = await tx.wait()
   const event = rc.events?.find(event => event.event === 'NFTMinted')
   // @ts-ignore

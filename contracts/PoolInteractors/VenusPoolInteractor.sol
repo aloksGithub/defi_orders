@@ -12,7 +12,7 @@ contract VenusPoolInteractor is IPoolInteractor {
     function burn(
         address lpTokenAddress,
         uint256 amount
-    ) external returns (address[] memory, uint256[] memory) {
+    ) payable external returns (address[] memory, uint256[] memory) {
         IVToken lpTokenContract = IVToken(lpTokenAddress);
         address underlying = lpTokenContract.underlying();
         lpTokenContract.transferFrom(msg.sender, address(this), amount);
@@ -28,7 +28,7 @@ contract VenusPoolInteractor is IPoolInteractor {
         return (receivedTokens, receivedTokenAmounts);
     }
 
-    function mint(address toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts) external returns(uint) {
+    function mint(address toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts) payable external returns(uint) {
         IVToken lpTokenContract = IVToken(toMint);
         address underlyingAddress = lpTokenContract.underlying();
         require(underlyingAddress==underlyingTokens[0] && underlyingTokens.length==1, "Invalid input token");

@@ -42,7 +42,7 @@ contract AaveV2PoolInteractor is IPoolInteractor {
     function burn(
         address lpTokenAddress,
         uint256 amount
-    ) external returns (address[] memory, uint256[] memory) {
+    ) payable external returns (address[] memory, uint256[] memory) {
         IERC20 lpTokenContract = IERC20(lpTokenAddress);
         lpTokenContract.transferFrom(msg.sender, address(this), amount);
         address underlyingAddress = getUnderlyingTokens(lpTokenAddress)[0];
@@ -71,7 +71,7 @@ contract AaveV2PoolInteractor is IPoolInteractor {
         return (receivedTokens, receivedTokenAmounts);
     }
 
-    function mint(address toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts) external returns(uint) {
+    function mint(address toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts) payable external returns(uint) {
         IERC20 lpTokenContract = IERC20(toMint);
         uint lpBalance = lpTokenContract.balanceOf(msg.sender);
         address underlyingAddress = getUnderlyingTokens(toMint)[0];

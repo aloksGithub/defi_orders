@@ -9,7 +9,7 @@ interface ISwapper {
         uint256 amount,
         address outToken,
         address self
-    ) external returns (uint256);
+    ) payable external returns (uint256);
 
     function checkSwappable(address inToken, address outToken)
         external

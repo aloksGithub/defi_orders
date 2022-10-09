@@ -1,6 +1,33 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
+
+/// @notice Structure representing a liquidation condition
+/// @param watchedToken The token whose price needs to be watched
+/// @param liquidateTo The token that the position will be converted into
+/// @param lessThan Wether liquidation will happen when price is below or above liquidationPoint
+/// @param liquidationPoint Price of watchedToken in usd*10**18 at which liquidation should be trigerred
+struct LiquidationCondition {
+    address watchedToken;
+    address liquidateTo;
+    bool lessThan;
+    uint liquidationPoint;
+}
+
+/// @notice Structure representing a position
+/// @param user The user that owns this position
+/// @param bankId Bank ID in which the assets are deposited
+/// @param bankToken Token ID for the assets in the bank
+/// @param amount Size of the position
+/// @param liquidationPoints A list of conditions, where if any is not met, the position will be liquidated
+struct Position {
+    address user;
+    uint bankId;
+    uint bankToken;
+    uint amount;
+    LiquidationCondition[] liquidationPoints;
+}
+
 interface IPositionsManager {
 
     event KeeperUpdate(address keeper, bool active);
@@ -13,32 +40,7 @@ interface IPositionsManager {
     event LiquidationPointsUpdate(uint positionId, LiquidationCondition[] liquidationPoints);
     event Harvest(uint positionId, address[] rewards, uint[] rewardAmounts);
     event HarvestRecompound(uint positionId, uint lpTokens);
-
-    /// @notice Structure representing a position
-    /// @param user The user that owns this position
-    /// @param bankId Bank ID in which the assets are deposited
-    /// @param bankToken Token ID for the assets in the bank
-    /// @param amount Size of the position
-    /// @param liquidationPoints A list of conditions, where if any is not met, the position will be liquidated
-    struct Position {
-        address user;
-        uint bankId;
-        uint bankToken;
-        uint amount;
-        LiquidationCondition[] liquidationPoints;
-    }
-
-    /// @notice Structure representing a liquidation condition
-    /// @param watchedToken The token whose price needs to be watched
-    /// @param liquidateTo The token that the position will be converted into
-    /// @param lessThan Wether liquidation will happen when price is below or above liquidationPoint
-    /// @param liquidationPoint Price of watchedToken in usd*10**18 at which liquidation should be trigerred
-    struct LiquidationCondition {
-        address watchedToken;
-        address liquidateTo;
-        bool lessThan;
-        uint liquidationPoint;
-    }
+    event FeeClaimed(uint positionId, uint usdcClaimed);
 
     /// @notice Returns number of positions that have been opened
     /// @return positions Number of positions that have been opened
@@ -48,7 +50,7 @@ interface IPositionsManager {
     /// @notice Interaction type 0 is deposit, 1 is withdraw, 2 is harvest, 3 is compound and 4 is bot liquidation
     /// @param positionId position ID
     /// @return interactions List of position interactions
-    function getPositionInteractions(uint positionId) external view returns (uint[2][] memory interactions);
+    function getPositionInteractions(uint positionId) external view returns (uint[3][] memory interactions);
 
     /// @notice Returns number of banks
     /// @return positions Number of banks
@@ -56,6 +58,13 @@ interface IPositionsManager {
 
     /// @notice Set the address for the EOA that can be used to trigger liquidations
     function setKeeper(address keeperAddress, bool active) external;
+
+    /// @notice Set the fee model to be used for specified position
+    /// @notice Will be used to discount fees for customers with large positions
+    function setFeeModel(uint positionId, address feeModel) external;
+
+    /// @notice Set the default fee model used for all newly created positions
+    function setDefaultFeeModel(address feeModel) external;
 
     /// @notice Add a new bank
     /// @param bank Address of new bank
@@ -124,8 +133,9 @@ interface IPositionsManager {
 
     /// @notice Harvest rewards for position and deposit them back to increase position value
     /// @param positionId Position ID
+    /// @param minAmountsUsed Slippage control if swap is needed
     /// @return newLpTokens Amount of new tokens added/increase in liquidity for position
-    function harvestAndRecompound(uint positionId) external returns (uint newLpTokens);
+    function harvestAndRecompound(uint positionId, uint[] memory minAmountsUsed) external returns (uint newLpTokens);
 
     /// @notice Liquidate a position that has violated some liquidation condition
     /// @notice Can only be called by a keeper
@@ -133,4 +143,8 @@ interface IPositionsManager {
     /// @param liquidationIndex Index of liquidation condition that is no longer satisfied
     /// @param minAmountOut Slippage Control
     function botLiquidate(uint positionId, uint liquidationIndex, uint minAmountOut) external;
+
+    /// @notice Function used to claim the fees for a position
+    /// @notice claimDevFee will be called on every position interaction
+    function claimDevFee(uint positionId) external;
 }

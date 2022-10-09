@@ -104,19 +104,22 @@ contract ERC721Bank is BankBase {
         return (rewardAddresses, rewardAmounts);
     }
     
-    function getUnderlyingForFirstDeposit(uint tokenId) override view public returns (address[] memory underlying) {
+    function getUnderlyingForFirstDeposit(uint tokenId) override view public returns (address[] memory underlying, uint[] memory ratios) {
         (,address manager,) = decodeId(tokenId);
         underlying = new address[](1);
         underlying[0] = manager;
+        ratios = new uint[](1);
+        ratios[0] = 1;
     }
 
-    function getUnderlyingForRecurringDeposit(uint tokenId) override view public returns (address[] memory) {
-        (address pool, address manager,) = decodeId(tokenId);
+    function getUnderlyingForRecurringDeposit(uint tokenId) override view public returns (address[] memory, uint[] memory ratios) {
+        (address pool, address manager, uint pos_id) = decodeId(tokenId);
         IERC721Wrapper wrapper = IERC721Wrapper(erc721Wrappers[manager]);
-        return wrapper.getERC20Base(pool);
+        return wrapper.getRatio(manager, pos_id);
+        // return wrapper.getERC20Base(pool);
     }
     
     function getRewards(uint tokenId) override external view returns (address[] memory rewardsArray) {
-        return getUnderlyingForRecurringDeposit(tokenId);
+        (rewardsArray,) = getUnderlyingForRecurringDeposit(tokenId);
     }
 }

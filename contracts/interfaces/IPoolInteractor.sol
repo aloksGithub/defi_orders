@@ -12,9 +12,9 @@ interface IPoolInteractor {
 
     event Burn(address lpTokenAddress, uint256 amount);
 
-    function burn(address lpTokenAddress, uint256 amount) external returns (address[] memory, uint256[] memory);
+    function burn(address lpTokenAddress, uint256 amount) payable external returns (address[] memory, uint256[] memory);
 
-    function mint(address toMint, address[] memory underlyingTokens, uint256[] memory underlyingAmounts) external returns (uint256);
+    function mint(address toMint, address[] memory underlyingTokens, uint256[] memory underlyingAmounts) payable external returns (uint256);
 
     function testSupported(address lpToken) external returns (bool);
 

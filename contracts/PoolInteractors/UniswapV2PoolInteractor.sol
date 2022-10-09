@@ -19,6 +19,7 @@ contract UniswapV2PoolInteractor is IPoolInteractor, Ownable {
     }
 
     function burn(address lpTokenAddress, uint256 amount)
+        payable
         external
         returns (address[] memory, uint256[] memory)
     {
@@ -39,7 +40,7 @@ contract UniswapV2PoolInteractor is IPoolInteractor, Ownable {
         address toMint,
         address[] memory underlyingTokens,
         uint256[] memory underlyingAmounts
-    ) external returns (uint256) {
+    ) payable external returns (uint256) {
         IUniswapV2Pair poolContract = IUniswapV2Pair(toMint);
         for (uint256 i = 0; i < underlyingTokens.length; i++) {
             IERC20(underlyingTokens[i]).safeTransferFrom(msg.sender, toMint, underlyingAmounts[i]);

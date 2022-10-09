@@ -27,11 +27,13 @@ abstract contract BankBase is Ownable {
     function name() virtual external pure returns (string memory);
     function getIdFromLpToken(address lpToken) virtual external view returns (bool, uint);
     function decodeId(uint id) virtual external view returns (address, address, uint);
-    function getUnderlyingForFirstDeposit(uint tokenId) virtual public returns (address[] memory underlying) {
+    function getUnderlyingForFirstDeposit(uint tokenId) virtual public returns (address[] memory underlying, uint[] memory ratios) {
         underlying = new address[](1);
         underlying[0] = getLPToken(tokenId);
+        ratios = new uint[](1);
+        ratios[0] = 1;
     }
-    function getUnderlyingForRecurringDeposit(uint tokenId) virtual external returns (address[] memory) {
+    function getUnderlyingForRecurringDeposit(uint tokenId) virtual external returns (address[] memory, uint[] memory ratios) {
         return getUnderlyingForFirstDeposit(tokenId);
     }
     function getLPToken(uint tokenId) virtual public returns (address);

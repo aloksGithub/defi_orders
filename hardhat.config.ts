@@ -4,6 +4,7 @@ import "@nomiclabs/hardhat-ethers";
 require('dotenv').config();
 require("@nomiclabs/hardhat-etherscan");
 import deployments from "./constants/deployments.json"
+import '@openzeppelin/hardhat-upgrades';
 
 const rpcs = {
   bsc: process.env.BSC_RPC!,
@@ -12,13 +13,21 @@ const rpcs = {
 
 const config: HardhatUserConfig = {
   solidity: {
-    version: "0.8.9",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 1000,
+    compilers: [
+      {
+        version: "0.8.9",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1000,
+          },
+        },
       },
-    },
+      {
+        version: "0.6.7",
+        settings: {},
+      },
+    ],
   },
   networks: {
     hardhat: {

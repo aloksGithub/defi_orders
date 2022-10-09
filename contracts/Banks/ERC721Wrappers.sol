@@ -7,6 +7,8 @@ import "../interfaces/UniswapV3/IUniswapV3Pool.sol";
 import "../interfaces/UniswapV3/IUniswapV3Factory.sol";
 import "./BankBase.sol";
 import "hardhat/console.sol";
+import '../libraries/TickMath.sol';
+import "../libraries/LiquidityAmounts.sol";
 
 abstract contract IERC721Wrapper is Ownable {
     function isSupported(address manager, address pool) virtual external view returns (bool);
@@ -14,10 +16,12 @@ abstract contract IERC721Wrapper is Ownable {
     function deposit(address manager, uint id, address[] memory suppliedTokens, uint[] memory suppliedAmounts) virtual external returns (uint);
     function withdraw(address manager, uint id, uint amount, address receiver) virtual external returns (address[] memory outTokens, uint[] memory tokenAmounts);
     function harvest(address manager, uint id, address receiver) virtual external returns (address[] memory outTokens, uint[] memory tokenAmounts);
+    function getRatio(address manager, uint id) virtual view external returns (address[] memory tokens, uint[] memory ratios);
     function getERC20Base(address pool) virtual external view returns (address[] memory underlyingTokens);
 }
 
 contract UniswapV3Wrapper is IERC721Wrapper {
+    using SafeERC20 for IERC20;
 
     function isSupported(address managerAddress, address poolAddress) override external view returns (bool) {
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
@@ -42,7 +46,9 @@ contract UniswapV3Wrapper is IERC721Wrapper {
 
     function deposit(address manager, uint id, address[] memory suppliedTokens, uint[] memory suppliedAmounts) override external returns (uint) {
         for (uint i = 0;i<suppliedTokens.length; i++) {
-            IERC20(suppliedTokens[i]).approve(manager, suppliedAmounts[i]);
+            uint allowance = IERC20(suppliedTokens[i]).allowance(address(this), manager);
+            IERC20(suppliedTokens[i]).safeDecreaseAllowance(manager, allowance);
+            IERC20(suppliedTokens[i]).safeIncreaseAllowance(manager, suppliedAmounts[i]);
         }
         (,,address token0, address token1,,,,,,,,) = INonfungiblePositionManager(manager).positions(id);
         uint amount0;
@@ -60,7 +66,16 @@ contract UniswapV3Wrapper is IERC721Wrapper {
             0, 0,
             block.timestamp
         );
-        (uint minted,,) = INonfungiblePositionManager(manager).increaseLiquidity(params);
+        (uint minted, uint a0, uint a1) = INonfungiblePositionManager(manager).increaseLiquidity(params);
+        address owner = INonfungiblePositionManager(manager).ownerOf(id);
+        // Refund left overs
+        if (token0==suppliedTokens[0] && token1==suppliedTokens[1]) {
+            IERC20(token0).safeTransfer(owner, suppliedAmounts[0]-a0);
+            IERC20(token1).safeTransfer(owner, suppliedAmounts[1]-a1);
+        } else {
+            IERC20(token0).safeTransfer(owner, suppliedAmounts[1]-a0);
+            IERC20(token1).safeTransfer(owner, suppliedAmounts[0]-a1);
+        }
         return minted;
     }
 
@@ -79,8 +94,8 @@ contract UniswapV3Wrapper is IERC721Wrapper {
             2**128 - 1
         );
         INonfungiblePositionManager(manager).collect(params);
-        IERC20(token0).transfer(receiver, token0Amount);
-        IERC20(token1).transfer(receiver, token1Amount);
+        IERC20(token0).safeTransfer(receiver, token0Amount);
+        IERC20(token1).safeTransfer(receiver, token1Amount);
         outTokens = new address[](2);
         outTokens[0] = token0;
         outTokens[1] = token1;
@@ -104,6 +119,30 @@ contract UniswapV3Wrapper is IERC721Wrapper {
         tokenAmounts = new uint[](2);
         tokenAmounts[0] = amount0;
         tokenAmounts[1] = amount1;
+    }
+
+    function getRatio(address manager, uint tokenId) external override view returns (address[] memory tokens, uint[] memory ratios) {
+        (,,address token0, address token1, uint24 fee, int24 tick0, int24 tick1,,,,,) = INonfungiblePositionManager(manager).positions(tokenId);
+        IUniswapV3Factory factory = IUniswapV3Factory(INonfungiblePositionManager(manager).factory());
+        IUniswapV3Pool pool = IUniswapV3Pool(factory.getPool(token0, token1, fee));
+        (uint160 sqrtPriceX96, , , , , , ) = pool.slot0();
+        tokens = new address[](2);
+        tokens[0] = token0;
+        tokens[1] = token1;
+        ratios = new uint[](2);
+        {
+            uint128 liquidity = LiquidityAmounts.getLiquidityForAmounts(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tick0), TickMath.getSqrtRatioAtTick(tick1), 1e18, 1e18);
+            (uint amount0, uint amount1) = LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tick0), TickMath.getSqrtRatioAtTick(tick1), liquidity);
+            uint price;
+            uint MAX = 2**256 - 1;
+            if (uint(sqrtPriceX96)*uint(sqrtPriceX96)>MAX/1e18) {
+                price = (uint(sqrtPriceX96)*uint(sqrtPriceX96)>>(96 * 2))*1e18;
+            } else {
+                price = uint(sqrtPriceX96)*uint(sqrtPriceX96)*1e18 >> (96 * 2);
+            }
+                ratios[0] = amount0;
+                ratios[1] = amount1*1e18/price;
+        }
     }
 
     function getERC20Base(address poolAddress) external override view returns (address[] memory underlyingTokens) {

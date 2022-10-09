@@ -38,25 +38,7 @@ interface IUniversalSwap {
     /// @param outputRatios Ratios of ERC20 tokens to be converted to
     /// @param minAmountsOut Slippage control
     /// @return tokensObtained Amount of outputTokens obtained
-    function swap(address[] memory inputTokens, uint[] memory inputTokenAmounts, address[] memory outputTokens, uint[] memory outputRatios, uint[] memory minAmountsOut) external returns (uint[] memory tokensObtained);
-
-    /// @notice Swap ERC20 tokens for multiple ERC20 tokens in an equal ratio
-    /// @dev Before calling, make sure UniversalSwap contract has approvals according to inputTokenAmounts
-    /// @param inputTokens ERC20 tokens to be converted
-    /// @param inputTokenAmounts Amounts for the ERC20 tokens to be converted
-    /// @param outputTokens ERC20 tokens to convert to
-    /// @param minAmountsOut Slippage control
-    /// @return tokensObtained Amount of outputTokens obtained
-    function swap(address[] memory inputTokens, uint[] memory inputTokenAmounts, address[] memory outputTokens, uint[] memory minAmountsOut) external returns (uint[] memory tokensObtained);
-
-    /// @notice Swap ERC20 tokens for a single ERC20 token
-    /// @dev Before calling, make sure UniversalSwap contract has approvals according to inputTokenAmounts
-    /// @param inputTokens ERC20 tokens to be converted
-    /// @param inputTokenAmounts Amounts for the ERC20 tokens to be converted
-    /// @param outputToken ERC20 tokens to convert to
-    /// @param minAmountOut Slippage control
-    /// @return tokenObtained Amount of outputToken obtained
-    function swap(address[] memory inputTokens, uint[] memory inputTokenAmounts, address outputToken, uint minAmountOut) external returns (uint tokenObtained);
+    function swap(address[] memory inputTokens, uint[] memory inputTokenAmounts, address[] memory outputTokens, uint[] memory outputRatios, uint[] memory minAmountsOut) payable external returns (uint[] memory tokensObtained);
 
     /// @notice Swap ERC20 tokens for ERV721 token for a UniswapV3 like position
     /// @param inputTokens ERC20 tokens to be converted
@@ -66,5 +48,9 @@ interface IUniversalSwap {
     function swapForNFT(address[] memory inputTokens, uint[] memory inputTokenAmounts, Asset memory nft) external returns (uint id);
 
     /// @notice Swap ERC721 token for ERC20 token
-    function swapNFT(Asset memory nft, address outputToken) external returns (uint);
+    /// @param nft Structure describing NFT to swap
+    /// @param outputToken ERC20 token to swap for
+    /// @param minAmount Slippage control
+    /// @return finalTokenObtained Amount of outputToken obtained
+    function swapNFT(Asset memory nft, address outputToken, uint minAmount) external returns (uint finalTokenObtained);
 }

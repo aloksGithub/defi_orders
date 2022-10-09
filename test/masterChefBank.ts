@@ -42,7 +42,7 @@ describe ("MasterChefBank tests", function () {
             )
             const positionInfo1 = await manager.getPosition(positionId)
             await ethers.provider.send("hardhat_mine", ["0x100"]);
-            await manager.connect(owners[0]).harvestAndRecompound(positionId)
+            await manager.connect(owners[0]).harvestAndRecompound(positionId, new Array(rewardContracts.length).fill(0))
             await manager.callStatic.closeToUSDC(positionId)
             const positionInfo2 = await manager.getPosition(positionId)
             expect(positionInfo2.amount).to.greaterThan(positionInfo1.amount)
@@ -169,7 +169,7 @@ describe ("MasterChefBank tests", function () {
             expect(lpBalance0).to.greaterThan(0)
     
             await lpTokenContract.connect(owner).approve(manager.address, lpBalance0)
-            const {positionId} = await depositNew(
+            const {positionId, rewardContracts} = await depositNew(
                 manager,
                 lpToken,
                 lpBalance0.toString(),
@@ -178,7 +178,7 @@ describe ("MasterChefBank tests", function () {
             )
             const positionInfo1 = await manager.getPosition(positionId)
             await ethers.provider.send("hardhat_mine", ["0x100"]);
-            await manager.connect(owner).harvestAndRecompound(positionId)
+            await manager.connect(owner).harvestAndRecompound(positionId, new Array(rewardContracts.length).fill(0))
             const positionInfo2 = await manager.getPosition(positionId)
             expect(positionInfo2.amount).to.greaterThan(positionInfo1.amount)
             await manager.connect(owners[0]).botLiquidate(positionId, 0, 0)
