@@ -99,7 +99,7 @@ interface IPositionsManager {
     /// @param suppliedTokens list of tokens supplied to increase the positions value
     /// @param suppliedAmounts amounts supplied for each of the supplied tokens
     /// @param minAmountsUsed Slippage control, used when supplied tokens don't match the positions underlying and conversion needs to be done
-    function deposit(uint positionId, address[] memory suppliedTokens, uint[] memory suppliedAmounts, uint[] memory minAmountsUsed) external;
+    function deposit(uint positionId, address[] memory suppliedTokens, uint[] memory suppliedAmounts, uint[] memory minAmountsUsed) payable external;
 
     /// @notice Create new position and deposit into it
     /// @dev Before calling, make sure PositionsManager contract has approvals according to suppliedAmounts
@@ -107,8 +107,7 @@ interface IPositionsManager {
     /// @param position position details
     /// @param suppliedTokens list of tokens supplied to increase the positions value
     /// @param suppliedAmounts amounts supplied for each of the supplied tokens
-    /// @param minAmountsUsed Slippage control, used when supplied tokens don't match the positions underlying and conversion needs to be done
-    function deposit(Position memory position, address[] memory suppliedTokens, uint[] memory suppliedAmounts, uint[] memory minAmountsUsed) external returns (uint);
+    function deposit(Position memory position, address[] memory suppliedTokens, uint[] memory suppliedAmounts) payable external returns (uint);
 
     /// @notice Withdraw from a position
     /// @dev In case of ERC721Bank position, amount should be liquidity to withdraw like in UniswapV3PositionsManager

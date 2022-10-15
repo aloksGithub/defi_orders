@@ -21,11 +21,10 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     event NFTMinted(address manager, uint tokenId);
 
     address public networkToken;
-    address[] swappers;
-    string[] protocols;
+    address[] public swappers;
     uint fractionDenominator = 10000;
-    address[] poolInteractors;
-    address[] nftPoolInteractors;
+    address[] public poolInteractors;
+    address[] public nftPoolInteractors;
 
     constructor (address[] memory _poolInteractors, address[] memory _nftPoolInteractors, address _networkToken, address[] memory _swappers) {
         poolInteractors = _poolInteractors;
@@ -238,7 +237,7 @@ contract UniversalSwap is IUniversalSwap, Ownable {
         tokensObtained = _convert(inputTokens, inputTokenAmounts, outputTokens, outputRatios);
         for (uint i = 0; i<outputTokens.length; i++) {
             IERC20(outputTokens[i]).safeTransfer(msg.sender, tokensObtained[i]);
-            require(minAmountsOut[i]<=tokensObtained[i], "Too much slippage");
+            require(minAmountsOut[i]<=tokensObtained[i], "slippage");
         }
     }
 
@@ -302,7 +301,7 @@ contract UniversalSwap is IUniversalSwap, Ownable {
                 uint commonTokenAmount = _convertAllToOne(simplifiedTokens, simplifiedTokenAmounts, networkToken);
                 uint finalTokenObtained = _getFinalToken(outputToken, fractionDenominator, networkToken, commonTokenAmount);
                 IERC20(outputToken).safeTransfer(msg.sender, finalTokenObtained);
-                require(finalTokenObtained>minAmount, "Failed slippage check");
+                require(finalTokenObtained>minAmount, "slippage");
                 return finalTokenObtained;
             }
         }

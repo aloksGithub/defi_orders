@@ -6,6 +6,7 @@ import { BigNumber, Contract } from "ethers";
 import { expect } from "chai";
 import {addresses as ethereumAddresses} from "../constants/ethereum_addresses.json"
 import {addresses as bscAddresses} from "../constants/bsc_addresses.json"
+import {addresses as bscTestnetAddresses} from "../constants/bsc_testnet_addresses.json"
 var fs = require('fs');
 
 const ENVIRONMENT = process.env.ENVIRONMENT!
@@ -15,6 +16,7 @@ const NUM_INITIALIZE_MASTERCHEFS = 10
 export const addresses = {
   mainnet: ethereumAddresses,
   bsc: bscAddresses,
+  bscTestnet: bscTestnetAddresses,
   localhost: undefined,
   hardhat: undefined
 }
@@ -430,7 +432,7 @@ export const depositNew = async (manager:PositionsManager, lpToken: string, amou
     amount,
     liquidationPoints
   }
-  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,(address,address,bool,uint256)[]),address[],uint256[],uint256[])"](position, [lpToken], [amount], [0])
+  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,(address,address,bool,uint256)[]),address[],uint256[])"](position, [lpToken], [amount])
   return {positionId: numPositions, rewards, rewardContracts}
 }
 
@@ -495,7 +497,7 @@ export const depositNewNFT = async (manager:PositionsManager, nftManager:string,
     amount:0,
     liquidationPoints
   }
-  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,(address,address,bool,uint256)[]),address[],uint256[],uint256[])"](position, [nftManager], [id], [0])
+  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,(address,address,bool,uint256)[]),address[],uint256[])"](position, [nftManager], [id])
   return {positionId: numPositions, rewards, rewardContracts}
 }
 

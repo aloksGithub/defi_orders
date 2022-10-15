@@ -123,4 +123,8 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
         receivedTokens[1] = pool.token1();
         return receivedTokens;
     }
+
+    function getTickAtRatio(uint160 ratio) external pure returns (int24) {
+        return TickMath.getTickAtSqrtRatio(ratio);
+    }
 }
