@@ -128,16 +128,19 @@ contract UniversalSwap is IUniversalSwap, Ownable {
 
     function _convertSimpleTokens(address token0, uint amount, address token1) internal returns (uint) {
         if (token0==token1 || amount==0) return amount;
+        address bestSwapper;
+        uint maxAmountOut;
         for (uint i = 0;i<swappers.length; i++) {
-            (bool success, bytes memory returnData) = swappers[i].delegatecall(
-                abi.encodeWithSelector(ISwapper(swappers[i]).swap.selector, token0, amount, token1, swappers[i])
-            );
-            if (success) {
-                uint amountReturned = abi.decode(returnData, (uint));
-                return amountReturned;
+            uint amountOut = ISwapper(swappers[i]).getAmountOut(token0, amount, token1);
+            if (amountOut>maxAmountOut) {
+                maxAmountOut = amountOut;
+                bestSwapper = swappers[i];
             }
         }
-        revert("Failed to convert token");
+        if (bestSwapper==address(0) || maxAmountOut==0) return 0;
+        bytes memory returnData = bestSwapper.functionDelegateCall(abi.encodeWithSelector(ISwapper(bestSwapper).swap.selector, token0, amount, token1, bestSwapper));
+        (uint amountReturned) = abi.decode(returnData, (uint));
+        return amountReturned;
     }
 
     function _convertAllToOne(address[] memory inputTokens, uint[] memory inputTokenAmounts, address toToken) internal returns (uint) {
@@ -232,7 +235,9 @@ contract UniversalSwap is IUniversalSwap, Ownable {
         uint[] memory minAmountsOut
     ) payable public returns (uint[] memory tokensObtained) {
         for (uint i = 0; i<inputTokenAmounts.length; i++) {
+            uint balanceBefore = IERC20(inputTokens[i]).balanceOf(address(this));
             IERC20(inputTokens[i]).safeTransferFrom(msg.sender, address(this), inputTokenAmounts[i]);
+            inputTokenAmounts[i] = IERC20(inputTokens[i]).balanceOf(address(this))-balanceBefore;
         }
         tokensObtained = _convert(inputTokens, inputTokenAmounts, outputTokens, outputRatios);
         for (uint i = 0; i<outputTokens.length; i++) {

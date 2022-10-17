@@ -3,7 +3,6 @@ import { ethers } from "hardhat";
 import hre from 'hardhat'
 import { IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
 import {deployAndInitializeManager, addresses, getNetworkToken, getLPToken, depositNew, isRoughlyEqual} from "../utils"
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 require('dotenv').config();
 
 const NETWORK = hre.network.name

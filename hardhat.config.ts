@@ -8,6 +8,7 @@ import '@openzeppelin/hardhat-upgrades';
 
 const rpcs = {
   bsc: process.env.BSC_RPC!,
+  bscTestnet: process.env.BSC_TESTNET_RPC!,
   mainnet: process.env.ETHEREUM_RPC!
 }
 

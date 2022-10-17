@@ -13,6 +13,8 @@ const ENVIRONMENT = process.env.ENVIRONMENT!
 const CURRENTLY_FORKING = process.env.CURRENTLY_FORKING!
 const NUM_INITIALIZE_MASTERCHEFS = 10
 
+const delay = (ms:number) => new Promise(res => setTimeout(res, ms));
+
 export const addresses = {
   mainnet: ethereumAddresses,
   bsc: bscAddresses,
@@ -49,34 +51,72 @@ const ethereumPoolInteractors = async (verify:boolean=false, log:boolean=false) 
   const uniswapPoolInteractor = await uniswapPoolInteractorContract.deploy(["Uniswap V2", "SushiSwap LP Token"])
   const aaveV2PoolInteractorFactory = await ethers.getContractFactory('AaveV2PoolInteractor')
   const aaveV2PoolInteractor = await aaveV2PoolInteractorFactory.deploy(addresses['mainnet'].aaveV1LendingPool, addresses['mainnet'].aaveV2LendingPool, addresses['mainnet'].aaveV3LendingPool)
+  await delay(10000)
   if (verify) {
+    try {
     await hre.run("verify:verify", {
       address: uniswapPoolInteractor.address,
       constructorArguments: [["Uniswap V2", "SushiSwap LP Token"]],
       network: 'mainnet'
     })
+    } catch (e) {
+      console.log(e)
+    }
+    try {
     await hre.run("verify:verify", {
       address: aaveV2PoolInteractor.address,
       constructorArguments: [addresses['mainnet'].aaveV1LendingPool, addresses['mainnet'].aaveV2LendingPool, addresses['mainnet'].aaveV3LendingPool],
       network: 'mainnet'
     })
+    } catch (e) {
+      console.log(e)
+    }
   }
   if (log) {
     logDeployment('UniswapV2PoolInteractor', uniswapPoolInteractor)
     logDeployment('AaveV2PoolInteractor', aaveV2PoolInteractor)
   }
-  return [uniswapPoolInteractor.address, uniswapPoolInteractor.address, aaveV2PoolInteractor.address]
+  return [uniswapPoolInteractor.address, aaveV2PoolInteractor.address]
 }
 
 const ethereumSwappers = async (verify:boolean=false, log:boolean=false) => {
   const uniswapV2SwapperFactory = await ethers.getContractFactory("UniswapV2Swapper")
   const uniswapV2Swapper = await uniswapV2SwapperFactory.deploy(addresses['mainnet'].uniswapV2Routers)
+  await delay(10000)
   if (verify) {
+    try {
     await hre.run("verify:verify", {
       address: uniswapV2Swapper.address,
       constructorArguments: [addresses['mainnet'].uniswapV2Routers],
       network: 'mainnet'
     })
+    } catch (e) {
+      console.log(e)
+    }
+  }
+  if (log) {
+    logDeployment('UniswapV2Swapper', uniswapV2Swapper)
+  }
+  return [uniswapV2Swapper.address]
+}
+
+const swappers = async(verify:boolean=false, log:boolean=false) => {
+  const network = hre.network.name
+  const uniswapV2SwapperFactory = await ethers.getContractFactory("UniswapV2Swapper")
+  // @ts-ignore
+  const uniswapV2Swapper = await uniswapV2SwapperFactory.deploy(addresses[network].uniswapV2Routers)
+  await delay(10000)
+  if (verify) {
+    try {
+    await hre.run("verify:verify", {
+      address: uniswapV2Swapper.address,
+      // @ts-ignore
+      constructorArguments: [addresses[network].uniswapV2Routers],
+      network: network
+    })
+    } catch (e) {
+      console.log(e)
+    }
   }
   if (log) {
     logDeployment('UniswapV2Swapper', uniswapV2Swapper)
@@ -89,39 +129,53 @@ const bscPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
   const venusPoolInteractor = await venusPoolInteractorFactory.deploy()
   const pancakePoolInteractorFactory = await ethers.getContractFactory("UniswapV2PoolInteractor")
   const pancakePoolInteractor = await pancakePoolInteractorFactory.deploy(['Pancake LPs', 'Biswap LPs'])
+  await delay(10000)
   if (verify) {
+    try {
     await hre.run("verify:verify", {
       address: venusPoolInteractor.address,
       constructorArguments: [],
       network: 'bsc'
     })
+    } catch (e) {
+      console.log(e)
+    }
+    try {
     await hre.run("verify:verify", {
       address: pancakePoolInteractor.address,
       constructorArguments: [['Pancake LPs', 'Biswap LPs']],
       network: 'bsc'
     })
+    } catch (e) {
+      console.log(e)
+    }
   }
   if (log) {
     logDeployment('VenusPoolInteractor', venusPoolInteractor)
     logDeployment('UniswapV2PoolInteractor', pancakePoolInteractor)
   }
-  return [venusPoolInteractor.address, pancakePoolInteractor.address, pancakePoolInteractor.address]
+  return [venusPoolInteractor.address, pancakePoolInteractor.address]
 }
 
-const bscSwappers = async(verify:boolean=false, log:boolean=false) => {
-  const uniswapV2SwapperFactory = await ethers.getContractFactory("UniswapV2Swapper")
-  const uniswapV2Swapper = await uniswapV2SwapperFactory.deploy(addresses['bsc'].uniswapV2Routers)
+const bscTestnetPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
+  const pancakePoolInteractorFactory = await ethers.getContractFactory("UniswapV2PoolInteractor")
+  const pancakePoolInteractor = await pancakePoolInteractorFactory.deploy(['Pancake LPs'])
+  await delay(10000)
   if (verify) {
+    try {
     await hre.run("verify:verify", {
-      address: uniswapV2Swapper.address,
-      constructorArguments: [addresses['bsc'].uniswapV2Routers],
+      address: pancakePoolInteractor.address,
+      constructorArguments: [['Pancake LPs']],
       network: 'bsc'
     })
+    } catch (e) {
+      console.log(e)
+    }
   }
   if (log) {
-    logDeployment('UniswapV2Swapper', uniswapV2Swapper)
+    logDeployment('UniswapV2PoolInteractor', pancakePoolInteractor)
   }
-  return [uniswapV2Swapper.address]
+  return [pancakePoolInteractor.address]
 }
 
 export const getPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
@@ -130,6 +184,7 @@ export const getPoolInteractors = async (verify:boolean=false, log:boolean=false
   let poolInteractorFunctions = {
     mainnet: ethereumPoolInteractors,
     bsc: bscPoolInteractors,
+    bscTestnet: bscTestnetPoolInteractors,
     localhost: undefined,
     hardhat: undefined
   }
@@ -147,14 +202,18 @@ const nftPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
   const factory = await ethers.getContractFactory("UniswapV3PoolInteractor")
   // @ts-ignore
   const interactor = await factory.deploy(addresses[network].NFTManagers)
-  
+  await delay(10000)
   if (verify) {
+    try {
     await hre.run("verify:verify", {
       address: interactor.address,
       // @ts-ignore
       constructorArguments: [addresses[network].NFTManagers],
       network
     })
+    } catch (e) {
+      console.log(e)
+    }
   }
   if (log) {
     logDeployment('UniswapV3PoolInteractor', interactor)
@@ -165,8 +224,9 @@ const nftPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
 const getSwappers = async (verify:boolean=false, log:boolean=false) => {
   const network = hre.network.name
   let swapperFunctions = {
-    mainnet: ethereumSwappers,
-    bsc: bscSwappers,
+    mainnet: swappers,
+    bsc: swappers,
+    bscTestNet: swappers,
     localhost: undefined,
     hardhat: undefined
   }
@@ -175,26 +235,30 @@ const getSwappers = async (verify:boolean=false, log:boolean=false) => {
   // @ts-ignore
   swapperFunctions.hardhat = swapperFunctions[CURRENTLY_FORKING]
   // @ts-ignore
-  const swappers = await swapperFunctions[network](verify, log)
-  return swappers
+  return (await swapperFunctions[network](verify, log))
 
 }
 
 export const getUniversalSwap = async (verify:boolean=false, log:boolean=false) => {
   const network = hre.network.name
   const universalSwapContract = await ethers.getContractFactory('UniversalSwap')
-  const swappers = await getSwappers(verify, log)
+  const swappers2 = await swappers(verify, log)
   const poolInteractors = await getPoolInteractors(verify, log)
   const nftInteractors = await nftPoolInteractors(verify, log)
   // @ts-ignore
-  const universalSwap = await universalSwapContract.deploy(poolInteractors, nftInteractors, addresses[network].networkToken, swappers)
+  const universalSwap = await universalSwapContract.deploy(poolInteractors, nftInteractors, addresses[network].networkToken, swappers2)
+  await delay(10000)
   if (verify) {
+    try {
     await hre.run("verify:verify", {
       address: universalSwap.address,
       // @ts-ignore
-      constructorArguments: [poolInteractors, addresses[network].networkToken, swappers],
+      constructorArguments: [poolInteractors, nftInteractors, addresses[network].networkToken, swappers2],
       network
     })
+    } catch (e) {
+      console.log(e)
+    }
   }
   if (log) {
     logDeployment('UniversalSwap', universalSwap)
@@ -210,17 +274,27 @@ const deployPositionsManager = async (verify:boolean=false, log:boolean=false) =
   const universalSwap = await getUniversalSwap(verify, log)
   // @ts-ignore
   const positionsManager = await positionsManagerFactory.deploy(universalSwap.address, addresses[network].usdc, feeModel.address)
+  await delay(10000)
   if (verify) {
+    try {
     await hre.run("verify:verify", {
       address: positionsManager.address,
-      constructorArguments: [universalSwap.address],
+      // @ts-ignore
+      constructorArguments: [universalSwap.address, addresses[network].usdc, feeModel.address],
       network
     })
+    } catch (e) {
+      console.log(e)
+    }
+    try {
     await hre.run("verify:verify", {
       address: feeModel.address,
       constructorArguments: [],
       network
     })
+    } catch (e) {
+      console.log(e)
+    }
   }
   if (log) {
     logDeployment('PositionsManager', positionsManager)
@@ -232,12 +306,17 @@ const deployERC20Bank = async (positionsManager: string, verify:boolean=false, l
   const network = hre.network.name
   const bankFactory = await ethers.getContractFactory("ERC20Bank")
   const erc20Bank = await bankFactory.deploy(positionsManager)
+  await delay(10000)
   if (verify) {
+    try {
     await hre.run("verify:verify", {
       address: erc20Bank.address,
       constructorArguments: [positionsManager],
       network
     })
+    } catch (e) {
+      console.log(e)
+    }
   }
   if (log) {
     logDeployment('ERC20Bank', erc20Bank)
@@ -256,18 +335,27 @@ const deployERC721Bank = async (positionsManager: string, verify:boolean=false, 
     await erc721Bank.addManager(manager)
     await erc721Bank.setWrapper(manager, wrapper.address)
   }
+  await delay(10000)
   if (verify) {
+    try {
     await hre.run("verify:verify", {
       address: erc721Bank.address,
       constructorArguments: [positionsManager],
       network
     })
+    } catch (e) {
+      console.log(e)
+    }
+    try {
     await hre.run("verify:verify", {
       address: wrapper.address,
       // @ts-ignore
       constructorArguments: [],
       network
     })
+    } catch (e) {
+      console.log(e)
+    }
   }
   if (log) {
     logDeployment('erc721Bank', erc721Bank)
@@ -289,12 +377,17 @@ const masterChefV1Wrapper = async (verify:boolean=false, log:boolean=false) => {
       await wrapperV1.setSupportedLp(masterChef.address, i)
     }
   }
+  await delay(10000)
   if (verify) {
+    try {
     await hre.run("verify:verify", {
       address: wrapperV1.address,
       constructorArguments: [],
       network
     })
+    } catch (e) {
+      console.log(e)
+    }
   }
   if (log) {
     logDeployment('MasterChefV1Wrapper', wrapperV1)
@@ -315,12 +408,17 @@ const masterChefV2Wrapper = async (verify:boolean=false, log:boolean=false) => {
       await wrapperV2.setSupportedLp(masterChef.address, i)
     }
   }
+  await delay(10000)
   if (verify) {
+    try{
     await hre.run("verify:verify", {
       address: wrapperV2.address,
       constructorArguments: [],
       network
     })
+  } catch (e) {
+    console.log(e)
+  }
   }
   if (log) {
     logDeployment('MasterChefV2Wrapper', wrapperV2)
@@ -338,12 +436,17 @@ const pancakeMasterChefWrapper = async (verify:boolean=false, log:boolean=false)
   for (let i = 0; i<numPools; i++) {
     await wrapper.setSupportedLp(masterChef.address, i)
   }
+  await delay(10000)
   if (verify) {
-    await hre.run("verify:verify", {
-      address: wrapper.address,
-      constructorArguments: [],
-      network: 'bsc'
-    })
+    try {
+      await hre.run("verify:verify", {
+        address: wrapper.address,
+        constructorArguments: [],
+        network: 'bsc'
+      })
+    } catch (e) {
+      console.log(e)
+    }
   }
   if (log) {
     logDeployment('PancakeSwapMasterChefV2Wrapper', wrapper)
@@ -370,12 +473,17 @@ const deployMasterChefBank = async (positionsManager: string, verify:boolean=fal
     const masterChef = addresses['bsc'].pancakeV2MasterChef
     await masterChefBank.setMasterChefWrapper(masterChef.address, pancakeWrapper.address)
   }
+  await delay(10000)
   if (verify) {
-    await hre.run("verify:verify", {
-      address: masterChefBank.address,
-      constructorArguments: [positionsManager],
-      network
-    })
+    try {
+      await hre.run("verify:verify", {
+        address: masterChefBank.address,
+        constructorArguments: [positionsManager],
+        network
+      })
+    } catch (e) {
+      console.log(e)
+    }
   }
   if (log) {
     logDeployment('MasterChefBank', masterChefBank)

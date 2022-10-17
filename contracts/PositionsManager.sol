@@ -83,7 +83,7 @@ contract PositionsManager is IPositionsManager, Ownable {
 
     /// @inheritdoc IPositionsManager
     function recommendBank(address lpToken) external view returns (uint[] memory, string[] memory, uint[] memory) {
-        if (lpToken==0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE) {
+        if (lpToken==address(0)) {
             lpToken = networkToken;
         }
         bool[] memory supportedBank = new bool[](banks.length);

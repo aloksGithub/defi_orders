@@ -24,11 +24,13 @@ contract UniswapV2PoolInteractor is IPoolInteractor, Ownable {
         returns (address[] memory, uint256[] memory)
     {
         IUniswapV2Pair pair = IUniswapV2Pair(lpTokenAddress);
+        uint balanceBefore0 = IERC20(pair.token0()).balanceOf(msg.sender);
+        uint balanceBefore1 = IERC20(pair.token1()).balanceOf(msg.sender);
         pair.transferFrom(msg.sender, lpTokenAddress, amount);
         (uint256 token0Gained, uint256 token1Gained) = pair.burn(msg.sender);
         uint256[] memory receivedTokenAmounts = new uint256[](2);
-        receivedTokenAmounts[0] = token0Gained;
-        receivedTokenAmounts[1] = token1Gained;
+        receivedTokenAmounts[0] = IERC20(pair.token0()).balanceOf(msg.sender)-balanceBefore0;
+        receivedTokenAmounts[1] = IERC20(pair.token1()).balanceOf(msg.sender)-balanceBefore1;
         address[] memory receivedTokens = new address[](2);
         receivedTokens[0] = pair.token0();
         receivedTokens[1] = pair.token1();

@@ -11,6 +11,12 @@ interface ISwapper {
         address self
     ) payable external returns (uint256);
 
+    function getAmountOut(
+        address inToken,
+        uint256 amount,
+        address outToken
+    ) external view returns (uint256);
+
     function checkSwappable(address inToken, address outToken)
         external
         view

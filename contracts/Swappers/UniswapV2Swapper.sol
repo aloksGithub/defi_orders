@@ -31,31 +31,48 @@ contract UniswapV2Swapper is ISwapper, Ownable {
         uint256 amount,
         address outToken,
         address self
-    ) payable external returns (uint256) {
+    ) payable external returns (uint256 obtained) {
         if (inToken == outToken) {
             return amount;
         }
+        uint balanceBefore = IERC20(outToken).balanceOf(address(this));
         uint numRouters = UniswapV2Swapper(self).getNumRouters();
-        bool isSignificant = false;
+        address[] memory path = new address[](2);
+        path[0] = inToken;
+        path[1] = outToken;
+        IUniswapV2Router02 bestRouter;
+        uint maxAmountOut = 0;
         for (uint i = 0; i<numRouters; i++) {
             address _routerAddress = UniswapV2Swapper(self).routers(i);
-            IERC20(inToken).safeApprove(_routerAddress, amount);
             IUniswapV2Router02 router = IUniswapV2Router02(_routerAddress);
+            try router.getAmountsOut(amount, path) returns (uint256[] memory amountsOut) {
+                if (amountsOut[amountsOut.length - 1]>maxAmountOut) {
+                    maxAmountOut = amountsOut[amountsOut.length - 1];
+                    bestRouter = router;
+                }
+            } catch{continue;}
+        }
+        IERC20(inToken).safeApprove(address(bestRouter), amount);
+        bestRouter.swapExactTokensForTokens(amount, maxAmountOut, path, address(this), block.timestamp);
+        return IERC20(outToken).balanceOf(address(this))-balanceBefore;
+    }
+
+    function getAmountOut(address inToken, uint amount, address outToken) external view returns (uint) {
+        address bestRouter = address(0);
+        uint maxAmountOut = 0;
+        for (uint i = 0; i<routers.length; i++) {
+            IUniswapV2Router02 router = IUniswapV2Router02(routers[i]);
             address[] memory path = new address[](2);
             path[0] = inToken;
             path[1] = outToken;
-            uint256[] memory amountsOut = router.getAmountsOut(amount, path);
-            if (amountsOut[amountsOut.length - 1]>0) {
-                isSignificant = true;
-            }
-            try router.swapExactTokensForTokens(amount, amountsOut[amountsOut.length - 1], path, address(this), block.timestamp) returns (uint256[] memory amountReturned) {
-                return amountReturned[amountReturned.length - 1];
-            } catch {continue;}
+            try router.getAmountsOut(amount, path) returns (uint256[] memory amountsOut) {
+                if (amountsOut[amountsOut.length - 1]>maxAmountOut) {
+                    maxAmountOut = amountsOut[amountsOut.length - 1];
+                    bestRouter = routers[i];
+                }
+            } catch{continue;}
         }
-        if (!isSignificant) {
-            return 0;
-        }
-        revert("Failed to convert");
+        return maxAmountOut;
     }
 
     function checkSwappable(address inToken, address outToken)
