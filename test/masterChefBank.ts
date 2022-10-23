@@ -87,8 +87,8 @@ describe ("MasterChefBank tests", function () {
                 users[1]
             )
             await ethers.provider.send("hardhat_mine", ["0x100"]);
-            await manager.harvestRewards(position0)
-            await manager.harvestRewards(position1)
+            await manager.connect(users[0]).harvestRewards(position0)
+            await manager.connect(users[1]).harvestRewards(position1)
 
             for (const rewardContract of rewardContracts) {
                 const user0Bal = await rewardContract.balanceOf(users[0].address)

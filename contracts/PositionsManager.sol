@@ -54,7 +54,12 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function setFeeModel(uint positionId, address feeModel) external {
+    function setUniversalSwap(address _universalSwap) external onlyOwner {
+        universalSwap = _universalSwap;
+    }
+
+    /// @inheritdoc IPositionsManager
+    function setFeeModel(uint positionId, address feeModel) external onlyOwner {
         require(keepers[msg.sender] || msg.sender==owner(), "Unauthorized");
         feeModels[positionId] = feeModel;
     }
@@ -114,7 +119,7 @@ contract PositionsManager is IPositionsManager, Ownable {
 
     /// @inheritdoc IPositionsManager
     function adjustLiquidationPoints(uint positionId, LiquidationCondition[] memory _liquidationPoints) external {
-        require(msg.sender==positions[positionId].user);
+        require(msg.sender==positions[positionId].user, "Unauthorized");
         Position storage position = positions[positionId];
         delete position.liquidationPoints;
         for (uint i = 0; i<_liquidationPoints.length; i++) {
@@ -178,10 +183,13 @@ contract PositionsManager is IPositionsManager, Ownable {
         // address lpToken = bank.getLPToken(position.bankToken);
         // require(UniversalSwap(universalSwap).isSupported(lpToken), "Asset is not currently supported");
         uint ethSupplied = _getWETH();
+        if (ethSupplied>0) {
+            IERC20(networkToken).safeTransfer(address(bank), ethSupplied);
+        }
+        require(ethSupplied>0 && suppliedTokens.length==0 || ethSupplied==0 && suppliedTokens.length>0, "Invlid tokens supplied");
         for (uint i = 0; i<suppliedTokens.length; i++) {
             IERC20(suppliedTokens[i]).safeTransferFrom(msg.sender, address(bank), suppliedAmounts[i]);
         }
-        require(ethSupplied>0 && suppliedTokens.length==0 || ethSupplied==0 && suppliedTokens.length>0, "Invlid tokens supplied");
         if (ethSupplied>0) {
             suppliedTokens = new address[](1);
             suppliedAmounts = new uint[](1);
@@ -273,6 +281,7 @@ contract PositionsManager is IPositionsManager, Ownable {
 
     /// @inheritdoc IPositionsManager
     function harvestRewards(uint positionId) external returns (address[] memory rewards, uint[] memory rewardAmounts) {
+        require(positions[positionId].user==msg.sender, "Unauthorized");
         claimDevFee(positionId);
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
@@ -283,6 +292,7 @@ contract PositionsManager is IPositionsManager, Ownable {
 
     /// @inheritdoc IPositionsManager
     function harvestAndRecompound(uint positionId, uint[] memory minAmountsUsed) external returns (uint newLpTokens) {
+        require(positions[positionId].user==msg.sender, "Unauthorized");
         claimDevFee(positionId);
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);

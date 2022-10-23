@@ -13,9 +13,11 @@ contract UniswapV2Swapper is ISwapper, Ownable {
     using SafeERC20 for IERC20;
 
     address[] public routers;
+    address[] public commonPoolTokens; // Common pool tokens are used to test different swap paths with commonly used pool tokens to find the best swaps
 
-    constructor(address[] memory _routers) {
+    constructor(address[] memory _routers, address[] memory _commonPoolTokens) {
         routers = _routers;
+        commonPoolTokens = _commonPoolTokens;
     }
 
     function setRouters(address[] memory _routers) external onlyOwner {
@@ -24,6 +26,10 @@ contract UniswapV2Swapper is ISwapper, Ownable {
 
     function getNumRouters() external view returns (uint) {
         return routers.length;
+    }
+
+    function getNumCommonPoolTokens() external view returns (uint) {
+        return commonPoolTokens.length;
     }
 
     function swap(
@@ -35,25 +41,47 @@ contract UniswapV2Swapper is ISwapper, Ownable {
         if (inToken == outToken) {
             return amount;
         }
-        uint balanceBefore = IERC20(outToken).balanceOf(address(this));
-        uint numRouters = UniswapV2Swapper(self).getNumRouters();
-        address[] memory path = new address[](2);
-        path[0] = inToken;
-        path[1] = outToken;
+        address[] memory bestPath;
         IUniswapV2Router02 bestRouter;
-        uint maxAmountOut = 0;
-        for (uint i = 0; i<numRouters; i++) {
-            address _routerAddress = UniswapV2Swapper(self).routers(i);
-            IUniswapV2Router02 router = IUniswapV2Router02(_routerAddress);
-            try router.getAmountsOut(amount, path) returns (uint256[] memory amountsOut) {
-                if (amountsOut[amountsOut.length - 1]>maxAmountOut) {
-                    maxAmountOut = amountsOut[amountsOut.length - 1];
-                    bestRouter = router;
+        uint balanceBefore = IERC20(outToken).balanceOf(address(this));
+        {
+            uint numCommonPools = UniswapV2Swapper(self).getNumCommonPoolTokens();
+            uint maxAmountOut = 0;
+            for (uint i = 0; i<UniswapV2Swapper(self).getNumRouters(); i++) {
+                address[] memory path = new address[](2);
+                path[0] = inToken;
+                path[1] = outToken;
+                IUniswapV2Router02 router = IUniswapV2Router02(UniswapV2Swapper(self).routers(i));
+                try router.getAmountsOut(amount, path) returns (uint256[] memory amountsOut) {
+                    if (amountsOut[amountsOut.length - 1]>maxAmountOut) {
+                        maxAmountOut = amountsOut[amountsOut.length - 1];
+                        bestRouter = router;
+                        bestPath = new address[](path.length);
+                        for (uint x = 0; x<path.length; x++) {
+                            bestPath[x] = path[x];
+                        }
+                    }
+                } catch{continue;}
+                for (uint j = 0; j<numCommonPools; j++) {
+                    path = new address[](3);
+                    path[0] = inToken;
+                    path[1] = UniswapV2Swapper(self).commonPoolTokens(j);
+                    path[2] = outToken;
+                    try router.getAmountsOut(amount, path) returns (uint256[] memory amountsOut) {
+                        if (amountsOut[amountsOut.length - 1]>maxAmountOut) {
+                            maxAmountOut = amountsOut[amountsOut.length - 1];
+                            bestRouter = router;
+                            bestPath = new address[](path.length);
+                            for (uint x = 0; x<path.length; x++) {
+                                bestPath[x] = path[x];
+                            }
+                        }
+                    } catch{continue;}
                 }
-            } catch{continue;}
+            }
         }
         IERC20(inToken).safeApprove(address(bestRouter), amount);
-        bestRouter.swapExactTokensForTokens(amount, maxAmountOut, path, address(this), block.timestamp);
+        bestRouter.swapExactTokensForTokens(amount, 0, bestPath, address(this), block.timestamp);
         return IERC20(outToken).balanceOf(address(this))-balanceBefore;
     }
 
@@ -71,6 +99,18 @@ contract UniswapV2Swapper is ISwapper, Ownable {
                     bestRouter = routers[i];
                 }
             } catch{continue;}
+            for (uint j = 0; j<commonPoolTokens.length; j++) {
+                path = new address[](3);
+                path[0] = inToken;
+                path[1] = commonPoolTokens[j];
+                path[2] = outToken;
+                try router.getAmountsOut(amount, path) returns (uint256[] memory amountsOut) {
+                    if (amountsOut[amountsOut.length - 1]>maxAmountOut) {
+                        maxAmountOut = amountsOut[amountsOut.length - 1];
+                        bestRouter = routers[i];
+                    }
+                } catch{continue;}
+            }
         }
         return maxAmountOut;
     }

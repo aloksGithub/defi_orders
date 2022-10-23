@@ -59,6 +59,9 @@ interface IPositionsManager {
     /// @notice Set the address for the EOA that can be used to trigger liquidations
     function setKeeper(address keeperAddress, bool active) external;
 
+    /// @notice Function to change the swap utility
+    function setUniversalSwap(address _universalSwap) external;
+
     /// @notice Set the fee model to be used for specified position
     /// @notice Will be used to discount fees for customers with large positions
     function setFeeModel(uint positionId, address feeModel) external;

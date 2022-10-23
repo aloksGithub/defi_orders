@@ -81,7 +81,7 @@ const ethereumPoolInteractors = async (verify:boolean=false, log:boolean=false) 
 
 const ethereumSwappers = async (verify:boolean=false, log:boolean=false) => {
   const uniswapV2SwapperFactory = await ethers.getContractFactory("UniswapV2Swapper")
-  const uniswapV2Swapper = await uniswapV2SwapperFactory.deploy(addresses['mainnet'].uniswapV2Routers)
+  const uniswapV2Swapper = await uniswapV2SwapperFactory.deploy(addresses['mainnet'].uniswapV2Routers, addresses['mainnet'].commonPoolTokens)
   await delay(10000)
   if (verify) {
     try {
@@ -104,7 +104,7 @@ const swappers = async(verify:boolean=false, log:boolean=false) => {
   const network = hre.network.name
   const uniswapV2SwapperFactory = await ethers.getContractFactory("UniswapV2Swapper")
   // @ts-ignore
-  const uniswapV2Swapper = await uniswapV2SwapperFactory.deploy(addresses[network].uniswapV2Routers)
+  const uniswapV2Swapper = await uniswapV2SwapperFactory.deploy(addresses[network].uniswapV2Routers, addresses[network].commonPoolTokens)
   await delay(10000)
   if (verify) {
     try {
@@ -236,7 +236,6 @@ const getSwappers = async (verify:boolean=false, log:boolean=false) => {
   swapperFunctions.hardhat = swapperFunctions[CURRENTLY_FORKING]
   // @ts-ignore
   return (await swapperFunctions[network](verify, log))
-
 }
 
 export const getUniversalSwap = async (verify:boolean=false, log:boolean=false) => {

@@ -68,6 +68,6 @@ contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
         outTokens = new address[](1);
         tokenAmounts = new uint[](1);
         outTokens[0] = lpToken;
-        tokenAmounts[0] = amount;        
+        tokenAmounts[0] = amount;
     }
 }
