@@ -61,7 +61,7 @@ contract UniswapV2Swapper is ISwapper, Ownable {
                             bestPath[x] = path[x];
                         }
                     }
-                } catch{continue;}
+                } catch{}
                 for (uint j = 0; j<numCommonPools; j++) {
                     path = new address[](3);
                     path[0] = inToken;
@@ -76,12 +76,16 @@ contract UniswapV2Swapper is ISwapper, Ownable {
                                 bestPath[x] = path[x];
                             }
                         }
-                    } catch{continue;}
+                    } catch{}
                 }
             }
         }
         IERC20(inToken).safeApprove(address(bestRouter), amount);
         bestRouter.swapExactTokensForTokens(amount, 0, bestPath, address(this), block.timestamp);
+        // console.log(inToken, amount, outToken, IERC20(outToken).balanceOf(address(this))-balanceBefore);
+        // for (uint i = 0; i<bestPath.length; i++) {
+        //     console.log(bestPath[i]);
+        // }
         return IERC20(outToken).balanceOf(address(this))-balanceBefore;
     }
 
@@ -98,7 +102,7 @@ contract UniswapV2Swapper is ISwapper, Ownable {
                     maxAmountOut = amountsOut[amountsOut.length - 1];
                     bestRouter = routers[i];
                 }
-            } catch{continue;}
+            } catch{}
             for (uint j = 0; j<commonPoolTokens.length; j++) {
                 path = new address[](3);
                 path[0] = inToken;
@@ -109,7 +113,7 @@ contract UniswapV2Swapper is ISwapper, Ownable {
                         maxAmountOut = amountsOut[amountsOut.length - 1];
                         bestRouter = routers[i];
                     }
-                } catch{continue;}
+                } catch{}
             }
         }
         return maxAmountOut;

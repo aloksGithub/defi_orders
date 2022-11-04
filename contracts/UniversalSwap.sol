@@ -213,17 +213,45 @@ contract UniversalSwap is IUniversalSwap, Ownable {
 
     function _convert(address[] memory inputTokens, uint[] memory inputTokenAmounts, address[] memory outputTokens, uint[] memory outputRatios) internal returns (uint[] memory tokensObtained) {
         (address[] memory simplifiedTokens, uint[] memory simplifiedTokenAmounts) = _simplifyInputTokens(inputTokens, inputTokenAmounts);
-        uint commonTokenAmount = _getWETH();
-        commonTokenAmount+=_convertAllToOne(simplifiedTokens, simplifiedTokenAmounts, networkToken);
+        uint ethSupplied = _getWETH();
+        if (ethSupplied>0) {
+            bool found = false;
+            for (uint i = 0; i<simplifiedTokens.length; i++) {
+                if (simplifiedTokens[i]==networkToken) {
+                    simplifiedTokenAmounts[i]+=ethSupplied;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                address[] memory newTokens = new address[](simplifiedTokens.length+1);
+                newTokens[0] = networkToken;
+                uint[] memory newAmounts = new uint[](simplifiedTokenAmounts.length+1);
+                newAmounts[0] = ethSupplied;
+                for (uint i = 0; i<simplifiedTokens.length; i++) {
+                    newTokens[i+1] = simplifiedTokens[i];
+                    newAmounts[i+1] = simplifiedTokenAmounts[i];
+                }
+                simplifiedTokenAmounts = newAmounts;
+                simplifiedTokens = newTokens;
+            }
+        }
+        // commonTokenAmount+=_convertAllToOne(simplifiedTokens, simplifiedTokenAmounts, networkToken);
         tokensObtained = new uint[](outputTokens.length);
         uint totalFraction = 0;
         for (uint i = 0; i<outputTokens.length; i++) {
             totalFraction+=outputRatios[i];
         }
-        for (uint i = 0; i<outputTokens.length; i++) {
-            uint tokensUsed = outputRatios[i]*commonTokenAmount/totalFraction;
-            tokensObtained[i] = _getFinalToken(outputTokens[i], fractionDenominator, networkToken, tokensUsed);
+        for (uint j = 0; j<simplifiedTokens.length; j++) {
+            for (uint i = 0; i<outputTokens.length; i++) {
+                uint tokensUsed = outputRatios[i]*simplifiedTokenAmounts[j]/totalFraction;
+                tokensObtained[i]+=_getFinalToken(outputTokens[i], fractionDenominator, simplifiedTokens[j], tokensUsed);
+            }
         }
+        // for (uint i = 0; i<outputTokens.length; i++) {
+        //     uint tokensUsed = outputRatios[i]*commonTokenAmount/totalFraction;
+        //     tokensObtained[i] = _getFinalToken(outputTokens[i], fractionDenominator, networkToken, tokensUsed);
+        // }
     }
 
     /// @inheritdoc IUniversalSwap
