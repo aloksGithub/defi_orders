@@ -130,7 +130,7 @@ const fetchAssets = async () => {
   return assets;
 };
 
-describe.only("Slippage tests", function () {
+describe("Slippage tests", function () {
   let manager: PositionsManager;
   let owners: any[];
   let networkTokenContract: IWETH;

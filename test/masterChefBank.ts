@@ -46,6 +46,7 @@ describe ("MasterChefBank tests", function () {
             const positionInfo2 = await manager.getPosition(positionId)
             expect(positionInfo2.amount).to.greaterThan(positionInfo1.amount)
             await manager.connect(owners[0]).close(positionId)
+            await manager.callStatic.closeToUSDC(positionId)
             const finalLpBalance = await lpTokenContract.balanceOf(owners[0].address)
             expect(finalLpBalance).to.greaterThan(lpBalance0)
         }
