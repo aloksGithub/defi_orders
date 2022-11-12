@@ -11,6 +11,7 @@ import "./interfaces/IWETH.sol";
 import "./libraries/Strings.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "./interfaces/IOracle.sol";
 import "hardhat/console.sol";
 
 contract UniversalSwap is IUniversalSwap, Ownable {
@@ -25,12 +26,14 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     uint fractionDenominator = 10000;
     address[] public poolInteractors;
     address[] public nftPoolInteractors;
+    IOracle public oracle;
 
-    constructor (address[] memory _poolInteractors, address[] memory _nftPoolInteractors, address _networkToken, address[] memory _swappers) {
+    constructor (address[] memory _poolInteractors, address[] memory _nftPoolInteractors, address _networkToken, address[] memory _swappers, IOracle _oracle) {
         poolInteractors = _poolInteractors;
         nftPoolInteractors = _nftPoolInteractors;
         swappers = _swappers;
         networkToken = _networkToken;
+        oracle = _oracle;
     }
     
     function setSwappers(address[] calldata _swappers) external view onlyOwner {

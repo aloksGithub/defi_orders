@@ -5,6 +5,11 @@
         "networkToken": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
         "commonPoolTokens": ["0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", "0x55d398326f99059fF775485246999027B3197955"],
         "uniswapV2Routers": ["0x3a6d8cA21D1CF76F653A67577FA0D27453350dD8", "0x10ED43C718714eb63d5aA57B78B54704E256024E"],
+        "uniswapV2Factories": [
+            "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73",
+            "0x858E3312ed3A876947EA49d572A7C42DE08af7EE"
+        ],
+        "uniswapV3Factories": [],
         "NFTManagers": [],
         "v1MasterChefs": [{"address": "0xDbc1A13490deeF9c3C12b44FE77b503c1B061739", "rewardGetter": "BSW()", "hasExtraRewards": false}],
         "masterChefLps": [

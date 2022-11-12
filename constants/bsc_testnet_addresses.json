@@ -4,6 +4,12 @@
         "preferredStable": "0x64544969ed7EBf5f083679233325356EbE738930",
         "networkToken": "0x094616F0BdFB0b526bD735Bf66Eca0Ad254ca81F",
         "uniswapV2Routers": ["0xD99D1c33F9fC3444f8101754aBC46c52416550D1"],
+        "uniswapV2Factories": [
+    
+        ],
+        "uniswapV3Factories": [
+    
+        ],
         "NFTManagers": [],
         "v1MasterChefs": [],
         "masterChefLps": [],

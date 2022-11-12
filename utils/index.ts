@@ -238,21 +238,84 @@ const getSwappers = async (verify:boolean=false, log:boolean=false) => {
   return (await swapperFunctions[network](verify, log))
 }
 
+export const deployOracle = async (verify:boolean=false, log:boolean=false) => {
+  const network = hre.network.name
+  const uniswapV2OracleFactory = await ethers.getContractFactory("UniswapV2Source")
+  const uniswapV3OracleFactory = await ethers.getContractFactory("UniswapV3Source")
+  const oracleFactory = await ethers.getContractFactory("BasicOracle")
+  const sources = []
+  // @ts-ignore
+  for (const factory of addresses[network].uniswapV2Factories) {
+    const source = await uniswapV2OracleFactory.deploy(factory)
+    sources.push(source.address)
+    if (verify) {
+      try {
+        await hre.run("verify:verify", {
+          address: source.address,
+          constructorArguments: [factory],
+          network
+        })
+      } catch (e) {
+        console.log(e)
+      }
+    }
+    if (log) {
+      logDeployment('UniswapV2Oracle', source)
+    }
+  }
+  // @ts-ignore
+  for (const factory of addresses[network].uniswapV3Factories) {
+    const source = await uniswapV3OracleFactory.deploy(factory)
+    sources.push(source.address)
+    if (verify) {
+      try {
+        await hre.run("verify:verify", {
+          address: source.address,
+          constructorArguments: [factory],
+          network
+        })
+      } catch (e) {
+        console.log(e)
+      }
+    }
+    if (log) {
+      logDeployment('UniswapV3Oracle', source)
+    }
+  }
+  const oracle = await oracleFactory.deploy(sources)
+  if (verify) {
+    try {
+      await hre.run("verify:verify", {
+        address: oracle.address,
+        constructorArguments: [sources],
+        network
+      })
+    } catch (e) {
+      console.log(e)
+    }
+  }
+  if (log) {
+    logDeployment('BasicOracle', oracle)
+  }
+  return oracle
+}
+
 export const getUniversalSwap = async (verify:boolean=false, log:boolean=false) => {
   const network = hre.network.name
   const universalSwapContract = await ethers.getContractFactory('UniversalSwap')
   const swappers2 = await swappers(verify, log)
   const poolInteractors = await getPoolInteractors(verify, log)
   const nftInteractors = await nftPoolInteractors(verify, log)
+  const oracle = await deployOracle(verify, log)
   // @ts-ignore
-  const universalSwap = await universalSwapContract.deploy(poolInteractors, nftInteractors, addresses[network].networkToken, swappers2)
+  const universalSwap = await universalSwapContract.deploy(poolInteractors, nftInteractors, addresses[network].networkToken, swappers2, oracle.address)
   await delay(10000)
   if (verify) {
     try {
     await hre.run("verify:verify", {
       address: universalSwap.address,
       // @ts-ignore
-      constructorArguments: [poolInteractors, nftInteractors, addresses[network].networkToken, swappers2],
+      constructorArguments: [poolInteractors, nftInteractors, addresses[network].networkToken, swappers2, oracle.address],
       network
     })
     } catch (e) {
