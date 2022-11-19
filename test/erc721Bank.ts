@@ -72,7 +72,7 @@ describe ("ERC721Bank tests", function () {
             const fee = await poolContract.fee()
             let tempBalance = await networkTokenContract.balanceOf(owners[1].address)
             await networkTokenContract.connect(owners[1]).approve(universalSwap.address, tempBalance)
-            await universalSwap.connect(owners[1]).swap([networkAddresses.networkToken], [tempBalance], [token0], [1], [0])
+            await universalSwap.connect(owners[1]).swapV2([networkAddresses.networkToken], [tempBalance], [], [token0], [], [1], [0])
             const router = await ethers.getContractAt("ISwapRouter", networkAddresses.uniswapV3Routers[0])
             
             for (let i = 0; i<5; i++) {
@@ -108,7 +108,7 @@ describe ("ERC721Bank tests", function () {
                 const balance = await reward.balanceOf(owners[0].address)
                 expect(balance).to.greaterThan(0)
                 await reward.approve(universalSwap.address, balance)
-                await universalSwap.connect(owners[0]).swap([reward.address], [balance], [networkAddresses.networkToken], [1], [0])
+                await universalSwap.connect(owners[0]).swapV2([reward.address], [balance], [], [networkAddresses.networkToken], [], [1], [0])
             }
             
             for (let i = 0; i<5; i++) {
@@ -147,13 +147,13 @@ describe ("ERC721Bank tests", function () {
                 const balance = await reward.balanceOf(owners[0].address)
                 expect(balance).to.greaterThan(0)
                 await reward.approve(universalSwap.address, balance)
-                await universalSwap.connect(owners[0]).swap([reward.address], [balance], [networkAddresses.networkToken], [1], [0])
+                await universalSwap.connect(owners[0]).swapV2([reward.address], [balance], [], [networkAddresses.networkToken], [], [1], [0])
             }
             const endingbalance = await networkTokenContract.balanceOf(owners[0].address)
             isRoughlyEqual(startingBalance, endingbalance)
             tempBalance = await token0Contract.balanceOf(owners[1].address)
             await token0Contract.connect(owners[1]).approve(universalSwap.address, tempBalance)
-            await universalSwap.connect(owners[1]).swap([token0], [tempBalance], [networkAddresses.networkToken], [1], [0])
+            await universalSwap.connect(owners[1]).swapV2([token0], [tempBalance], [], [networkAddresses.networkToken], [], [1], [0])
         }
         const pools = networkAddresses.nftBasaedPairs
         for (const pool of pools) {

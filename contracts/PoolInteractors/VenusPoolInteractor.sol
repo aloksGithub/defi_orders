@@ -11,11 +11,11 @@ contract VenusPoolInteractor is IPoolInteractor {
 
     function burn(
         address lpTokenAddress,
-        uint256 amount
+        uint256 amount,
+        address self
     ) payable external returns (address[] memory, uint256[] memory) {
         IVToken lpTokenContract = IVToken(lpTokenAddress);
         address underlying = lpTokenContract.underlying();
-        lpTokenContract.transferFrom(msg.sender, address(this), amount);
         lpTokenContract.approve(lpTokenAddress, amount);
         uint balanceStart = IERC20(underlying).balanceOf(address(this));
         lpTokenContract.redeem(amount);
@@ -24,24 +24,17 @@ contract VenusPoolInteractor is IPoolInteractor {
         receivedTokens[0] = underlying;
         uint256[] memory receivedTokenAmounts = new uint256[](1);
         receivedTokenAmounts[0] = balanceEnd-balanceStart;
-        IERC20(underlying).transfer(msg.sender, receivedTokenAmounts[0]);
         return (receivedTokens, receivedTokenAmounts);
     }
 
-    function mint(address toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts) payable external returns(uint) {
+    function mint(address toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts, address receiver, address self) payable external returns(uint) {
         IVToken lpTokenContract = IVToken(toMint);
-        address underlyingAddress = lpTokenContract.underlying();
-        require(underlyingAddress==underlyingTokens[0] && underlyingTokens.length==1, "Invalid input token");
         for (uint i = 0; i<underlyingTokens.length; i++) {
             ERC20 tokenContract = ERC20(underlyingTokens[i]);
-            tokenContract.transferFrom(msg.sender, address(this), underlyingAmounts[i]);
             tokenContract.approve(toMint, underlyingAmounts[i]);
         }
-        uint vBalanceBefore = lpTokenContract.balanceOf(address(this));
-        lpTokenContract.mint(underlyingAmounts[0]);
-        uint mitned = lpTokenContract.balanceOf(address(this))-vBalanceBefore;
-        lpTokenContract.transfer(msg.sender, mitned);
-        return mitned;
+        uint minted = lpTokenContract.mintBehalf(receiver, underlyingAmounts[0]);
+        return minted;
     }
     
     function testSupported(address token) external view override returns (bool) {
@@ -56,12 +49,14 @@ contract VenusPoolInteractor is IPoolInteractor {
     function getUnderlyingTokens(address lpTokenAddress)
         public
         view
-        returns (address[] memory)
+        returns (address[] memory, uint[] memory)
     {
         IVToken lpTokenContract = IVToken(lpTokenAddress);
         address underlyingAddress = lpTokenContract.underlying();
         address[] memory receivedTokens = new address[](1);
         receivedTokens[0] = underlyingAddress;
-        return receivedTokens;
+        uint[] memory ratios = new uint[](1);
+        ratios[0] = 1;
+        return (receivedTokens, ratios);
     }
 }

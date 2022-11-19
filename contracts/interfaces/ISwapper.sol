@@ -5,9 +5,8 @@ interface ISwapper {
     event Burn(address holderAddress, uint256 amount);
 
     function swap(
-        address inToken,
         uint256 amount,
-        address outToken,
+        address[] memory path,
         address self
     ) payable external returns (uint256);
 
@@ -15,7 +14,7 @@ interface ISwapper {
         address inToken,
         uint256 amount,
         address outToken
-    ) external view returns (uint256);
+    ) external view returns (uint256, address[] memory);
 
     function checkSwappable(address inToken, address outToken)
         external

@@ -8,6 +8,7 @@ import "./interfaces/IPositionsManager.sol";
 import "./interfaces/IFeeModel.sol";
 import "./UniversalSwap.sol";
 import "./DefaultFeeModel.sol";
+import "./interfaces/IPoolInteractor.sol";
 
 contract PositionsManager is IPositionsManager, Ownable {
     using SafeERC20 for IERC20;
@@ -164,7 +165,7 @@ contract PositionsManager is IPositionsManager, Ownable {
             for (uint i = 0; i<suppliedTokens.length; i++) {
                 IERC20(suppliedTokens[i]).safeApprove(universalSwap, suppliedAmounts[i]);
             }
-            suppliedAmounts = UniversalSwap(universalSwap).swap(suppliedTokens, suppliedAmounts, underlying, ratios, minAmountsUsed);
+            suppliedAmounts = _swap(suppliedTokens, suppliedAmounts, underlying, ratios, minAmountsUsed);
             suppliedTokens = underlying;
         }
         for (uint i = 0; i<suppliedTokens.length; i++) {
@@ -270,7 +271,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         uint[] memory slippage = new uint[](1);
         wanted[0] = usdc;
         ratios[0] = 1;
-        uint[] memory toReturn = UniversalSwap(universalSwap).swap(tokens, tokenAmounts, wanted, ratios, slippage);
+        uint[] memory toReturn = _swap(tokens, tokenAmounts, wanted, ratios, slippage);
         IERC20(usdc).safeTransfer(position.user, toReturn[0]);
         position.amount = 0;
         positionClosed[positionId] = true;
@@ -302,7 +303,7 @@ contract PositionsManager is IPositionsManager, Ownable {
             for (uint i = 0; i<rewards.length; i++) {
                 IERC20(rewards[i]).safeApprove(universalSwap, rewardAmounts[i]);
             }
-            rewardAmounts = UniversalSwap(universalSwap).swap(rewards, rewardAmounts, underlying, ratios, minAmountsUsed);
+            rewardAmounts = _swap(rewards, rewardAmounts, underlying, ratios, minAmountsUsed);
         }
         for (uint i = 0; i<underlying.length; i++) {
             IERC20(underlying[i]).safeTransfer(address(bank), rewardAmounts[i]);
@@ -345,7 +346,12 @@ contract PositionsManager is IPositionsManager, Ownable {
             wanted[0] = position.liquidationPoints[liquidationIndex].liquidateTo;
             ratios[0] = 1;
             slippage[0] = minAmountOut;
-            uint[] memory toReturn = UniversalSwap(universalSwap).swap(tokens, tokenAmounts, wanted, ratios, slippage);
+            console.log("_____");
+            for (uint i = 0; i<tokens.length; i++) {
+                console.log(tokens[i], tokenAmounts[i]);
+            }
+            console.log("_____");
+            uint[] memory toReturn = _swap(tokens, tokenAmounts, wanted, ratios, slippage);
             IERC20(position.liquidationPoints[liquidationIndex].liquidateTo).safeTransfer(position.user, toReturn[0]);
         }
         position.amount = 0;
@@ -375,7 +381,7 @@ contract PositionsManager is IPositionsManager, Ownable {
             wanted[0] = usdc;
             ratios[0] = 1;
             slippage[0] = 0;
-            uint[] memory received = UniversalSwap(universalSwap).swap(tokens, tokenAmounts, wanted, ratios, slippage);
+            uint[] memory received = _swap(tokens, tokenAmounts, wanted, ratios, slippage);
             IERC20(usdc).safeTransfer(owner(), received[0]);
             emit FeeClaimed(positionId, received[0]);
         }
@@ -405,5 +411,10 @@ contract PositionsManager is IPositionsManager, Ownable {
             IWETH(payable(networkToken)).deposit{value:msg.value}();
         }
         networkTokenObtained = IERC20(networkToken).balanceOf(address(this))-startingBalance;
+    }
+
+    function _swap(address[] memory tokens, uint[] memory tokenAmounts, address[] memory wanted, uint[] memory ratios, uint[] memory slippage) internal returns (uint[] memory) {
+        Asset[] memory temp;
+        return UniversalSwap(universalSwap).swapV2(tokens, tokenAmounts, temp, wanted, temp, ratios, slippage);
     }
 }

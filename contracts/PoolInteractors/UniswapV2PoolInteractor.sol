@@ -18,7 +18,7 @@ contract UniswapV2PoolInteractor is IPoolInteractor, Ownable {
         supportedProtocols = _supportedProtocols;
     }
 
-    function burn(address lpTokenAddress, uint256 amount)
+    function burn(address lpTokenAddress, uint256 amount, address self)
         payable
         external
         returns (address[] memory, uint256[] memory)
@@ -32,12 +32,10 @@ contract UniswapV2PoolInteractor is IPoolInteractor, Ownable {
             receivedTokenAmounts[0] = 0;
             receivedTokenAmounts[1] = 0;
         } else {
-            uint balanceBefore0 = IERC20(pair.token0()).balanceOf(msg.sender);
-            uint balanceBefore1 = IERC20(pair.token1()).balanceOf(msg.sender);
-            pair.transferFrom(msg.sender, lpTokenAddress, amount);
-            pair.burn(msg.sender);
-            receivedTokenAmounts[0] = IERC20(pair.token0()).balanceOf(msg.sender)-balanceBefore0;
-            receivedTokenAmounts[1] = IERC20(pair.token1()).balanceOf(msg.sender)-balanceBefore1;
+            pair.transfer(lpTokenAddress, amount);
+            (uint amount0, uint amount1) = pair.burn(address(this));
+            receivedTokenAmounts[0] = amount0;
+            receivedTokenAmounts[1] = amount1;
             emit Burn(lpTokenAddress, amount);
         }
         return (receivedTokens, receivedTokenAmounts);
@@ -46,13 +44,15 @@ contract UniswapV2PoolInteractor is IPoolInteractor, Ownable {
     function mint(
         address toMint,
         address[] memory underlyingTokens,
-        uint256[] memory underlyingAmounts
+        uint256[] memory underlyingAmounts,
+        address receiver,
+        address self
     ) payable external returns (uint256) {
         IUniswapV2Pair poolContract = IUniswapV2Pair(toMint);
         for (uint256 i = 0; i < underlyingTokens.length; i++) {
-            IERC20(underlyingTokens[i]).safeTransferFrom(msg.sender, toMint, underlyingAmounts[i]);
+            IERC20(underlyingTokens[i]).safeTransfer(toMint, underlyingAmounts[i]);
         }
-        uint256 minted = poolContract.mint(msg.sender);
+        uint256 minted = poolContract.mint(receiver);
         return minted;
     }
 
@@ -71,12 +71,15 @@ contract UniswapV2PoolInteractor is IPoolInteractor, Ownable {
     function getUnderlyingTokens(address lpTokenAddress)
         external
         view
-        returns (address[] memory)
+        returns (address[] memory, uint[] memory)
     {
         IUniswapV2Pair poolContract = IUniswapV2Pair(lpTokenAddress);
         address[] memory receivedTokens = new address[](2);
         receivedTokens[0] = poolContract.token0();
         receivedTokens[1] = poolContract.token1();
-        return receivedTokens;
+        uint[] memory ratios = new uint[](2);
+        ratios[0] = 1;
+        ratios[1] = 1;
+        return (receivedTokens, ratios);
     }
 }

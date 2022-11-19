@@ -158,6 +158,7 @@ contract BasicOracle is IOracle, Ownable {
     }
 
     function getPrice(address token, address inTermsOf) external view returns (uint) {
+        if (token==inTermsOf) return (10**ERC20(token).decimals());
         uint[] memory prices = new uint[](sources.length);
         for (uint i = 0; i<sources.length; i++) {
             prices[i] = sources[i].getPrice(token, inTermsOf);

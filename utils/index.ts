@@ -51,8 +51,8 @@ const ethereumPoolInteractors = async (verify:boolean=false, log:boolean=false) 
   const uniswapPoolInteractor = await uniswapPoolInteractorContract.deploy(["Uniswap V2", "SushiSwap LP Token"])
   const aaveV2PoolInteractorFactory = await ethers.getContractFactory('AaveV2PoolInteractor')
   const aaveV2PoolInteractor = await aaveV2PoolInteractorFactory.deploy(addresses['mainnet'].aaveV1LendingPool, addresses['mainnet'].aaveV2LendingPool, addresses['mainnet'].aaveV3LendingPool)
-  await delay(10000)
   if (verify) {
+    await delay(10000)
     try {
     await hre.run("verify:verify", {
       address: uniswapPoolInteractor.address,
@@ -79,49 +79,33 @@ const ethereumPoolInteractors = async (verify:boolean=false, log:boolean=false) 
   return [uniswapPoolInteractor.address, aaveV2PoolInteractor.address]
 }
 
-const ethereumSwappers = async (verify:boolean=false, log:boolean=false) => {
-  const uniswapV2SwapperFactory = await ethers.getContractFactory("UniswapV2Swapper")
-  const uniswapV2Swapper = await uniswapV2SwapperFactory.deploy(addresses['mainnet'].uniswapV2Routers, addresses['mainnet'].commonPoolTokens)
-  await delay(10000)
-  if (verify) {
-    try {
-    await hre.run("verify:verify", {
-      address: uniswapV2Swapper.address,
-      constructorArguments: [addresses['mainnet'].uniswapV2Routers],
-      network: 'mainnet'
-    })
-    } catch (e) {
-      console.log(e)
-    }
-  }
-  if (log) {
-    logDeployment('UniswapV2Swapper', uniswapV2Swapper)
-  }
-  return [uniswapV2Swapper.address]
-}
-
 const swappers = async(verify:boolean=false, log:boolean=false) => {
   const network = hre.network.name
   const uniswapV2SwapperFactory = await ethers.getContractFactory("UniswapV2Swapper")
+  const swappers = []
   // @ts-ignore
-  const uniswapV2Swapper = await uniswapV2SwapperFactory.deploy(addresses[network].uniswapV2Routers, addresses[network].commonPoolTokens)
-  await delay(10000)
-  if (verify) {
-    try {
-    await hre.run("verify:verify", {
-      address: uniswapV2Swapper.address,
-      // @ts-ignore
-      constructorArguments: [addresses[network].uniswapV2Routers],
-      network: network
-    })
-    } catch (e) {
-      console.log(e)
+  for (const router of addresses[network].uniswapV2Routers) {
+    // @ts-ignore
+    const swapper = await uniswapV2SwapperFactory.deploy(router, addresses[network].commonPoolTokens)
+    swappers.push(swapper.address)
+    if (verify) {
+      await delay(10000)
+      try {
+      await hre.run("verify:verify", {
+        address: swapper.address,
+        // @ts-ignore
+        constructorArguments: [router, addresses[network].commonPoolTokens],
+        network: network
+      })
+      } catch (e) {
+        console.log(e)
+      }
+    }
+    if (log) {
+      logDeployment('UniswapV2Swapper', swapper)
     }
   }
-  if (log) {
-    logDeployment('UniswapV2Swapper', uniswapV2Swapper)
-  }
-  return [uniswapV2Swapper.address]
+  return swappers
 }
 
 const bscPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
@@ -129,8 +113,8 @@ const bscPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
   const venusPoolInteractor = await venusPoolInteractorFactory.deploy()
   const pancakePoolInteractorFactory = await ethers.getContractFactory("UniswapV2PoolInteractor")
   const pancakePoolInteractor = await pancakePoolInteractorFactory.deploy(['Pancake LPs', 'Biswap LPs'])
-  await delay(10000)
   if (verify) {
+    await delay(10000)
     try {
     await hre.run("verify:verify", {
       address: venusPoolInteractor.address,
@@ -160,8 +144,8 @@ const bscPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
 const bscTestnetPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
   const pancakePoolInteractorFactory = await ethers.getContractFactory("UniswapV2PoolInteractor")
   const pancakePoolInteractor = await pancakePoolInteractorFactory.deploy(['Pancake LPs'])
-  await delay(10000)
   if (verify) {
+    await delay(10000)
     try {
     await hre.run("verify:verify", {
       address: pancakePoolInteractor.address,
@@ -200,25 +184,28 @@ export const getPoolInteractors = async (verify:boolean=false, log:boolean=false
 const nftPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
   const network = hre.network.name
   const factory = await ethers.getContractFactory("UniswapV3PoolInteractor")
+  const interactors = []
   // @ts-ignore
-  const interactor = await factory.deploy(addresses[network].NFTManagers)
-  await delay(10000)
-  if (verify) {
-    try {
-    await hre.run("verify:verify", {
-      address: interactor.address,
-      // @ts-ignore
-      constructorArguments: [addresses[network].NFTManagers],
-      network
-    })
-    } catch (e) {
-      console.log(e)
+  for (const manager of addresses[network].NFTManagers) {
+    const interactor = await factory.deploy(manager)
+    interactors.push(interactor.address)
+    if (verify) {
+      await delay(10000)
+      try {
+      await hre.run("verify:verify", {
+        address: interactor.address,
+        constructorArguments: [manager],
+        network
+      })
+      } catch (e) {
+        console.log(e)
+      }
+    }
+    if (log) {
+      logDeployment('UniswapV3PoolInteractor', interactor)
     }
   }
-  if (log) {
-    logDeployment('UniswapV3PoolInteractor', interactor)
-  }
-  return [interactor.address]
+  return interactors
 }
 
 const getSwappers = async (verify:boolean=false, log:boolean=false) => {
@@ -249,6 +236,7 @@ export const deployOracle = async (verify:boolean=false, log:boolean=false) => {
     const source = await uniswapV2OracleFactory.deploy(factory)
     sources.push(source.address)
     if (verify) {
+      await delay(10000)
       try {
         await hre.run("verify:verify", {
           address: source.address,
@@ -268,6 +256,7 @@ export const deployOracle = async (verify:boolean=false, log:boolean=false) => {
     const source = await uniswapV3OracleFactory.deploy(factory)
     sources.push(source.address)
     if (verify) {
+      await delay(10000)
       try {
         await hre.run("verify:verify", {
           address: source.address,
@@ -284,6 +273,7 @@ export const deployOracle = async (verify:boolean=false, log:boolean=false) => {
   }
   const oracle = await oracleFactory.deploy(sources)
   if (verify) {
+    await delay(10000)
     try {
       await hre.run("verify:verify", {
         address: oracle.address,
@@ -308,14 +298,14 @@ export const getUniversalSwap = async (verify:boolean=false, log:boolean=false) 
   const nftInteractors = await nftPoolInteractors(verify, log)
   const oracle = await deployOracle(verify, log)
   // @ts-ignore
-  const universalSwap = await universalSwapContract.deploy(poolInteractors, nftInteractors, addresses[network].networkToken, swappers2, oracle.address)
-  await delay(10000)
+  const universalSwap = await universalSwapContract.deploy(poolInteractors, nftInteractors, addresses[network].networkToken, swappers2, oracle.address, addresses[network].commonPoolTokens)
   if (verify) {
+    await delay(10000)
     try {
     await hre.run("verify:verify", {
       address: universalSwap.address,
       // @ts-ignore
-      constructorArguments: [poolInteractors, nftInteractors, addresses[network].networkToken, swappers2, oracle.address],
+      constructorArguments: [poolInteractors, nftInteractors, addresses[network].networkToken, swappers2, oracle.address, addresses[network].commonPoolTokens],
       network
     })
     } catch (e) {
@@ -336,8 +326,8 @@ const deployPositionsManager = async (verify:boolean=false, log:boolean=false) =
   const universalSwap = await getUniversalSwap(verify, log)
   // @ts-ignore
   const positionsManager = await positionsManagerFactory.deploy(universalSwap.address, addresses[network].usdc, feeModel.address)
-  await delay(10000)
   if (verify) {
+    await delay(10000)
     try {
     await hre.run("verify:verify", {
       address: positionsManager.address,
@@ -368,8 +358,8 @@ const deployERC20Bank = async (positionsManager: string, verify:boolean=false, l
   const network = hre.network.name
   const bankFactory = await ethers.getContractFactory("ERC20Bank")
   const erc20Bank = await bankFactory.deploy(positionsManager)
-  await delay(10000)
   if (verify) {
+    await delay(10000)
     try {
     await hre.run("verify:verify", {
       address: erc20Bank.address,
@@ -397,8 +387,8 @@ const deployERC721Bank = async (positionsManager: string, verify:boolean=false, 
     await erc721Bank.addManager(manager)
     await erc721Bank.setWrapper(manager, wrapper.address)
   }
-  await delay(10000)
   if (verify) {
+    await delay(10000)
     try {
     await hre.run("verify:verify", {
       address: erc721Bank.address,
@@ -439,8 +429,8 @@ const masterChefV1Wrapper = async (verify:boolean=false, log:boolean=false) => {
       await wrapperV1.setSupportedLp(masterChef.address, i)
     }
   }
-  await delay(10000)
   if (verify) {
+    await delay(10000)
     try {
     await hre.run("verify:verify", {
       address: wrapperV1.address,
@@ -470,8 +460,8 @@ const masterChefV2Wrapper = async (verify:boolean=false, log:boolean=false) => {
       await wrapperV2.setSupportedLp(masterChef.address, i)
     }
   }
-  await delay(10000)
   if (verify) {
+    await delay(10000)
     try{
     await hre.run("verify:verify", {
       address: wrapperV2.address,
@@ -498,8 +488,8 @@ const pancakeMasterChefWrapper = async (verify:boolean=false, log:boolean=false)
   for (let i = 0; i<numPools; i++) {
     await wrapper.setSupportedLp(masterChef.address, i)
   }
-  await delay(10000)
   if (verify) {
+    await delay(10000)
     try {
       await hre.run("verify:verify", {
         address: wrapper.address,
@@ -535,8 +525,8 @@ const deployMasterChefBank = async (positionsManager: string, verify:boolean=fal
     const masterChef = addresses['bsc'].pancakeV2MasterChef
     await masterChefBank.setMasterChefWrapper(masterChef.address, pancakeWrapper.address)
   }
-  await delay(10000)
   if (verify) {
+    await delay(10000)
     try {
       await hre.run("verify:verify", {
         address: masterChefBank.address,
@@ -579,7 +569,7 @@ export const getLPToken = async (lpToken: string, universalSwap: UniversalSwap, 
   await wethContract.connect(owner).approve(universalSwap.address, ethers.utils.parseEther(etherAmount))
   const lpTokenContract = await ethers.getContractAt("ERC20", lpToken)
   // @ts-ignore
-  await universalSwap.connect(owner).swap([addresses[network].networkToken], [ethers.utils.parseEther(etherAmount)], [lpToken], [1], [0])
+  await universalSwap.connect(owner).swapV2([addresses[network].networkToken], [ethers.utils.parseEther(etherAmount)], [], [lpToken], [], [1], [0])
   const lpBalance = await lpTokenContract.balanceOf(owner.address)
   return {lpBalance, lpTokenContract}
 }
@@ -606,7 +596,7 @@ export const depositNew = async (manager:PositionsManager, lpToken: string, amou
   return {positionId: numPositions, rewards, rewardContracts}
 }
 
-const getNearestUsableTick = (currentTick: number, space: number) => {
+export const getNearestUsableTick = (currentTick: number, space: number) => {
   // 0 is always a valid tick
   if(currentTick == 0){
       return 0
@@ -638,10 +628,11 @@ export const getNFT = async (universalSwap:UniversalSwap, etherAmount:string, ma
     ["int24","int24","uint256","uint256"],
     [nearestTick-2500*tickSpacing, nearestTick+20*tickSpacing, 0, 0]);
   // const tx = await universalSwap.connect(owner).swapForNFT([networkToken], [ethers.utils.parseEther(etherAmount)], {pool, manager, tokenId: 0, liquidity: 0, data}, {gasLimit: 30000000})
-  const tx = await universalSwap.connect(owner).swapERC721(
-    [networkToken], [ethers.utils.parseEther((+etherAmount).toString())], [], {pool, manager, tokenId: 0, liquidity: 0, data},
-    // {value: ethers.utils.parseEther((+etherAmount).toString())}
-  )
+  const tx = await universalSwap.connect(owner).swapV2(
+    [networkToken], [ethers.utils.parseEther((+etherAmount).toString())], [], [], [{pool, manager, tokenId: 0, liquidity: 0, data}], [1], [])
+  // const tx = await universalSwap.connect(owner).swapERC721(
+  //   [networkToken], [ethers.utils.parseEther((+etherAmount).toString())], [], {pool, manager, tokenId: 0, liquidity: 0, data},
+  // )
   const rc = await tx.wait()
   const event = rc.events?.find(event => event.event === 'NFTMinted')
   // @ts-ignore

@@ -16,9 +16,8 @@ struct Asset {
 }
 
 interface INFTPoolInteractor {
-    function setSupportedManagers(address[] memory _supportedManagers) external;
     function burn(Asset memory asset) payable external returns (address[] memory receivedTokens, uint256[] memory receivedTokenAmounts);
-    function mint(Asset memory toMint, address[] memory underlyingTokens, uint256[] memory underlyingAmounts) payable external returns (uint256);
+    function mint(Asset memory toMint, address[] memory underlyingTokens, uint256[] memory underlyingAmounts, address receiver) payable external returns (uint256);
     function getRatio(address poolAddress, int24 tick0, int24 tick1) external returns (uint, uint);
     function testSupported(address token) external view returns (bool);
     function testSupportedPool(address token) external view returns (bool);

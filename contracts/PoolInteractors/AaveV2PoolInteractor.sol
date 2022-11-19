@@ -24,16 +24,18 @@ contract AaveV2PoolInteractor is IPoolInteractor {
         lendingPool3 = _lendingPool3;
     }
 
-    function _getVersion(address lpTokenAddress) internal returns (uint) {
-        address underlyingAddress = getUnderlyingTokens(lpTokenAddress)[0];
-        if (lendingPool2!=address(0)) {
-            if (ILendingPool2(lendingPool2).getReserveData(underlyingAddress).aTokenAddress==lpTokenAddress) return 2;
+    function _getVersion(address lpTokenAddress, address self) internal returns (uint) {
+        (address[] memory underlying, ) = getUnderlyingTokens(lpTokenAddress);
+        address lendingPool2Address = AaveV2PoolInteractor(self).lendingPool2();
+        address lendingPool3Address = AaveV2PoolInteractor(self).lendingPool3();
+        if (lendingPool2Address!=address(0)) {
+            if (ILendingPool2(lendingPool2Address).getReserveData(underlying[0]).aTokenAddress==lpTokenAddress) return 2;
         }
-        if (lendingPool3!=address(0)) {
-            if (ILendingPool3(lendingPool3).getReserveData(underlyingAddress).aTokenAddress==lpTokenAddress) return 3;
+        if (lendingPool3Address!=address(0)) {
+            if (ILendingPool3(lendingPool3Address).getReserveData(underlying[0]).aTokenAddress==lpTokenAddress) return 3;
         }
-        // if (lendingPool1!=address(0)) {
-        //     (,,,,,,,,,,,address aToken,) = ILendingPool1(lendingPool1).getReserveData(underlyingAddress);
+        // if (lendingPool1Address!=address(0)) {
+        //     (,,,,,,,,,,,address aToken,) = ILendingPool1(lendingPool1Address).getReserveData(underlyingAddress);
         //     if (aToken==lpTokenAddress) return 1;
         // }
         return 1;
@@ -41,63 +43,61 @@ contract AaveV2PoolInteractor is IPoolInteractor {
 
     function burn(
         address lpTokenAddress,
-        uint256 amount
+        uint256 amount,
+        address self
     ) payable external returns (address[] memory, uint256[] memory) {
         IERC20 lpTokenContract = IERC20(lpTokenAddress);
-        lpTokenContract.transferFrom(msg.sender, address(this), amount);
-        address underlyingAddress = getUnderlyingTokens(lpTokenAddress)[0];
-        uint balanceBefore = ERC20(underlyingAddress).balanceOf(address(this));
+        // lpTokenContract.transferFrom(msg.sender, address(this), amount);
+        (address[] memory underlying, ) = getUnderlyingTokens(lpTokenAddress);
+        uint balanceBefore = ERC20(underlying[0]).balanceOf(address(this));
+        address lendingPool2Address = AaveV2PoolInteractor(self).lendingPool2();
+        address lendingPool3Address = AaveV2PoolInteractor(self).lendingPool3();
 
-        uint version = _getVersion(lpTokenAddress);
+        uint version = _getVersion(lpTokenAddress, self);
         if (version==1) {
             IAToken1(lpTokenAddress).redeem(amount);
-            // ILendingPool1(lendingPool1).redeemUnderlying(underlyingAddress, payable(address(this)), amount, 0);
+            // IERC20(underlying[0]).safeTransfer(msg.sender, ERC20(underlying[0]).balanceOf(address(this)));
+            // ILendingPool1(lendingPool1Address).redeemUnderlying(underlyingAddress, payable(address(this)), amount, 0);
         } else if (version==2) {
-            lpTokenContract.approve(lendingPool2, amount);
-            ILendingPool2(lendingPool2).withdraw(underlyingAddress, amount, address(this));
+            lpTokenContract.approve(lendingPool2Address, amount);
+            ILendingPool2(lendingPool2Address).withdraw(underlying[0], amount, address(this));
         } else if (version==3) {
-            lpTokenContract.approve(lendingPool3, amount);
-            ILendingPool3(lendingPool3).withdraw(underlyingAddress, amount, address(this));
+            lpTokenContract.approve(lendingPool3Address, amount);
+            ILendingPool3(lendingPool3Address).withdraw(underlying[0], amount, address(this));
         }
 
-        uint tokensGained = ERC20(underlyingAddress).balanceOf(address(this))-balanceBefore;
+        uint tokensGained = ERC20(underlying[0]).balanceOf(address(this))-balanceBefore;
         require(tokensGained>0, "Failed to burn LP tokens");
-        (bool success,) = underlyingAddress.call(abi.encodeWithSignature("transfer(address,uint256)", msg.sender, tokensGained));
-        if (!success) revert("Failed to transfer underlying token");
         address[] memory receivedTokens = new address[](1);
-        receivedTokens[0] = underlyingAddress;
+        receivedTokens[0] = underlying[0];
         uint256[] memory receivedTokenAmounts = new uint256[](1);
         receivedTokenAmounts[0] = tokensGained;
         return (receivedTokens, receivedTokenAmounts);
     }
 
-    function mint(address toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts) payable external returns(uint) {
+    function mint(address toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts, address receiver, address self) payable external returns(uint) {
         IERC20 lpTokenContract = IERC20(toMint);
-        uint lpBalance = lpTokenContract.balanceOf(msg.sender);
-        address underlyingAddress = getUnderlyingTokens(toMint)[0];
-        require(underlyingAddress==underlyingTokens[0], "Supplied token doesn't match pool underlying");
+        uint lpBalance = lpTokenContract.balanceOf(receiver);
+        (address[] memory underlying, ) = getUnderlyingTokens(toMint);
+        require(underlying[0]==underlyingTokens[0], "Supplied token doesn't match pool underlying");
+        address lendingPool1Address = AaveV2PoolInteractor(self).lendingPool1();
+        address lendingPool2Address = AaveV2PoolInteractor(self).lendingPool2();
+        address lendingPool3Address = AaveV2PoolInteractor(self).lendingPool3();
 
-        (bool success,) = underlyingTokens[0].call(abi.encodeWithSignature("transferFrom(address,address,uint256)",msg.sender, address(this), underlyingAmounts[0]));
-        if (!success) revert("Failed to transfer underlying token");
-
-        uint version = _getVersion(toMint);
+        uint version = _getVersion(toMint, self);
         if (version==1) {
-            (success,) = underlyingTokens[0].call(abi.encodeWithSignature("approve(address,uint256)", ILendingPool1(lendingPool1).core(), underlyingAmounts[0]));
-            if (!success) revert("Failed to approve underlying token");
-            ILendingPool1(lendingPool1).deposit(underlyingAddress, underlyingAmounts[0], 0);
-            uint tokensGained = lpTokenContract.balanceOf(address(this))-lpBalance;
-            lpTokenContract.transfer(msg.sender, tokensGained);
+            IERC20(underlyingTokens[0]).safeIncreaseAllowance(ILendingPool1(lendingPool1Address).core(), underlyingAmounts[0]);
+            ILendingPool1(lendingPool1Address).deposit(underlying[0], underlyingAmounts[0], 0);
+            lpTokenContract.transfer(receiver, lpTokenContract.balanceOf(address(this)));
         } else if (version==2) {
-            (success,) = underlyingTokens[0].call(abi.encodeWithSignature("approve(address,uint256)", lendingPool2, underlyingAmounts[0]));
-            if (!success) revert("Failed to approve underlying token");
-            ILendingPool2(lendingPool2).deposit(underlyingAddress, underlyingAmounts[0], msg.sender, 0);
+            IERC20(underlyingTokens[0]).safeIncreaseAllowance(lendingPool2Address, underlyingAmounts[0]);
+            ILendingPool2(lendingPool2Address).deposit(underlying[0], underlyingAmounts[0], receiver, 0);
         } else if (version==3) {
-            (success,) = underlyingTokens[0].call(abi.encodeWithSignature("approve(address,uint256)", lendingPool3, underlyingAmounts[0]));
-            if (!success) revert("Failed to approve underlying token");
-            ILendingPool3(lendingPool3).supply(underlyingAddress, underlyingAmounts[0], msg.sender, 0);
+            IERC20(underlyingTokens[0]).safeIncreaseAllowance(lendingPool3Address, underlyingAmounts[0]);
+            ILendingPool3(lendingPool3Address).supply(underlying[0], underlyingAmounts[0], receiver, 0);
         }
 
-        uint minted = lpTokenContract.balanceOf(msg.sender)-lpBalance;
+        uint minted = lpTokenContract.balanceOf(receiver)-lpBalance;
         require(minted>0, "Failed to mint LP tokens");
         return minted;
     }
@@ -113,7 +113,7 @@ contract AaveV2PoolInteractor is IPoolInteractor {
 
     function getUnderlyingTokens(address lpTokenAddress)
         public
-        returns (address[] memory)
+        returns (address[] memory, uint[] memory)
     {
         (bool success, bytes memory returnData) = lpTokenAddress.call(abi.encodeWithSignature("UNDERLYING_ASSET_ADDRESS()"));
         if (!success) {
@@ -125,6 +125,8 @@ contract AaveV2PoolInteractor is IPoolInteractor {
         (address underlyingAddress) = abi.decode(returnData, (address));
         address[] memory receivedTokens = new address[](1);
         receivedTokens[0] = underlyingAddress;
-        return receivedTokens;
+        uint[] memory ratios = new uint[](1);
+        ratios[0] = 1;
+        return (receivedTokens, ratios);
     }
 }

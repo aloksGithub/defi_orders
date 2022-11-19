@@ -32,6 +32,7 @@ const config: HardhatUserConfig = {
   },
   networks: {
     hardhat: {
+      allowUnlimitedContractSize: true,
       forking: {
         // @ts-ignore
         url: rpcs[process.env.CURRENTLY_FORKING!],

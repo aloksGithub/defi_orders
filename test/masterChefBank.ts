@@ -10,7 +10,7 @@ const NETWORK = hre.network.name
 const networkAddresses = addresses[NETWORK]
 const liquidationPoints = [{liquidateTo: networkAddresses.networkToken, watchedToken: networkAddresses.networkToken, lessThan:true, liquidationPoint: 100}]
 
-describe ("MasterChefBank tests", function () {
+describe("MasterChefBank tests", function () {
     let manager: PositionsManager
     let owners: any[]
     let networkTokenContract: IWETH
@@ -46,6 +46,8 @@ describe ("MasterChefBank tests", function () {
             const positionInfo2 = await manager.getPosition(positionId)
             expect(positionInfo2.amount).to.greaterThan(positionInfo1.amount)
             await manager.connect(owners[0]).close(positionId)
+            const positionInfo3 = await manager.getPosition(positionId)
+            expect(positionInfo3.amount).to.equal(0)
             await manager.callStatic.closeToUSDC(positionId)
             const finalLpBalance = await lpTokenContract.balanceOf(owners[0].address)
             expect(finalLpBalance).to.greaterThan(lpBalance0)

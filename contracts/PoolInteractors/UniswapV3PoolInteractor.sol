@@ -17,14 +17,10 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
     using strings for *;
     using SafeERC20 for IERC20;
 
-    address[] supportedManagers;
+    address public supportedManager;
 
-    constructor(address[] memory _supportedManagers) {
-        supportedManagers = _supportedManagers;
-    }
-
-    function setSupportedManagers(address[] memory _supportedManagers) external onlyOwner {
-        supportedManagers = _supportedManagers;
+    constructor(address _supportedManager) {
+        supportedManager = _supportedManager;
     }
     
     function burn(Asset memory asset) payable external returns (address[] memory receivedTokens, uint256[] memory receivedTokenAmounts) {
@@ -49,8 +45,6 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
         receivedTokenAmounts[0] = token0Amount;
         receivedTokenAmounts[1] = token1Amount;
         IERC721(asset.manager).transferFrom(address(this), msg.sender, asset.tokenId);
-        // IERC20(token0).safeTransfer(msg.sender, token0Amount);
-        // IERC20(token1).safeTransfer(msg.sender, token1Amount);
     }
 
     function getRatio(address poolAddress, int24 tick0, int24 tick1) external view returns (uint, uint) {
@@ -70,7 +64,7 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
         }
     }
 
-    function mint(Asset memory toMint, address[] memory underlyingTokens, uint256[] memory underlyingAmounts) payable external returns (uint256) {
+    function mint(Asset memory toMint, address[] memory underlyingTokens, uint256[] memory underlyingAmounts, address receiver) payable external returns (uint256) {
         IUniswapV3Pool pool = IUniswapV3Pool(toMint.pool);
         address token0 = pool.token0();
         address token1 = pool.token1();
@@ -80,40 +74,46 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
             IERC20(underlyingTokens[i]).safeIncreaseAllowance(toMint.manager, underlyingAmounts[i]);
         }
         uint24 fees = pool.fee();
-        (int24 tick0, int24 tick1, uint minAmount0, uint minAmount1) = abi.decode(toMint.data, (int24, int24, uint, uint));
-        mintParams = INonfungiblePositionManager.MintParams(
-            token0, token1, fees,
-            tick0, tick1,
-            underlyingAmounts[0], underlyingAmounts[1],
-            0, 0,
-            msg.sender, block.timestamp
-        );
+        uint minAmount0; uint minAmount1;
+        {
+            (int24 tick0, int24 tick1, uint m0, uint m1) = abi.decode(toMint.data, (int24, int24, uint, uint));
+            minAmount0 = m0;
+            minAmount1 = m1;
+            mintParams = INonfungiblePositionManager.MintParams(
+                token0, token1, fees,
+                tick0, tick1,
+                underlyingAmounts[0], underlyingAmounts[1],
+                0, 0,
+                receiver, block.timestamp
+            );
+        }
         (uint256 tokenId,,uint amount0, uint amount1) = INonfungiblePositionManager(toMint.manager).mint(mintParams);
-        IERC20(token0).safeTransfer(msg.sender, IERC20(token0).balanceOf(address(this)));
-        IERC20(token1).safeTransfer(msg.sender, IERC20(token1).balanceOf(address(this)));
         require(amount0>minAmount0 && amount1>minAmount1, "Failed slippage check");
         return tokenId;
     }
     
     function testSupported(address token) external view returns (bool) {
-        for (uint i = 0; i<supportedManagers.length; i++) {
-            if (token==supportedManagers[i]) {
-                return true;
-            }
+        if (token==supportedManager) {
+            return true;
         }
         return false;
     }
 
     function testSupportedPool(address poolAddress) external view returns (bool) {
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
-        try pool.factory() returns (address factory) {
-            for (uint i = 0; i<supportedManagers.length; i++) {
-                if (factory==INonfungiblePositionManager(supportedManagers[i]).factory()) {
-                    return true;
-                }
-            }
-            return false;
-        } catch {return false;} 
+        (bool success, bytes memory returnData) = poolAddress.staticcall(abi.encodeWithSelector(
+            pool.factory.selector));
+        if (success) {
+            (address factory) = abi.decode(returnData, (address));
+            if (factory==INonfungiblePositionManager(supportedManager).factory()) return true;
+        }
+        return false;
+        // try pool.factory() returns (address factory) {
+        //     if (factory==INonfungiblePositionManager(supportedManager).factory()) {
+        //         return true;
+        //     }
+        //     return false;
+        // } catch {return false;} 
     }
 
     function getUnderlyingTokens(address lpTokenAddress) public view returns (address[] memory) {

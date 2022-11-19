@@ -3,7 +3,7 @@
         "usdc": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
         "preferredStable": "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
         "networkToken": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
-        "commonPoolTokens": ["0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", "0x55d398326f99059fF775485246999027B3197955"],
+        "commonPoolTokens": ["0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c", "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56", "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", "0x55d398326f99059fF775485246999027B3197955"],
         "uniswapV2Routers": ["0x3a6d8cA21D1CF76F653A67577FA0D27453350dD8", "0x10ED43C718714eb63d5aA57B78B54704E256024E"],
         "uniswapV2Factories": [
             "0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73",
@@ -21,14 +21,12 @@
         ],
         "erc20BankLps": [
             "0x9A0AF7FDb2065Ce470D72664DE73cAE409dA28Ec",
-            "0xec3422Ef92B2fb59e84c8B02Ba73F1fE84Ed8D71",
-            "0x2919B42E28Ba205b56712425d09D98D3BDeB7b1a"
+            "0xec3422Ef92B2fb59e84c8B02Ba73F1fE84Ed8D71"
         ],
         "universwalSwapTestingTokens": [
             "0xDA8ceb724A06819c0A5cDb4304ea0cB27F8304cF",
             "0x8840C6252e2e86e545deFb6da98B2a0E26d8C1BA",
-            "0xec3422Ef92B2fb59e84c8B02Ba73F1fE84Ed8D71",
-            "0x2919B42E28Ba205b56712425d09D98D3BDeB7b1a"            
+            "0xec3422Ef92B2fb59e84c8B02Ba73F1fE84Ed8D71"           
         ],
         "nftBasaedPairs": [
 
