@@ -16,7 +16,9 @@ interface IPoolInteractor {
 
     function mint(address toMint, address[] memory underlyingTokens, uint256[] memory underlyingAmounts, address receiver, address self) payable external returns (uint256);
 
-    function testSupported(address lpToken) external returns (bool);
+    function testSupported(address lpToken) external view returns (bool);
 
-    function getUnderlyingTokens(address poolAddress) external returns (address[] memory, uint[] memory);
+    function getUnderlyingAmount(address lpTokenAddress, uint amount) external view returns (address[] memory underlying, uint[] memory amounts);
+
+    function getUnderlyingTokens(address poolAddress) external view returns (address[] memory, uint[] memory);
 }

@@ -48,7 +48,7 @@ const logDeployment = (contractName: string, contract:Contract) => {
 
 const ethereumPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
   const uniswapPoolInteractorContract = await ethers.getContractFactory('UniswapV2PoolInteractor')
-  const uniswapPoolInteractor = await uniswapPoolInteractorContract.deploy(["Uniswap V2", "SushiSwap LP Token"])
+  const uniswapPoolInteractor = await uniswapPoolInteractorContract.deploy()
   const aaveV2PoolInteractorFactory = await ethers.getContractFactory('AaveV2PoolInteractor')
   const aaveV2PoolInteractor = await aaveV2PoolInteractorFactory.deploy(addresses['mainnet'].aaveV1LendingPool, addresses['mainnet'].aaveV2LendingPool, addresses['mainnet'].aaveV3LendingPool)
   if (verify) {
@@ -56,7 +56,7 @@ const ethereumPoolInteractors = async (verify:boolean=false, log:boolean=false) 
     try {
     await hre.run("verify:verify", {
       address: uniswapPoolInteractor.address,
-      constructorArguments: [["Uniswap V2", "SushiSwap LP Token"]],
+      constructorArguments: [],
       network: 'mainnet'
     })
     } catch (e) {
@@ -112,7 +112,7 @@ const bscPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
   const venusPoolInteractorFactory = await ethers.getContractFactory("VenusPoolInteractor")
   const venusPoolInteractor = await venusPoolInteractorFactory.deploy()
   const pancakePoolInteractorFactory = await ethers.getContractFactory("UniswapV2PoolInteractor")
-  const pancakePoolInteractor = await pancakePoolInteractorFactory.deploy(['Pancake LPs', 'Biswap LPs'])
+  const pancakePoolInteractor = await pancakePoolInteractorFactory.deploy()
   if (verify) {
     await delay(10000)
     try {
@@ -127,7 +127,7 @@ const bscPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
     try {
     await hre.run("verify:verify", {
       address: pancakePoolInteractor.address,
-      constructorArguments: [['Pancake LPs', 'Biswap LPs']],
+      constructorArguments: [],
       network: 'bsc'
     })
     } catch (e) {
@@ -143,13 +143,13 @@ const bscPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
 
 const bscTestnetPoolInteractors = async (verify:boolean=false, log:boolean=false) => {
   const pancakePoolInteractorFactory = await ethers.getContractFactory("UniswapV2PoolInteractor")
-  const pancakePoolInteractor = await pancakePoolInteractorFactory.deploy(['Pancake LPs'])
+  const pancakePoolInteractor = await pancakePoolInteractorFactory.deploy()
   if (verify) {
     await delay(10000)
     try {
     await hre.run("verify:verify", {
       address: pancakePoolInteractor.address,
-      constructorArguments: [['Pancake LPs']],
+      constructorArguments: [],
       network: 'bsc'
     })
     } catch (e) {
@@ -569,7 +569,8 @@ export const getLPToken = async (lpToken: string, universalSwap: UniversalSwap, 
   await wethContract.connect(owner).approve(universalSwap.address, ethers.utils.parseEther(etherAmount))
   const lpTokenContract = await ethers.getContractAt("ERC20", lpToken)
   // @ts-ignore
-  await universalSwap.connect(owner).swapV2([addresses[network].networkToken], [ethers.utils.parseEther(etherAmount)], [], [lpToken], [], [1], [0])
+  await universalSwap.connect(owner).swapV2([addresses[network].networkToken], [ethers.utils.parseEther(etherAmount)], [],
+  {outputERC20s:[lpToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]})
   const lpBalance = await lpTokenContract.balanceOf(owner.address)
   return {lpBalance, lpTokenContract}
 }
@@ -629,7 +630,8 @@ export const getNFT = async (universalSwap:UniversalSwap, etherAmount:string, ma
     [nearestTick-2500*tickSpacing, nearestTick+20*tickSpacing, 0, 0]);
   // const tx = await universalSwap.connect(owner).swapForNFT([networkToken], [ethers.utils.parseEther(etherAmount)], {pool, manager, tokenId: 0, liquidity: 0, data}, {gasLimit: 30000000})
   const tx = await universalSwap.connect(owner).swapV2(
-    [networkToken], [ethers.utils.parseEther((+etherAmount).toString())], [], [], [{pool, manager, tokenId: 0, liquidity: 0, data}], [1], [])
+    [networkToken], [ethers.utils.parseEther((+etherAmount).toString())], [], 
+    {outputERC20s: [], outputERC721s: [{pool, manager, tokenId: 0, liquidity: 0, data}], ratios: [1], minAmountsOut: []})
   // const tx = await universalSwap.connect(owner).swapERC721(
   //   [networkToken], [ethers.utils.parseEther((+etherAmount).toString())], [], {pool, manager, tokenId: 0, liquidity: 0, data},
   // )

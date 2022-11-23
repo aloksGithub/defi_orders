@@ -24,7 +24,7 @@ contract AaveV2PoolInteractor is IPoolInteractor {
         lendingPool3 = _lendingPool3;
     }
 
-    function _getVersion(address lpTokenAddress, address self) internal returns (uint) {
+    function _getVersion(address lpTokenAddress, address self) internal view returns (uint) {
         (address[] memory underlying, ) = getUnderlyingTokens(lpTokenAddress);
         address lendingPool2Address = AaveV2PoolInteractor(self).lendingPool2();
         address lendingPool3Address = AaveV2PoolInteractor(self).lendingPool3();
@@ -102,27 +102,44 @@ contract AaveV2PoolInteractor is IPoolInteractor {
         return minted;
     }
     
-    function testSupported(address token) external override returns (bool) {
-        string memory name = ERC20(token).name();
-        if (name.toSlice().startsWith("Aave".toSlice())) {
-            getUnderlyingTokens(token);
-            return true;
+    function testSupported(address token) external view override returns (bool) {
+        try IAToken(token).UNDERLYING_ASSET_ADDRESS() returns (address) {return true;} catch {
+            try IAToken(token).underlyingAssetAddress() returns (address) {return true;} catch {
+                return false;
+            }
         }
-        return false;
+        // string memory name = ERC20(token).name();
+        // if (name.toSlice().startsWith("Aave".toSlice())) {
+        //     getUnderlyingTokens(token);
+        //     return true;
+        // }
+        // return false;
+    }
+
+    function getUnderlyingAmount(address aTokenAddress, uint amount) external view returns (address[] memory underlying, uint[] memory amounts) {
+        (underlying,) = getUnderlyingTokens(aTokenAddress);
+        amounts = new uint[](1);
+        amounts[0] = amount;
     }
 
     function getUnderlyingTokens(address lpTokenAddress)
-        public
+        public view
         returns (address[] memory, uint[] memory)
     {
-        (bool success, bytes memory returnData) = lpTokenAddress.call(abi.encodeWithSignature("UNDERLYING_ASSET_ADDRESS()"));
-        if (!success) {
-            (success, returnData) = lpTokenAddress.call(abi.encodeWithSignature("underlyingAssetAddress()"));
-            if (!success) {
+        address underlyingAddress;
+        try IAToken(lpTokenAddress).UNDERLYING_ASSET_ADDRESS() returns (address underlying) {underlyingAddress = underlying;} catch {
+            try IAToken(lpTokenAddress).underlyingAssetAddress() returns (address underlying) {underlyingAddress = underlying;} catch {
                 revert("Failed to get underlying");
             }
         }
-        (address underlyingAddress) = abi.decode(returnData, (address));
+        // (bool success, bytes memory returnData) = lpTokenAddress.call(abi.encodeWithSignature("UNDERLYING_ASSET_ADDRESS()"));
+        // if (!success) {
+        //     (success, returnData) = lpTokenAddress.call(abi.encodeWithSignature("underlyingAssetAddress()"));
+        //     if (!success) {
+        //         revert("Failed to get underlying");
+        //     }
+        // }
+        // (address underlyingAddress) = abi.decode(returnData, (address));
         address[] memory receivedTokens = new address[](1);
         receivedTokens[0] = underlyingAddress;
         uint[] memory ratios = new uint[](1);

@@ -23,4 +23,6 @@ interface IVToken {
     function supplyRatePerBlock() external view returns (uint);
     function totalBorrowsCurrent() external returns (uint);
     function borrowBalanceCurrent(address account) external returns (uint);
+    function exchangeRateStored() external view returns (uint);
+    function totalSupply() external view returns (uint);
 }

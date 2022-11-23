@@ -7,6 +7,7 @@ import "./Banks/BankBase.sol";
 import "./interfaces/IPositionsManager.sol";
 import "./interfaces/IFeeModel.sol";
 import "./UniversalSwap.sol";
+import "./interfaces/IUniversalSwap.sol";
 import "./DefaultFeeModel.sol";
 import "./interfaces/IPoolInteractor.sol";
 
@@ -346,11 +347,6 @@ contract PositionsManager is IPositionsManager, Ownable {
             wanted[0] = position.liquidationPoints[liquidationIndex].liquidateTo;
             ratios[0] = 1;
             slippage[0] = minAmountOut;
-            console.log("_____");
-            for (uint i = 0; i<tokens.length; i++) {
-                console.log(tokens[i], tokenAmounts[i]);
-            }
-            console.log("_____");
             uint[] memory toReturn = _swap(tokens, tokenAmounts, wanted, ratios, slippage);
             IERC20(position.liquidationPoints[liquidationIndex].liquidateTo).safeTransfer(position.user, toReturn[0]);
         }
@@ -415,6 +411,6 @@ contract PositionsManager is IPositionsManager, Ownable {
 
     function _swap(address[] memory tokens, uint[] memory tokenAmounts, address[] memory wanted, uint[] memory ratios, uint[] memory slippage) internal returns (uint[] memory) {
         Asset[] memory temp;
-        return UniversalSwap(universalSwap).swapV2(tokens, tokenAmounts, temp, wanted, temp, ratios, slippage);
+        return UniversalSwap(universalSwap).swapV2(tokens, tokenAmounts, temp, Desired(wanted, temp, ratios, slippage));
     }
 }

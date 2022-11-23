@@ -17,6 +17,7 @@ abstract contract IERC721Wrapper is Ownable {
     function withdraw(address manager, uint id, uint amount, address receiver) virtual external returns (address[] memory outTokens, uint[] memory tokenAmounts);
     function harvest(address manager, uint id, address receiver) virtual external returns (address[] memory outTokens, uint[] memory tokenAmounts);
     function getRatio(address manager, uint id) virtual view external returns (address[] memory tokens, uint[] memory ratios);
+    function getRewardsForPosition(address manager, uint tokenId) virtual external view returns (address[] memory rewards, uint[] memory amounts);
     function getERC20Base(address pool) virtual external view returns (address[] memory underlyingTokens);
 }
 
@@ -143,6 +144,16 @@ contract UniswapV3Wrapper is IERC721Wrapper {
                 ratios[0] = amount0;
                 ratios[1] = amount1*1e18/price;
         }
+    }
+
+    function getRewardsForPosition(address manager, uint tokenId) override external view returns (address[] memory rewards, uint[] memory amounts) {
+        (,,address token0, address token1,,,,,,,uint128 fee0, uint128 fee1) = INonfungiblePositionManager(manager).positions(tokenId);
+        rewards = new address[](2);
+        rewards[0] = token0;
+        rewards[1] = token1;
+        amounts =  new uint[](2);
+        amounts[0] = fee0;
+        amounts[1] = fee1;
     }
 
     function getERC20Base(address poolAddress) external override view returns (address[] memory underlyingTokens) {

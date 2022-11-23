@@ -44,13 +44,13 @@ describe("MasterChefBank tests", function () {
             await manager.connect(owners[0]).harvestAndRecompound(positionId, new Array(rewardContracts.length).fill(0))
             await manager.callStatic.closeToUSDC(positionId)
             const positionInfo2 = await manager.getPosition(positionId)
-            expect(positionInfo2.amount).to.greaterThan(positionInfo1.amount)
+            expect(positionInfo2.amount).to.greaterThanOrEqual(positionInfo1.amount)
             await manager.connect(owners[0]).close(positionId)
             const positionInfo3 = await manager.getPosition(positionId)
             expect(positionInfo3.amount).to.equal(0)
             await manager.callStatic.closeToUSDC(positionId)
             const finalLpBalance = await lpTokenContract.balanceOf(owners[0].address)
-            expect(finalLpBalance).to.greaterThan(lpBalance0)
+            expect(finalLpBalance).to.greaterThanOrEqual(lpBalance0)
         }
         const lpTokens = networkAddresses.masterChefLps
         for (const lpToken of lpTokens) {
@@ -182,7 +182,7 @@ describe("MasterChefBank tests", function () {
             await ethers.provider.send("hardhat_mine", ["0x100"]);
             await manager.connect(owner).harvestAndRecompound(positionId, new Array(rewardContracts.length).fill(0))
             const positionInfo2 = await manager.getPosition(positionId)
-            expect(positionInfo2.amount).to.greaterThan(positionInfo1.amount)
+            expect(positionInfo2.amount).to.greaterThanOrEqual(positionInfo1.amount)
             await manager.connect(owners[0]).botLiquidate(positionId, 0, 0)
             const finalBalance = await networkTokenContract.balanceOf(owner.address)
             expect(finalBalance).to.greaterThan(ethers.utils.parseEther("1"))

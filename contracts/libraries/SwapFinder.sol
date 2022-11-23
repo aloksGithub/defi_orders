@@ -50,6 +50,7 @@ library SwapFinder {
         SwapPoint[] memory self,
         address[] memory toConvert,
         uint[] memory valuesToConvert,
+        uint[] memory amountsToConvert,
         address[] memory convertTo,
         uint[] memory wantedValues
     ) internal pure returns (SwapPoint[] memory swaps) {
@@ -68,7 +69,7 @@ library SwapFinder {
                         valueInAdjusted = moreValueOutNeeded;
                     }
                 }
-                self[i].amountIn = valueInAdjusted*self[i].amountIn/self[i].valueIn;
+                self[i].amountIn = valueInAdjusted*amountsToConvert[data.toConvertIndex]/valuesToConvert[data.toConvertIndex];
                 self[i].valueIn = valueInAdjusted;
                 self[i].valueOut = valueInAdjusted*self[i].valueOut/self[i].valueIn;
                 self[i].amountOut = valueInAdjusted*self[i].amountOut/self[i].valueIn;

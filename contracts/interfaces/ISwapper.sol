@@ -16,7 +16,7 @@ interface ISwapper {
         address outToken
     ) external view returns (uint256, address[] memory);
 
-    function checkSwappable(address inToken, address outToken)
+    function checkSwappable(address token)
         external
         view
         returns (bool);

@@ -21,4 +21,12 @@ library UintArray {
         newArray[self.length] = element;
         return newArray;
     }
+
+    function sum(uint[] memory self) internal pure returns (uint) {
+        uint total;
+        for (uint i = 0; i<self.length; i++) {
+            total+=self[i];
+        }
+        return total;
+    }
 }

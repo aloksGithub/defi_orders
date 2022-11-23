@@ -2,6 +2,13 @@
 pragma solidity ^0.8.9;
 
 import "./INFTPoolInteractor.sol";
+    
+struct Desired {
+    address[] outputERC20s;
+    Asset[] outputERC721s;
+    uint[] ratios;
+    uint[] minAmountsOut;
+}
 
 /// @title Interface for UniversalSwap utility
 /// @notice UniversalSwap allows trading between pool tokens and tokens tradeable on DEXes

@@ -55,4 +55,13 @@ library AddressArray {
         }
         return self.length;
     }
+
+    function exists(address[] memory self, address toFind) internal pure returns (bool) {
+        for (uint i = 0; i<self.length; i++) {
+            if (self[i]==toFind) {
+                return true;
+            }
+        }
+        return false;
+    }
 }

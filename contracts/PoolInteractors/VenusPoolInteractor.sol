@@ -29,21 +29,32 @@ contract VenusPoolInteractor is IPoolInteractor {
 
     function mint(address toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts, address receiver, address self) payable external returns(uint) {
         IVToken lpTokenContract = IVToken(toMint);
+        uint balanceBefore = lpTokenContract.balanceOf(address(this));
         for (uint i = 0; i<underlyingTokens.length; i++) {
             ERC20 tokenContract = ERC20(underlyingTokens[i]);
             tokenContract.approve(toMint, underlyingAmounts[i]);
         }
-        uint minted = lpTokenContract.mintBehalf(receiver, underlyingAmounts[0]);
+        lpTokenContract.mint(underlyingAmounts[0]);
+        uint minted = lpTokenContract.balanceOf(address(this))-balanceBefore;
+        if (receiver!=address(this)) {
+            lpTokenContract.transfer(receiver, minted);
+        }
         return minted;
     }
     
     function testSupported(address token) external view override returns (bool) {
-        string memory name = ERC20(token).name();
-        if (name.toSlice().startsWith("Venus".toSlice())) {
-            getUnderlyingTokens(token);
-            return true;
-        }
-        return false;
+        try IVToken(token).underlying() returns (address) {} catch {return false;}
+        try IVToken(token).borrowRatePerBlock() returns (uint) {} catch {return false;}
+        try IVToken(token).supplyRatePerBlock() returns (uint) {} catch {return false;}
+        return true;
+    }
+
+    function getUnderlyingAmount(address lpTokenAddress, uint amount) external view returns (address[] memory underlying, uint[] memory amounts) {
+        IVToken lpToken = IVToken(lpTokenAddress);
+        uint exchangeRate = lpToken.exchangeRateStored();
+        (underlying,) = getUnderlyingTokens(lpTokenAddress);
+        amounts = new uint[](1);
+        amounts[0] = exchangeRate*amount/uint(10)**18;
     }
 
     function getUnderlyingTokens(address lpTokenAddress)

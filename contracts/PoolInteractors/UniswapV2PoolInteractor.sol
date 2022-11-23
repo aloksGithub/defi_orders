@@ -4,19 +4,8 @@ pragma solidity ^0.8.9;
 import "../interfaces/IPoolInteractor.sol";
 import "../interfaces/UniswapV2/IUniswapV2Pair.sol";
 
-contract UniswapV2PoolInteractor is IPoolInteractor, Ownable {
-    using strings for *;
+contract UniswapV2PoolInteractor is IPoolInteractor {
     using SafeERC20 for IERC20;
-
-    string[] supportedProtocols;
-
-    constructor(string[] memory _supportedProtocols) {
-        supportedProtocols = _supportedProtocols;
-    }
-
-    function setSupportedProtocols(string[] memory _supportedProtocols) external onlyOwner {
-        supportedProtocols = _supportedProtocols;
-    }
 
     function burn(address lpTokenAddress, uint256 amount, address self)
         payable
@@ -49,6 +38,7 @@ contract UniswapV2PoolInteractor is IPoolInteractor, Ownable {
         address self
     ) payable external returns (uint256) {
         IUniswapV2Pair poolContract = IUniswapV2Pair(toMint);
+        if (underlyingAmounts[0]+underlyingAmounts[1]==0) {return 0;}
         for (uint256 i = 0; i < underlyingTokens.length; i++) {
             IERC20(underlyingTokens[i]).safeTransfer(toMint, underlyingAmounts[i]);
         }
@@ -57,19 +47,25 @@ contract UniswapV2PoolInteractor is IPoolInteractor, Ownable {
     }
 
     function testSupported(address token) external view override returns (bool) {
-        string memory name = ERC20(token).name();
-        for (uint i = 0; i<supportedProtocols.length; i++) {
-            if (name.toSlice().startsWith(supportedProtocols[i].toSlice())) {
-                IUniswapV2Pair(token).token0();
-                IUniswapV2Pair(token).token1();
-                return true;
-            }
-        }
-        return false;
+        try IUniswapV2Pair(token).token0() returns (address) {} catch {return false;}
+        try IUniswapV2Pair(token).token1() returns (address) {} catch {return false;}
+        try IUniswapV2Pair(token).getReserves() returns (uint112, uint112, uint32) {} catch {return false;}
+        try IUniswapV2Pair(token).kLast() returns (uint) {} catch {return false;}
+        return true;
+    }
+
+    function getUnderlyingAmount(address lpTokenAddress, uint amount) external view returns (address[] memory underlying, uint[] memory amounts) {
+        IUniswapV2Pair lpToken = IUniswapV2Pair(lpTokenAddress);
+        (uint r0, uint r1,) = lpToken.getReserves();
+        uint supply = lpToken.totalSupply();
+        (underlying,) = getUnderlyingTokens(lpTokenAddress);
+        amounts = new uint[](2);
+        amounts[0] = amount*r0/supply;
+        amounts[1] = amount*r1/supply;
     }
 
     function getUnderlyingTokens(address lpTokenAddress)
-        external
+        public
         view
         returns (address[] memory, uint[] memory)
     {

@@ -6,9 +6,6 @@ import "../interfaces/UniswapV3/INonfungiblePositionManager.sol";
 import "../interfaces/UniswapV3/IUniswapV3Pool.sol";
 import "../libraries/Strings.sol";
 import "../interfaces/INFTPoolInteractor.sol";
-import "../interfaces/UniswapV2/IUniswapV2Router02.sol";
-import "../interfaces/UniswapV2/IUniswapV2Factory.sol";
-import "../interfaces/UniswapV2/IUniswapV2Pair.sol";
 import '../libraries/TickMath.sol';
 import "../libraries/LiquidityAmounts.sol";
 import "hardhat/console.sol";
@@ -101,19 +98,30 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
 
     function testSupportedPool(address poolAddress) external view returns (bool) {
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
-        (bool success, bytes memory returnData) = poolAddress.staticcall(abi.encodeWithSelector(
-            pool.factory.selector));
-        if (success) {
-            (address factory) = abi.decode(returnData, (address));
-            if (factory==INonfungiblePositionManager(supportedManager).factory()) return true;
-        }
-        return false;
-        // try pool.factory() returns (address factory) {
-        //     if (factory==INonfungiblePositionManager(supportedManager).factory()) {
-        //         return true;
-        //     }
-        //     return false;
-        // } catch {return false;} 
+        // (bool success, bytes memory returnData) = poolAddress.staticcall(abi.encodeWithSelector(
+        //     pool.factory.selector));
+        // if (success) {
+        //     (address factory) = abi.decode(returnData, (address));
+        //     if (factory==INonfungiblePositionManager(supportedManager).factory()) return true;
+        // }
+        // return false;
+        try pool.factory() returns (address factory) {
+            if (factory==INonfungiblePositionManager(supportedManager).factory()) {
+                return true;
+            }
+            return false;
+        } catch {return false;} 
+    }
+
+    function getUnderlyingAmount(Asset memory nft) external view returns (address[] memory underlying, uint[] memory amounts) {
+        IUniswapV3Pool pool = IUniswapV3Pool(nft.pool);
+        underlying = getUnderlyingTokens(nft.pool);
+        (uint160 sqrtPriceX96, , , , , , ) = pool.slot0();
+        (int24 tick0, int24 tick1,,) = abi.decode(nft.data, (int24, int24, uint, uint));
+        (uint amount0, uint amount1) = LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tick0), TickMath.getSqrtRatioAtTick(tick1), uint128(nft.liquidity));
+        amounts = new uint[](2);
+        amounts[0] = amount0;
+        amounts[1] = amount1;
     }
 
     function getUnderlyingTokens(address lpTokenAddress) public view returns (address[] memory) {
