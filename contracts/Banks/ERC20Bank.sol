@@ -47,6 +47,15 @@ contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
         return "ERC20 Bank";
     }
 
+    function getPositionTokens(uint tokenId, address userAddress) override external view returns (address[] memory outTokens, uint[] memory tokenAmounts) {
+        (address lpToken,,) = decodeId(tokenId);
+        uint amount = balanceOf(userAddress, tokenId);
+        outTokens = new address[](1);
+        tokenAmounts = new uint[](1);
+        outTokens[0] = lpToken;
+        tokenAmounts[0] = amount;
+    }
+
     function mint(uint tokenId, address userAddress, address[] memory suppliedTokens, uint[] memory suppliedAmounts) onlyAuthorized override public returns(uint) {
         PoolInfo storage pool = poolInfo[tokenId];
         pool.userShares[userAddress]+=suppliedAmounts[0];

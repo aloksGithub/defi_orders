@@ -6,7 +6,6 @@ import "../interfaces/Venus/IVToken.sol";
 import "hardhat/console.sol";
 
 contract VenusPoolInteractor is IPoolInteractor {
-    using strings for *;
     using SafeERC20 for IERC20;
 
     function burn(

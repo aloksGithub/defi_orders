@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
+import "./IUniversalSwap.sol";
 
 /// @notice Structure representing a liquidation condition
 /// @param watchedToken The token whose price needs to be watched
@@ -99,10 +100,11 @@ interface IPositionsManager {
     /// @notice Deposit into existing position
     /// @dev Before calling, make sure PositionsManager contract has approvals according to suppliedAmounts
     /// @param positionId position ID
-    /// @param suppliedTokens list of tokens supplied to increase the positions value
-    /// @param suppliedAmounts amounts supplied for each of the supplied tokens
-    /// @param minAmountsUsed Slippage control, used when supplied tokens don't match the positions underlying and conversion needs to be done
-    function deposit(uint positionId, address[] memory suppliedTokens, uint[] memory suppliedAmounts, uint[] memory minAmountsUsed) payable external;
+    /// @param provided Assets provided to deposit into position
+    /// @param swaps Swaps to conduct if provided assets do not match underlying for position
+    /// @param conversions Conversions to conduct if provided assets do not match underlying for position
+    /// @param minAmounts Slippage control, used when provided assets don't match the positions underlying
+    function depositInExisting(uint positionId, Provided memory provided, SwapPoint[] memory swaps, Conversion[] memory conversions, uint[] memory minAmounts) payable external;
 
     /// @notice Create new position and deposit into it
     /// @dev Before calling, make sure PositionsManager contract has approvals according to suppliedAmounts
@@ -135,18 +137,22 @@ interface IPositionsManager {
 
     /// @notice Harvest rewards for position and deposit them back to increase position value
     /// @param positionId Position ID
-    /// @param minAmountsUsed Slippage control if swap is needed
+    /// @param swaps Swaps to conduct if harvested assets do not match underlying for position
+    /// @param conversions Conversions to conduct if harvested assets do not match underlying for position
+    /// @param minAmounts Slippage control, used when harvested assets don't match the positions underlying
     /// @return newLpTokens Amount of new tokens added/increase in liquidity for position
-    function harvestAndRecompound(uint positionId, uint[] memory minAmountsUsed) external returns (uint newLpTokens);
+    function harvestAndRecompound(uint positionId, SwapPoint[] memory swaps, Conversion[] memory conversions, uint[] memory minAmounts) external returns (uint newLpTokens);
 
     /// @notice Liquidate a position that has violated some liquidation condition
     /// @notice Can only be called by a keeper
     /// @param positionId Position ID
+    /// @param swaps Swaps to conduct to get desired asset from position
+    /// @param conversions Conversions to conduct to get desired asset from position
     /// @param liquidationIndex Index of liquidation condition that is no longer satisfied
     /// @param minAmountOut Slippage Control
-    function botLiquidate(uint positionId, uint liquidationIndex, uint minAmountOut) external;
+    function botLiquidate(uint positionId, uint liquidationIndex, SwapPoint[] memory swaps, Conversion[] memory conversions, uint minAmountOut) external;
 
     /// @notice Function used to claim the fees for a position
     /// @notice claimDevFee will be called on every position interaction
-    function claimDevFee(uint positionId) external;
+    function computeDevFee(uint positionId) external;
 }

@@ -11,7 +11,6 @@ interface IAToken {
 }
 
 contract AaveV2PoolInteractor is IPoolInteractor {
-    using strings for *;
     using SafeERC20 for IERC20;
 
     address public lendingPool1;

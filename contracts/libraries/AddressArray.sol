@@ -22,6 +22,18 @@ library AddressArray {
         return newArray;
     }
 
+    function remove(address[] memory self, uint index) internal pure returns (address[] memory newArray) {
+        newArray = new address[](self.length-1);
+        uint elementsAdded;
+        for (uint i = 0; i<self.length; i++) {
+            if (i!=index) {
+                newArray[elementsAdded] = self[i];
+                elementsAdded+=1;
+            }
+        }
+        return newArray;
+    }
+
     function findAll(address[] memory self, address toFind) internal pure returns (uint[] memory) {
         uint[] memory indices;
         uint numMatching;
@@ -63,5 +75,49 @@ library AddressArray {
             }
         }
         return false;
+    }
+    
+    function shrink(address[] memory self, uint[] memory amounts) internal pure returns (address[] memory shrunkTokens, uint[] memory shrunkAmounts) {
+        for (uint i = 0; i<self.length; i++) {
+            for (uint j = i; j<self.length; j++) {
+                if (j>i && self[i]==self[j]) {
+                    amounts[i] = amounts[i]+amounts[j];
+                    amounts[j] = 0;
+                }
+            }
+        }
+        uint shrunkSize;
+        for (uint i = 0; i<self.length; i++) {
+            if (amounts[i]>0) {
+                shrunkSize+=1;
+            }
+        }
+        shrunkTokens = new address[](shrunkSize);
+        shrunkAmounts = new uint[](shrunkSize);
+        uint tokensAdded;
+        for (uint i = 0; i<self.length; i++) {
+            if (amounts[i]>0) {
+                shrunkTokens[tokensAdded] = self[i];
+                shrunkAmounts[tokensAdded] = amounts[i];
+                tokensAdded+=1;
+            }
+        }
+    }
+
+    function equal(address[] memory array1, address[] memory array2) internal pure returns (bool) {
+        if (array1.length!=array2.length) return false;
+        for (uint i = 0; i<array1.length; i++) {
+            bool matchFound = false;
+            for (uint j = 0; j<array2.length; j++) {
+                if (array1[i]==array2[j]) {
+                    matchFound = true;
+                    break;
+                }
+            }
+            if (!matchFound) {
+                return false;
+            }
+        }
+        return true;
     }
 }

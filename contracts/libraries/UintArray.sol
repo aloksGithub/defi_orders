@@ -22,11 +22,34 @@ library UintArray {
         return newArray;
     }
 
+    function remove(uint[] memory self, uint index) internal pure returns (uint[] memory newArray) {
+        newArray = new uint[](self.length-1);
+        uint elementsAdded;
+        for (uint i = 0; i<self.length; i++) {
+            if (i!=index) {
+                newArray[elementsAdded] = self[i];
+                elementsAdded+=1;
+            }
+        }
+        return newArray;
+    }
+
     function sum(uint[] memory self) internal pure returns (uint) {
         uint total;
         for (uint i = 0; i<self.length; i++) {
             total+=self[i];
         }
         return total;
+    }
+
+    function scale(uint[] memory self, uint newTotal) internal pure returns (uint[] memory) {
+        uint totalRatios;
+        for (uint i = 0; i<self.length; i++) {
+            totalRatios+=self[i];
+        }
+        for (uint i = 0; i<self.length; i++) {
+            self[i] = self[i]*newTotal/totalRatios;
+        }
+        return self;
     }
 }

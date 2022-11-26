@@ -94,6 +94,9 @@ library SwapFinder {
                 swapsAdded+=1;
             }
         }
+        for (uint i = 0; i<self.length; i++) {
+            self[i].amountIn = 1e18*self[i].amountIn/amountsToConvert[toConvert.findFirst(self[i].tokenIn)];
+        }
         return swaps;
     }
 }

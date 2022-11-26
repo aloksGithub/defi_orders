@@ -19,6 +19,7 @@ abstract contract IERC721Wrapper is Ownable {
     function getRatio(address manager, uint id) virtual view external returns (address[] memory tokens, uint[] memory ratios);
     function getRewardsForPosition(address manager, uint tokenId) virtual external view returns (address[] memory rewards, uint[] memory amounts);
     function getERC20Base(address pool) virtual external view returns (address[] memory underlyingTokens);
+    function getPositionUnderlying(address manager, uint tokenId) virtual external view returns (address[] memory tokens, uint[] memory amounts);
 }
 
 contract UniswapV3Wrapper is IERC721Wrapper {
@@ -154,6 +155,22 @@ contract UniswapV3Wrapper is IERC721Wrapper {
         amounts =  new uint[](2);
         amounts[0] = fee0;
         amounts[1] = fee1;
+    }
+
+    function getPositionUnderlying(address manager, uint tokenId) override external view returns (address[] memory tokens, uint[] memory amounts) {
+        (,,address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper, uint128 liquidity,,,,) = INonfungiblePositionManager(manager).positions(tokenId);
+        IUniswapV3Pool pool = IUniswapV3Pool(
+            IUniswapV3Factory(INonfungiblePositionManager(manager).factory()).getPool(token0, token1, fee)
+        );
+        (uint160 sqrtRatioX96,,,,,,) = pool.slot0();
+        (uint amount0, uint amount1) = LiquidityAmounts.getAmountsForLiquidity(
+        sqrtRatioX96, TickMath.getSqrtRatioAtTick(tickLower), TickMath.getSqrtRatioAtTick(tickUpper), liquidity);
+        tokens = new address[](2);
+        tokens[0] = token0;
+        tokens[1] = token1;
+        amounts =  new uint[](2);
+        amounts[0] = amount0;
+        amounts[1] = amount1;
     }
 
     function getERC20Base(address poolAddress) external override view returns (address[] memory underlyingTokens) {

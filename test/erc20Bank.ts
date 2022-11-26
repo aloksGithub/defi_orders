@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import hre from 'hardhat'
-import { IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
+import { IWETH, IPositionsManager, PositionsManager, UniversalSwap } from "../typechain-types";
 import {deployAndInitializeManager, addresses, getNetworkToken, getLPToken, depositNew, isRoughlyEqual} from "../utils"
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 require('dotenv').config();
@@ -60,7 +60,7 @@ describe ("ERC20Bank tests", function () {
             expect(user1PositionBalance).to.equal(lpBalance1)
             expect(user1lpBalance).to.lessThanOrEqual(100)
             await lpTokenContract.connect(owners[0]).approve(manager.address, lpBalance0.div("2"))
-            await manager.connect(owners[0])["deposit(uint256,address[],uint256[],uint256[])"](positionId1, [lpToken], [ lpBalance0.div("2").toString()], [0])
+            await manager.connect(owners[0]).depositInExisting(positionId1, {tokens: [lpToken], amounts: [lpBalance0.div("2").toString()], nfts: []}, [], [], [])
             user0PositionBalance = (await manager.getPosition(positionId1)).amount
             user0lpBalance = await lpTokenContract.balanceOf(owners[0].address)
             expect(user0lpBalance).to.lessThanOrEqual(100)
@@ -77,7 +77,7 @@ describe ("ERC20Bank tests", function () {
             isRoughlyEqual(user1PositionBalance, lpBalance1.div("2"))
             isRoughlyEqual(user1lpBalance, lpBalance1.div("2"))
             await manager.connect(owners[1]).close(positionId2)
-            await manager.connect(owners[0]).botLiquidate(positionId1, 0, 0)
+            await manager.connect(owners[0]).botLiquidate(positionId1, 0, [], [], 0)
             user0PositionBalance = (await manager.getPosition(positionId1)).amount
             user0lpBalance = await lpTokenContract.balanceOf(owners[0].address)
             expect(user0PositionBalance).to.equal(0)

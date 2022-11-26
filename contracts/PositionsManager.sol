@@ -10,9 +10,13 @@ import "./UniversalSwap.sol";
 import "./interfaces/IUniversalSwap.sol";
 import "./DefaultFeeModel.sol";
 import "./interfaces/IPoolInteractor.sol";
+import "./libraries/AddressArray.sol";
+import "./libraries/UintArray.sol";
 
 contract PositionsManager is IPositionsManager, Ownable {
     using SafeERC20 for IERC20;
+    using UintArray for uint[];
+    using AddressArray for address[];
 
     Position[] positions;
     mapping (uint=>bool) public positionClosed; // Is position open
@@ -21,18 +25,19 @@ contract PositionsManager is IPositionsManager, Ownable {
     mapping (address=>uint) public numUserPositions; // Number of positions for user
     mapping (address=>uint[]) public userPositions; // Mapping from user address to a list of position IDs belonging to the user
     mapping (uint=>address) public feeModels; // Mapping from position ID to fee model used for that position
+    mapping (uint=>uint) public devShare; // Mapping from position ID to share of the position that can be claimed as dev fee
     address defaultFeeModel;
     address[] public banks;
     address public universalSwap;
     address networkToken;
-    address usdc;
+    address stableToken; // Stable token such as USDC or BUSD is used to measure the value of the position using the function closeToUSDC
     mapping (address=>bool) keepers;
 
-    constructor(address _universalSwap, address _usdc, address _defaultFeeModel) {
+    constructor(address _universalSwap, address _stableToken, address _defaultFeeModel) {
         universalSwap = _universalSwap;
-        usdc = _usdc;
+        stableToken = _stableToken;
         defaultFeeModel = _defaultFeeModel;
-        networkToken = UniversalSwap(_universalSwap).networkToken();
+        networkToken = IUniversalSwap(_universalSwap).networkToken();
     }
 
     /// @inheritdoc IPositionsManager
@@ -131,48 +136,37 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function deposit(uint positionId, address[] memory suppliedTokens, uint[] memory suppliedAmounts, uint[] memory minAmountsUsed) payable external {
-        claimDevFee(positionId);
+    function depositInExisting(uint positionId, Provided memory provided, SwapPoint[] memory swaps, Conversion[] memory conversions, uint[] memory minAmounts) payable external {
+        computeDevFee(positionId);
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         (address[] memory underlying, uint[] memory ratios) = bank.getUnderlyingForRecurringDeposit(position.bankToken);
-        for (uint i = 0; i<suppliedTokens.length; i++) {
-            IERC20(suppliedTokens[i]).safeTransferFrom(msg.sender, address(this), suppliedAmounts[i]);
-        }
         uint ethSupplied = _getWETH();
         if (ethSupplied>0) {
-            bool found = false;
-            for (uint i = 0; i<suppliedTokens.length; i++) {
-                if (suppliedTokens[i]==networkToken) {
-                    suppliedAmounts[i]+=ethSupplied;
-                    found = true;
-                    break;
-                }
+            provided.tokens = provided.tokens.append(networkToken);
+            provided.amounts = provided.amounts.append(ethSupplied);
+            (provided.tokens, provided.amounts) = provided.tokens.shrink(provided.amounts);
+        }
+        if (minAmounts.length>0) {
+            for (uint i = 0; i<provided.tokens.length; i++) {
+                IERC20(provided.tokens[i]).safeTransferFrom(msg.sender, universalSwap, provided.amounts[i]);
             }
-            if (!found) {
-                address[] memory newTokens = new address[](suppliedTokens.length+1);
-                newTokens[0] = networkToken;
-                uint[] memory newAmounts = new uint[](suppliedAmounts.length+1);
-                newAmounts[0] = ethSupplied;
-                for (uint i = 0; i<suppliedTokens.length; i++) {
-                    newTokens[i+1] = suppliedTokens[i];
-                    newAmounts[i+1] = suppliedAmounts[i];
-                }
-                suppliedAmounts = newAmounts;
-                suppliedTokens = newTokens;
+            for (uint i = 0; i<provided.nfts.length; i++) {
+                IERC721(provided.nfts[i].manager).safeTransferFrom(msg.sender, universalSwap, provided.nfts[i].tokenId);
+            }
+            provided.amounts = IUniversalSwap(universalSwap).swapAfterTransfer(
+                provided,
+                swaps, conversions,
+                Desired(underlying, new Asset[](0), ratios, minAmounts),
+                address(bank)
+            );
+            provided.tokens = underlying;
+        } else {
+            for (uint i = 0; i<provided.tokens.length; i++) {
+                IERC20(provided.tokens[i]).safeTransferFrom(msg.sender, address(bank), provided.amounts[i]);
             }
         }
-        if (!_checkArraysMatch(underlying, suppliedTokens) || ratios.length>1) {
-            for (uint i = 0; i<suppliedTokens.length; i++) {
-                IERC20(suppliedTokens[i]).safeApprove(universalSwap, suppliedAmounts[i]);
-            }
-            suppliedAmounts = _swap(suppliedTokens, suppliedAmounts, underlying, ratios, minAmountsUsed);
-            suppliedTokens = underlying;
-        }
-        for (uint i = 0; i<suppliedTokens.length; i++) {
-            IERC20(suppliedTokens[i]).safeTransfer(address(bank), suppliedAmounts[i]);
-        }
-        uint minted = bank.mintRecurring(position.bankToken, position.user, suppliedTokens, suppliedAmounts);
+        uint minted = bank.mintRecurring(position.bankToken, position.user, provided.tokens, provided.amounts);
         position.amount+=minted;
         positionInteractions[positionId].push([block.number, block.timestamp, 0]);
         emit IncreasePosition(positionId, minted);
@@ -181,9 +175,8 @@ contract PositionsManager is IPositionsManager, Ownable {
     /// @inheritdoc IPositionsManager
     function deposit(Position memory position, address[] memory suppliedTokens, uint[] memory suppliedAmounts) payable external returns (uint) {
         BankBase bank = BankBase(banks[position.bankId]);
-        // TODO: Decide if isSupported check stays
-        // address lpToken = bank.getLPToken(position.bankToken);
-        // require(UniversalSwap(universalSwap).isSupported(lpToken), "Asset is not currently supported");
+        address lpToken = bank.getLPToken(position.bankToken);
+        require(IUniversalSwap(universalSwap).isSupported(lpToken), "UT1"); // UnsupportedToken
         uint ethSupplied = _getWETH();
         if (ethSupplied>0) {
             IERC20(networkToken).safeTransfer(address(bank), ethSupplied);
@@ -217,7 +210,7 @@ contract PositionsManager is IPositionsManager, Ownable {
 
     /// @inheritdoc IPositionsManager
     function withdraw(uint positionId, uint amount) external {
-        claimDevFee(positionId);
+        computeDevFee(positionId);
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         require(position.amount>=amount, "Withdrawing more funds than available");
@@ -230,7 +223,7 @@ contract PositionsManager is IPositionsManager, Ownable {
 
     /// @inheritdoc IPositionsManager
     function close(uint positionId) external {
-        claimDevFee(positionId);
+        computeDevFee(positionId);
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         require(position.user==msg.sender || msg.sender==owner(), "Unauthorized");
@@ -244,36 +237,30 @@ contract PositionsManager is IPositionsManager, Ownable {
 
     /// @inheritdoc IPositionsManager
     function closeToUSDC(uint positionId) external returns (uint) {
-        claimDevFee(positionId);
+        // computeDevFee(positionId);
         address[] memory tokens;
         uint[] memory tokenAmounts;
         Position storage position = positions[positionId];
         {
             BankBase bank = BankBase(banks[position.bankId]);
             require(keepers[msg.sender] || msg.sender==owner() || position.user==msg.sender, "Unauthorized");
-            (address[] memory rewardAddresses, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, address(this));
-            (address[] memory outTokens, uint[] memory outTokenAmounts) = bank.burn(position.bankToken, position.user, position.amount, address(this));
-            tokens = new address[](rewardAddresses.length+outTokens.length);
-            tokenAmounts = new uint[](rewardAmounts.length+outTokenAmounts.length);
-            for (uint i = 0; i<rewardAddresses.length; i++) {
-                tokens[i] = rewardAddresses[i];
-                tokenAmounts[i] = rewardAmounts[i];
-            }
-            for (uint j = 0; j<outTokens.length; j++) {
-                tokens[j+rewardAddresses.length] = outTokens[j];
-                tokenAmounts[j+rewardAddresses.length] = outTokenAmounts[j];
-            }
-            for (uint i = 0; i<tokens.length; i++) {
-                IERC20(tokens[i]).safeApprove(universalSwap, tokenAmounts[i]);
-            }
+            (address[] memory rewardAddresses, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, universalSwap);
+            (address[] memory outTokens, uint[] memory outTokenAmounts) = bank.burn(position.bankToken, position.user, position.amount, universalSwap);
+            tokens = rewardAddresses.concat(outTokens);
+            tokenAmounts = rewardAmounts.concat(outTokenAmounts);
         }
         address[] memory wanted = new address[](1);
         uint[] memory ratios = new uint[](1);
         uint[] memory slippage = new uint[](1);
-        wanted[0] = usdc;
+        wanted[0] = stableToken;
         ratios[0] = 1;
-        uint[] memory toReturn = _swap(tokens, tokenAmounts, wanted, ratios, slippage);
-        IERC20(usdc).safeTransfer(position.user, toReturn[0]);
+        uint[] memory toReturn = IUniversalSwap(universalSwap).swapAfterTransfer(
+            Provided(tokens, tokenAmounts, new Asset[](0)),
+            new SwapPoint[](0),
+            new Conversion[](0),
+            Desired(wanted, new Asset[](0), ratios, slippage),
+            position.user
+        );
         position.amount = 0;
         positionClosed[positionId] = true;
         emit PositionClose(positionId);
@@ -284,7 +271,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     /// @inheritdoc IPositionsManager
     function harvestRewards(uint positionId) external returns (address[] memory rewards, uint[] memory rewardAmounts) {
         require(positions[positionId].user==msg.sender, "Unauthorized");
-        claimDevFee(positionId);
+        computeDevFee(positionId);
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         (rewards, rewardAmounts) = bank.harvest(position.bankToken, position.user, position.user);
@@ -293,21 +280,24 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function harvestAndRecompound(uint positionId, uint[] memory minAmountsUsed) external returns (uint newLpTokens) {
+    function harvestAndRecompound(uint positionId, SwapPoint[] memory swaps, Conversion[] memory conversions, uint[] memory minAmounts) external returns (uint newLpTokens) {
         require(positions[positionId].user==msg.sender, "Unauthorized");
-        claimDevFee(positionId);
+        computeDevFee(positionId);
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         (address[] memory underlying, uint[] memory ratios) = bank.getUnderlyingForRecurringDeposit(position.bankToken);
-        (address[] memory rewards, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, address(this));
-        if (!_checkArraysMatch(underlying, rewards) || ratios.length>1) {
-            for (uint i = 0; i<rewards.length; i++) {
-                IERC20(rewards[i]).safeApprove(universalSwap, rewardAmounts[i]);
-            }
-            rewardAmounts = _swap(rewards, rewardAmounts, underlying, ratios, minAmountsUsed);
-        }
-        for (uint i = 0; i<underlying.length; i++) {
-            IERC20(underlying[i]).safeTransfer(address(bank), rewardAmounts[i]);
+        uint[] memory rewardAmounts;
+        if (minAmounts.length>0) {
+            address[] memory rewards;
+            (rewards, rewardAmounts) = bank.harvest(position.bankToken, position.user, universalSwap);
+            rewardAmounts = IUniversalSwap(universalSwap).swapAfterTransfer(
+                Provided(rewards, rewardAmounts, new Asset[](0)),
+                swaps, conversions,
+                Desired(underlying, new Asset[](0), ratios, minAmounts),
+                address(bank)
+            );
+        } else {
+            (, rewardAmounts) = bank.harvest(position.bankToken, position.user, address(bank));
         }
         uint minted = bank.mintRecurring(position.bankToken, position.user, underlying, rewardAmounts);
         position.amount+=minted;
@@ -316,29 +306,18 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function botLiquidate(uint positionId, uint liquidationIndex, uint minAmountOut) external {
-        claimDevFee(positionId);
+    function botLiquidate(uint positionId, uint liquidationIndex, SwapPoint[] memory swaps, Conversion[] memory conversions, uint minAmountOut) external {
+        computeDevFee(positionId);
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         address[] memory tokens;
         uint[] memory tokenAmounts;
         {
             require(keepers[msg.sender] || msg.sender==owner(), "Unauthorized");
-            (address[] memory rewardAddresses, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, address(this));
-            (address[] memory outTokens, uint[] memory outTokenAmounts) = bank.burn(position.bankToken, position.user, position.amount, address(this));
-            tokens = new address[](rewardAddresses.length+outTokens.length);
-            tokenAmounts = new uint[](rewardAmounts.length+outTokenAmounts.length);
-            for (uint i = 0; i<rewardAddresses.length; i++) {
-                tokens[i] = rewardAddresses[i];
-                tokenAmounts[i] = rewardAmounts[i];
-            }
-            for (uint j = 0; j<outTokens.length; j++) {
-                tokens[j+rewardAddresses.length] = outTokens[j];
-                tokenAmounts[j+rewardAddresses.length] = outTokenAmounts[j];
-            }
-            for (uint i = 0; i<tokens.length; i++) {
-                IERC20(tokens[i]).safeApprove(universalSwap, tokenAmounts[i]);
-            }
+            (address[] memory rewardAddresses, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, universalSwap);
+            (address[] memory outTokens, uint[] memory outTokenAmounts) = bank.burn(position.bankToken, position.user, position.amount, universalSwap);
+            tokens = rewardAddresses.concat(outTokens);
+            tokenAmounts = rewardAmounts.concat(outTokenAmounts);
         }
         {
             address[] memory wanted = new address[](1);
@@ -347,8 +326,12 @@ contract PositionsManager is IPositionsManager, Ownable {
             wanted[0] = position.liquidationPoints[liquidationIndex].liquidateTo;
             ratios[0] = 1;
             slippage[0] = minAmountOut;
-            uint[] memory toReturn = _swap(tokens, tokenAmounts, wanted, ratios, slippage);
-            IERC20(position.liquidationPoints[liquidationIndex].liquidateTo).safeTransfer(position.user, toReturn[0]);
+            IUniversalSwap(universalSwap).swapAfterTransfer(
+                Provided(tokens, tokenAmounts, new Asset[](0)),
+                swaps, conversions,
+                Desired(wanted, new Asset[](0), ratios, slippage),
+                position.user
+            );
         }
         position.amount = 0;
         positionClosed[positionId] = true;
@@ -357,7 +340,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function claimDevFee(uint positionId) public {
+    function computeDevFee(uint positionId) public {
         Position storage position = positions[positionId];
         uint[3][] memory interactions = positionInteractions[positionId];
         IFeeModel feeModel;
@@ -367,50 +350,17 @@ contract PositionsManager is IPositionsManager, Ownable {
             feeModel = IFeeModel(feeModels[positionId]);
         }
         uint fee = feeModel.calculateFee(position.amount, interactions);
-        if (fee>0) {
-            BankBase bank = BankBase(banks[position.bankId]);
-            position.amount-=fee;
-            (address[] memory tokens, uint[] memory tokenAmounts) = bank.burn(position.bankToken, position.user, fee, address(this));
-            address[] memory wanted = new address[](1);
-            uint[] memory ratios = new uint[](1);
-            uint[] memory slippage = new uint[](1);
-            wanted[0] = usdc;
-            ratios[0] = 1;
-            slippage[0] = 0;
-            uint[] memory received = _swap(tokens, tokenAmounts, wanted, ratios, slippage);
-            IERC20(usdc).safeTransfer(owner(), received[0]);
-            emit FeeClaimed(positionId, received[0]);
-        }
+        devShare[positionId]+=fee;
     }
+
+    receive() external payable {}
 
     // Internal helper functions
-    function _checkArraysMatch(address[] memory array1, address[] memory array2) internal pure returns (bool) {
-        if (array1.length!=array2.length) return false;
-        for (uint i = 0; i<array1.length; i++) {
-            bool matchFound = false;
-            for (uint j = 0; j<array2.length; j++) {
-                if (array1[i]==array2[j]) {
-                    matchFound = true;
-                    break;
-                }
-            }
-            if (!matchFound) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     function _getWETH() internal returns (uint networkTokenObtained){
         uint startingBalance = IERC20(networkToken).balanceOf(address(this));
         if (msg.value>0) {
             IWETH(payable(networkToken)).deposit{value:msg.value}();
         }
         networkTokenObtained = IERC20(networkToken).balanceOf(address(this))-startingBalance;
-    }
-
-    function _swap(address[] memory tokens, uint[] memory tokenAmounts, address[] memory wanted, uint[] memory ratios, uint[] memory slippage) internal returns (uint[] memory) {
-        Asset[] memory temp;
-        return UniversalSwap(universalSwap).swapV2(tokens, tokenAmounts, temp, Desired(wanted, temp, ratios, slippage));
     }
 }

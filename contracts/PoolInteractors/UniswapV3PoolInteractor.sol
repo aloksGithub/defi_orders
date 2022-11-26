@@ -11,7 +11,6 @@ import "../libraries/LiquidityAmounts.sol";
 import "hardhat/console.sol";
 
 contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
-    using strings for *;
     using SafeERC20 for IERC20;
 
     address public supportedManager;

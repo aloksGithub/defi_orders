@@ -13,11 +13,11 @@
         "NFTManagers": [],
         "v1MasterChefs": [{"address": "0xDbc1A13490deeF9c3C12b44FE77b503c1B061739", "rewardGetter": "BSW()", "hasExtraRewards": false}],
         "masterChefLps": [
+            "0x58F876857a02D6762E0101bb5C46A8c1ED44Dc16",
             "0xDA8ceb724A06819c0A5cDb4304ea0cB27F8304cF",
             "0x8840C6252e2e86e545deFb6da98B2a0E26d8C1BA",
             "0xaCAac9311b0096E04Dfe96b6D87dec867d3883Dc",
-            "0x0eD7e52944161450477ee417DE9Cd3a859b14fD0",
-            "0x58F876857a02D6762E0101bb5C46A8c1ED44Dc16"
+            "0x0eD7e52944161450477ee417DE9Cd3a859b14fD0"
         ],
         "erc20BankLps": [
             "0x9A0AF7FDb2065Ce470D72664DE73cAE409dA28Ec",

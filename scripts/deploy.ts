@@ -20,7 +20,7 @@ async function main() {
     if (error) throw error;
   })
   const deploymentGas = adminBalanceBegin.sub(await owners[0].getBalance())
-  console.log(`Gas used for deployment ${deploymentGas}`)
+  console.log(`Gas cost for deployment ${ethers.utils.formatEther(deploymentGas)}`)
 }
 
 // We recommend this pattern to be able to use async/await everywhere

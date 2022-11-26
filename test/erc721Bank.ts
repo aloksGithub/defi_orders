@@ -72,8 +72,8 @@ describe ("ERC721Bank tests", function () {
             const fee = await poolContract.fee()
             let tempBalance = await networkTokenContract.balanceOf(owners[1].address)
             await networkTokenContract.connect(owners[1]).approve(universalSwap.address, tempBalance)
-            await universalSwap.connect(owners[1]).swapV2([networkAddresses.networkToken], [tempBalance], [], 
-                {outputERC20s: [token0], outputERC721s: [], ratios: [1], minAmountsOut: [0]})
+            await universalSwap.connect(owners[1]).swap({tokens: [networkAddresses.networkToken], amounts: [tempBalance], nfts: []}, [], [],
+                {outputERC20s: [token0], outputERC721s: [], ratios: [1], minAmountsOut: [0]}, owners[1])
             const router = await ethers.getContractAt("ISwapRouter", networkAddresses.uniswapV3Routers[0])
             
             for (let i = 0; i<5; i++) {
@@ -109,8 +109,8 @@ describe ("ERC721Bank tests", function () {
                 const balance = await reward.balanceOf(owners[0].address)
                 expect(balance).to.greaterThan(0)
                 await reward.approve(universalSwap.address, balance)
-                await universalSwap.connect(owners[0]).swapV2([reward.address], [balance], [], 
-                    {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]})
+                await universalSwap.connect(owners[0]).swap({tokens:[reward.address], amounts: [balance], nfts:[]}, [], [], 
+                    {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}, owners[0])
             }
             
             for (let i = 0; i<5; i++) {
@@ -140,7 +140,7 @@ describe ("ERC721Bank tests", function () {
                 })
                 await ethers.provider.send("hardhat_mine", ["0x10"]);
             }
-            await manager.connect(owners[0]).harvestAndRecompound(positionId, [0, 0])
+            await manager.connect(owners[0]).harvestAndRecompound(positionId, [], [], [0, 0])
             const liquidity2 = (await manager.getPosition(positionId)).amount
             expect(liquidity2).to.greaterThan(liquidity1)
 
@@ -149,15 +149,15 @@ describe ("ERC721Bank tests", function () {
                 const balance = await reward.balanceOf(owners[0].address)
                 expect(balance).to.greaterThan(0)
                 await reward.approve(universalSwap.address, balance)
-                await universalSwap.connect(owners[0]).swapV2([reward.address], [balance], [], 
-                    {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]})
+                await universalSwap.connect(owners[0]).swap({tokens: [reward.address], amounts: [balance], nfts: []}, [], [],
+                    {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}, owners[0])
             }
             const endingbalance = await networkTokenContract.balanceOf(owners[0].address)
             isRoughlyEqual(startingBalance, endingbalance)
             tempBalance = await token0Contract.balanceOf(owners[1].address)
             await token0Contract.connect(owners[1]).approve(universalSwap.address, tempBalance)
-            await universalSwap.connect(owners[1]).swapV2([token0], [tempBalance], [], 
-                {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]})
+            await universalSwap.connect(owners[1]).swap({tokens: [token0], amounts: [tempBalance], nfts: []}, [], [],
+                {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}, owners[1])
         }
         const pools = networkAddresses.nftBasaedPairs
         for (const pool of pools) {
@@ -176,7 +176,7 @@ describe ("ERC721Bank tests", function () {
             expect(liquidityInNFT).to.equal(liquidity1)
             expect(liquidityInNFT).to.greaterThan(1)
             await networkTokenContract.connect(owners[0]).approve(manager.address, ethers.utils.parseEther("10"))
-            await manager.connect(owners[0])["deposit(uint256,address[],uint256[],uint256[])"](positionId, [networkAddresses.networkToken], [ethers.utils.parseEther("10")], [0, 0])
+            await manager.connect(owners[0]).depositInExisting(positionId, {tokens: [networkAddresses.networkToken], amounts: [ethers.utils.parseEther("10")], nfts: []}, [], [], [0, 0])
             const liquidity2 = (await manager.getPosition(positionId)).amount
             liquidityInNFT = await checkNFTLiquidity(nftManagerAddress, id)
             expect(liquidityInNFT).to.equal(liquidity2)
@@ -188,7 +188,7 @@ describe ("ERC721Bank tests", function () {
                 const balance = await reward.balanceOf(owners[0].address)
                 expect(balance).to.greaterThan(0)
             }
-            await manager.connect(owners[0]).botLiquidate(positionId, 0, 0)
+            await manager.connect(owners[0]).botLiquidate(positionId, 0, [], [], 0)
             // const balances = []
             // for (const reward of rewardContracts) {
             //     const balance = await reward.balanceOf(owners[0].address)

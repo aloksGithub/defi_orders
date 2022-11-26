@@ -45,8 +45,8 @@ contract ERC721Bank is BankBase {
         poolAddress = IERC721Wrapper(erc721Wrappers[nftManager]).getPoolAddress(nftManager, pos_id);
     }
 
-    function getLPToken(uint id) override public view returns (address tokenAddress) {
-        (tokenAddress,,) = decodeId(id);
+    function getLPToken(uint id) override public view returns (address managerAddress) {
+        (,managerAddress,) = decodeId(id);
     }
     
     function getIdFromLpToken(address manager) override public view returns (bool, uint) {
@@ -127,5 +127,11 @@ contract ERC721Bank is BankBase {
         (, address manager, uint pos_id) = decodeId(tokenId);
         IERC721Wrapper wrapper = IERC721Wrapper(erc721Wrappers[manager]);
         return wrapper.getRewardsForPosition(manager, pos_id);
+    }
+
+    function getPositionTokens(uint tokenId, address userAddress) override external view returns (address[] memory outTokens, uint[] memory tokenAmounts) {
+        (, address manager, uint pos_id) = decodeId(tokenId);
+        IERC721Wrapper wrapper = IERC721Wrapper(erc721Wrappers[manager]);
+        return wrapper.getPositionUnderlying(manager, pos_id);
     }
 }

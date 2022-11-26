@@ -40,7 +40,8 @@ abstract contract BankBase is Ownable {
     function getRewards(uint tokenId) virtual external view returns (address[] memory rewardsArray) {
         return rewardsArray;
     }
-    function getPendingRewardsForUser(uint tokenId, address user) virtual external view returns (address[] memory rewards, uint[] memory amoutns) {}
+    function getPendingRewardsForUser(uint tokenId, address user) virtual external view returns (address[] memory rewards, uint[] memory amounts) {}
+    function getPositionTokens(uint tokenId, address user) virtual external view returns (address[] memory tokens, uint[] memory amounts);
     function mint(uint tokenId, address userAddress, address[] memory suppliedTokens, uint[] memory suppliedAmounts) virtual public returns (uint);
     function mintRecurring(uint tokenId, address userAddress, address[] memory suppliedTokens, uint[] memory suppliedAmounts) virtual external returns (uint) {
         return mint(tokenId, userAddress, suppliedTokens, suppliedAmounts);

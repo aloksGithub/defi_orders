@@ -71,6 +71,28 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
         return wrapper.getRewards(masterChef, pid);
     }
 
+    function getPendingRewardsForUser(uint tokenId, address user) override external view returns (address[] memory rewards, uint[] memory amounts) {
+        PoolInfo storage pool = poolInfo[tokenId];
+        (, address masterChef, uint pid) = decodeId(tokenId);
+        rewards = IMasterChefWrapper(masterChefWrappers[masterChef]).getRewards(masterChef, pid);
+        amounts = new uint[](rewards.length);
+        for (uint i = 0; i<rewards.length; i++) {
+            address reward = rewards[i];
+            int256 accumulatedReward = int256(pool.userShares[user]*pool.rewardAllocationsPerShare[reward]/PRECISION);
+            uint pendingReward = uint(accumulatedReward-pool.rewardDebt[user][reward]);
+            amounts[i] = pendingReward;
+        }
+    }
+
+    function getPositionTokens(uint tokenId, address userAddress) override external view returns (address[] memory outTokens, uint[] memory tokenAmounts) {
+        (address lpToken,,) = decodeId(tokenId);
+        uint amount = balanceOf(userAddress, tokenId);
+        outTokens = new address[](1);
+        tokenAmounts = new uint[](1);
+        outTokens[0] = lpToken;
+        tokenAmounts[0] = amount;
+    }
+
     function _harvest(address masterChef, address lpToken, uint pid) internal {
         IERC20(lpToken).approve(masterChef, 10);
         address masterChefWrapperAddress = masterChefWrappers[masterChef];

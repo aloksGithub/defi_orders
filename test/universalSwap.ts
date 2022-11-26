@@ -30,8 +30,8 @@
 //             const balance = await contract.balanceOf(owners[0].address)
 //             expect(balance).to.greaterThan(0)
 //             await contract.approve(universalSwap.address, balance)
-//             await universalSwap.connect(owners[0]).swapV2([currentToken], [balance], [],
-//                 {outputERC20s: [token], outputERC721s: [], ratios: [1], minAmountsOut: [0]})
+//             await universalSwap.connect(owners[0]).swap({tokens: [currentToken], amounts: [balance], nfts: []}, [], [],
+//                 {outputERC20s: [token], outputERC721s: [], ratios: [1], minAmountsOut: [0]}, owners[0].address)
 //             currentToken = token
 //         }
 //         const endingbalance = await networkTokenContract.balanceOf(owners[0].address)
@@ -48,8 +48,8 @@
 //             expect(liquidity).to.greaterThan(0)
 //             expect(id).to.greaterThan(0)
 //             await manager.approve(universalSwap.address, id)
-//             await universalSwap.connect(owners[0]).swapV2([], [], [{pool, manager:managerAddress, liquidity, tokenId: id, data:[]}],
-//                 {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]})
+//             await universalSwap.connect(owners[0]).swap({tokens: [], amounts: [], nfts: [{pool, manager:managerAddress, liquidity, tokenId: id, data:[]}]}, [], [],
+//                 {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}, owners[0].address)
 //             const endingbalance = await networkTokenContract.balanceOf(owners[0].address)
 //             isRoughlyEqual(startingBalance, endingbalance)
 //         }
@@ -90,18 +90,18 @@
 //         const minAmountsStep2 = Array(erc20sStep2.length).fill(0)
 //         await networkTokenContract.approve(universalSwap.address, (await networkTokenContract.balanceOf(owners[0].address)))
 //         const [bestSwaps1, conversions1] = await universalSwap.preSwapComputation(
-//             [networkAddresses.networkToken], [(await networkTokenContract.balanceOf(owners[0].address))], [],
+//             {tokens: [networkAddresses.networkToken], amounts: [(await networkTokenContract.balanceOf(owners[0].address))], nfts: []},
 //             {outputERC20s: erc20sStep1, outputERC721s: erc721sStep1, ratios: ratiosStep1, minAmountsOut: minAmountsStep1}
 //         )
-//         const tx1Gas = await universalSwap.estimateGas.swapWithPreCompute(
-//             [networkAddresses.networkToken], [(await networkTokenContract.balanceOf(owners[0].address))], [], bestSwaps1, conversions1, 
-//             {outputERC20s: erc20sStep1, outputERC721s: erc721sStep1, ratios: ratiosStep1, minAmountsOut: minAmountsStep1})
-//         console.log(tx1Gas)
-//         const tx = await universalSwap.swapWithPreCompute(
-//             [networkAddresses.networkToken], [(await networkTokenContract.balanceOf(owners[0].address))], [], bestSwaps1, conversions1, 
-//             {outputERC20s: erc20sStep1, outputERC721s: erc721sStep1, ratios: ratiosStep1, minAmountsOut: minAmountsStep1}, {gasPrice: 17630000000})
+//         // const tx1Gas = await universalSwap.estimateGas.swap(
+//         //     {tokens: [networkAddresses.networkToken], amounts: [(await networkTokenContract.balanceOf(owners[0].address))], nfts: []}, bestSwaps1, conversions1, 
+//         //     {outputERC20s: erc20sStep1, outputERC721s: erc721sStep1, ratios: ratiosStep1, minAmountsOut: minAmountsStep1}, owners[0].address)
+//         // console.log(tx1Gas)
+//         const tx = await universalSwap.swap(
+//             {tokens: [networkAddresses.networkToken], amounts: [(await networkTokenContract.balanceOf(owners[0].address))], nfts: []}, bestSwaps1, conversions1, 
+//             {outputERC20s: erc20sStep1, outputERC721s: erc721sStep1, ratios: ratiosStep1, minAmountsOut: minAmountsStep1}, owners[0].address)
 //         const rc = await tx.wait()
-//         const events = rc.events?.filter(event => event.event === 'NFTMinted')
+//         const events = rc.events?.filter((event:any) => event.event === 'NFTMinted')
 //         // @ts-ignore
 //         const ids = events.map(event=>event.args?.tokenId.toNumber())
 //         const erc20sBalance = []
@@ -120,20 +120,20 @@
 //         inputERC721s = await Promise.all(inputERC721s)
 
 //         const [bestSwaps2, conversions2] = await universalSwap.preSwapComputation(
-//             erc20sStep1, erc20sBalance, inputERC721s,
+//             {tokens: erc20sStep1, amounts: erc20sBalance, nfts: inputERC721s},
 //             {outputERC20s: erc20sStep2, outputERC721s: erc721sStep2, ratios: ratiosStep2, minAmountsOut: minAmountsStep2}
 //         )
-//         const tx2Gas = await universalSwap.estimateGas.swapWithPreCompute(
-//             erc20sStep1, erc20sBalance, inputERC721s, bestSwaps2, conversions2,
-//             {outputERC20s: erc20sStep2, outputERC721s: erc721sStep2, ratios: ratiosStep2, minAmountsOut: minAmountsStep2}
-//         )
-//         console.log(tx2Gas)
-//         const tx2 = await universalSwap.swapWithPreCompute(
-//             erc20sStep1, erc20sBalance, inputERC721s, bestSwaps2, conversions2,
-//             {outputERC20s: erc20sStep2, outputERC721s: erc721sStep2, ratios: ratiosStep2, minAmountsOut: minAmountsStep2}, {gasPrice: 17630000000}
+//         // const tx2Gas = await universalSwap.estimateGas.swap(
+//         //     {tokens: erc20sStep1, amounts: erc20sBalance, nfts: inputERC721s}, bestSwaps2, conversions2,
+//         //     {outputERC20s: erc20sStep2, outputERC721s: erc721sStep2, ratios: ratiosStep2, minAmountsOut: minAmountsStep2}, owners[0].address
+//         // )
+//         // console.log(tx2Gas)
+//         const tx2 = await universalSwap.swap(
+//             {tokens: erc20sStep1, amounts: erc20sBalance, nfts: inputERC721s}, bestSwaps2, conversions2,
+//             {outputERC20s: erc20sStep2, outputERC721s: erc721sStep2, ratios: ratiosStep2, minAmountsOut: minAmountsStep2}, owners[0].address
 //         )
 //         const rc2 = await tx2.wait()
-//         const events2 = rc2.events?.filter(event => event.event === 'NFTMinted')
+//         const events2 = rc2.events?.filter((event:any) => event.event === 'NFTMinted')
 //         // @ts-ignore
 //         const ids2 = events2.map(event=>event.args?.tokenId.toNumber())
 //         inputERC721s = erc721sStep2.map(async (nft:any, index:number)=> {
@@ -151,23 +151,23 @@
 //             erc20sBalanceFinal.push(balance)
 //         }
 //         const [bestSwaps3, conversions3] = await universalSwap.preSwapComputation(
-//             erc20sStep2, erc20sBalanceFinal, inputERC721s,
+//             {tokens: erc20sStep2, amounts: erc20sBalanceFinal, nfts: inputERC721s},
 //             {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}
 //         )
-//         const tx3Gas = await universalSwap.estimateGas.swapWithPreCompute(
-//             erc20sStep2, erc20sBalanceFinal, inputERC721s, bestSwaps3, conversions3,
-//             {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}
-//         )
-//         console.log(tx3Gas)
-//         await universalSwap.swapWithPreCompute(
-//             erc20sStep2, erc20sBalanceFinal, inputERC721s, bestSwaps3, conversions3,
-//             {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}, {gasPrice: 17630000000}
+//         // const tx3Gas = await universalSwap.estimateGas.swap(
+//         //     {tokens: erc20sStep2, amounts: erc20sBalanceFinal, nfts: inputERC721s}, bestSwaps3, conversions3,
+//         //     {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}, owners[0].address
+//         // )
+//         // console.log(tx3Gas)
+//         await universalSwap.swap(
+//             {tokens: erc20sStep2, amounts: erc20sBalanceFinal, nfts: inputERC721s}, bestSwaps3, conversions3,
+//             {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}, owners[0].address
 //         )
 //         const balanceFinal = await networkTokenContract.balanceOf(owners[0].address)
-//         console.log(startingBalance, balanceFinal)
 //         isRoughlyEqual(startingBalance, balanceFinal)
-//         console.log(startingBalance.sub(balanceFinal))
+//         console.log(`Slippage: ${startingBalance.sub(balanceFinal).mul('10000').div(startingBalance).toNumber()/100}%`)
 //         const adminBalanceEnd = await owners[0].getBalance()
-//         console.log(adminBalanceBegin.sub(adminBalanceEnd))
+//         const gasCost = adminBalanceBegin.sub(adminBalanceEnd)
+//         console.log(`Gas cost: ${ethers.utils.formatEther(gasCost)}`)
 //     })
 // })

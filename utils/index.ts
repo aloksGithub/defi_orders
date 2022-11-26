@@ -298,7 +298,7 @@ export const getUniversalSwap = async (verify:boolean=false, log:boolean=false) 
   const nftInteractors = await nftPoolInteractors(verify, log)
   const oracle = await deployOracle(verify, log)
   // @ts-ignore
-  const universalSwap = await universalSwapContract.deploy(poolInteractors, nftInteractors, addresses[network].networkToken, swappers2, oracle.address, addresses[network].commonPoolTokens)
+  const universalSwap = await universalSwapContract.deploy(poolInteractors, nftInteractors, addresses[network].networkToken, swappers2, oracle.address)
   if (verify) {
     await delay(10000)
     try {
@@ -401,7 +401,6 @@ const deployERC721Bank = async (positionsManager: string, verify:boolean=false, 
     try {
     await hre.run("verify:verify", {
       address: wrapper.address,
-      // @ts-ignore
       constructorArguments: [],
       network
     })
@@ -569,8 +568,8 @@ export const getLPToken = async (lpToken: string, universalSwap: UniversalSwap, 
   await wethContract.connect(owner).approve(universalSwap.address, ethers.utils.parseEther(etherAmount))
   const lpTokenContract = await ethers.getContractAt("ERC20", lpToken)
   // @ts-ignore
-  await universalSwap.connect(owner).swapV2([addresses[network].networkToken], [ethers.utils.parseEther(etherAmount)], [],
-  {outputERC20s:[lpToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]})
+  await universalSwap.connect(owner).swap({tokens: [addresses[network].networkToken], amounts: [ethers.utils.parseEther(etherAmount)], nfts: []}, [], [],
+  {outputERC20s:[lpToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}, owner.address)
   const lpBalance = await lpTokenContract.balanceOf(owner.address)
   return {lpBalance, lpTokenContract}
 }
@@ -585,7 +584,7 @@ export const depositNew = async (manager:PositionsManager, lpToken: string, amou
   const bankAddress = await manager.banks(bankId)
   const bank = await ethers.getContractAt("BankBase", bankAddress)
   const rewards = await bank.getRewards(tokenId)
-  const rewardContracts = await Promise.all(rewards.map(async (r)=> await ethers.getContractAt("ERC20", r)))
+  const rewardContracts = await Promise.all(rewards.map(async (r:any)=> await ethers.getContractAt("ERC20", r)))
   const position = {
     user: owner.address,
     bankId,
@@ -593,7 +592,7 @@ export const depositNew = async (manager:PositionsManager, lpToken: string, amou
     amount,
     liquidationPoints
   }
-  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,(address,address,bool,uint256)[]),address[],uint256[])"](position, [lpToken], [amount])
+  await manager.connect(owner).deposit(position, [lpToken], [amount])
   return {positionId: numPositions, rewards, rewardContracts}
 }
 
@@ -628,15 +627,11 @@ export const getNFT = async (universalSwap:UniversalSwap, etherAmount:string, ma
   const data = abi.encode(
     ["int24","int24","uint256","uint256"],
     [nearestTick-2500*tickSpacing, nearestTick+20*tickSpacing, 0, 0]);
-  // const tx = await universalSwap.connect(owner).swapForNFT([networkToken], [ethers.utils.parseEther(etherAmount)], {pool, manager, tokenId: 0, liquidity: 0, data}, {gasLimit: 30000000})
-  const tx = await universalSwap.connect(owner).swapV2(
-    [networkToken], [ethers.utils.parseEther((+etherAmount).toString())], [], 
-    {outputERC20s: [], outputERC721s: [{pool, manager, tokenId: 0, liquidity: 0, data}], ratios: [1], minAmountsOut: []})
-  // const tx = await universalSwap.connect(owner).swapERC721(
-  //   [networkToken], [ethers.utils.parseEther((+etherAmount).toString())], [], {pool, manager, tokenId: 0, liquidity: 0, data},
-  // )
+  const tx = await universalSwap.connect(owner).swap(
+    {tokens: [networkToken], amounts: [ethers.utils.parseEther((+etherAmount).toString())], nfts: []}, [], [],
+    {outputERC20s: [], outputERC721s: [{pool, manager, tokenId: 0, liquidity: 0, data}], ratios: [1], minAmountsOut: []}, owner.address)
   const rc = await tx.wait()
-  const event = rc.events?.find(event => event.event === 'NFTMinted')
+  const event = rc.events?.find((event:any) => event.event === 'NFTMinted')
   // @ts-ignore
   const [managerAddress, id] = event?.args
   return id;
@@ -652,7 +647,7 @@ export const depositNewNFT = async (manager:PositionsManager, nftManager:string,
   const bank = await ethers.getContractAt("ERC721Bank", bankAddress)
   const bankToken = await bank.encodeId(id, nftManager)
   const rewards = await bank.getRewards(bankToken)
-  const rewardContracts = await Promise.all(rewards.map(async (r)=> await ethers.getContractAt("ERC20", r)))
+  const rewardContracts = await Promise.all(rewards.map(async (r:any)=> await ethers.getContractAt("ERC20", r)))
   const position = {
     user: owner.address,
     bankId,
@@ -660,7 +655,7 @@ export const depositNewNFT = async (manager:PositionsManager, nftManager:string,
     amount:0,
     liquidationPoints
   }
-  await manager.connect(owner)["deposit((address,uint256,uint256,uint256,(address,address,bool,uint256)[]),address[],uint256[])"](position, [nftManager], [id])
+  await manager.connect(owner).deposit(position, [nftManager], [id])
   return {positionId: numPositions, rewards, rewardContracts}
 }
 
