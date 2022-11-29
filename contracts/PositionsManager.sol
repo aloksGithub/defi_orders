@@ -12,10 +12,12 @@ import "./DefaultFeeModel.sol";
 import "./interfaces/IPoolInteractor.sol";
 import "./libraries/AddressArray.sol";
 import "./libraries/UintArray.sol";
+import "./libraries/StringArray.sol";
 
 contract PositionsManager is IPositionsManager, Ownable {
     using SafeERC20 for IERC20;
     using UintArray for uint[];
+    using StringArray for string[];
     using AddressArray for address[];
 
     Position[] positions;
@@ -27,7 +29,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     mapping (uint=>address) public feeModels; // Mapping from position ID to fee model used for that position
     mapping (uint=>uint) public devShare; // Mapping from position ID to share of the position that can be claimed as dev fee
     address defaultFeeModel;
-    address[] public banks;
+    address payable[] public banks;
     address public universalSwap;
     address networkToken;
     address stableToken; // Stable token such as USDC or BUSD is used to measure the value of the position using the function closeToUSDC
@@ -78,14 +80,14 @@ contract PositionsManager is IPositionsManager, Ownable {
 
     /// @inheritdoc IPositionsManager
     function addBank(address bank) external onlyOwner {
-        banks.push(bank);
+        banks.push(payable(bank));
         emit BankAdded(bank, banks.length-1);
     }
 
     /// @inheritdoc IPositionsManager
     function migrateBank(uint bankId, address newBankAddress) external onlyOwner {
         emit BankUpdated(newBankAddress, banks[bankId], bankId);
-        banks[bankId] = newBankAddress;
+        banks[bankId] = payable(newBankAddress);
     }
 
     /// @inheritdoc IPositionsManager
@@ -98,30 +100,18 @@ contract PositionsManager is IPositionsManager, Ownable {
         if (lpToken==address(0)) {
             lpToken = networkToken;
         }
-        bool[] memory supportedBank = new bool[](banks.length);
-        uint[] memory tokenIds = new uint[](banks.length);
-        uint numSupported = 0;
+        uint[] memory tokenIds;
+        uint[] memory bankIds;
+        string[] memory bankNames;
         for (uint i = 0; i<banks.length; i++) {
             (bool success, uint tokenId) = BankBase(banks[i]).getIdFromLpToken(lpToken);
             if (success) {
-                numSupported+=1;
-                supportedBank[i] = true;
-                tokenIds[i] = tokenId;
+                bankIds = bankIds.append(i);
+                bankNames = bankNames.append(BankBase(banks[i]).name());
+                tokenIds = tokenIds.append(tokenId);
             }
         }
-        uint[] memory bankIds = new uint[](numSupported);
-        string[] memory bankNames = new string[](numSupported);
-        uint[] memory tokenIds2 = new uint[](numSupported);
-        uint idx = 0;
-        for (uint j = 0; j<banks.length; j++) {
-            if (supportedBank[j]) {
-                bankIds[idx] = j;
-                bankNames[idx] = BankBase(banks[j]).name();
-                tokenIds2[idx] = tokenIds[j];
-                idx+=1;
-            }
-        }
-        return (bankIds, bankNames, tokenIds2);
+        return (bankIds, bankNames, tokenIds);
     }
 
     /// @inheritdoc IPositionsManager
@@ -299,10 +289,36 @@ contract PositionsManager is IPositionsManager, Ownable {
         } else {
             (, rewardAmounts) = bank.harvest(position.bankToken, position.user, address(bank));
         }
-        uint minted = bank.mintRecurring(position.bankToken, position.user, underlying, rewardAmounts);
-        position.amount+=minted;
+        if (rewardAmounts.length>0) {
+            uint minted = bank.mintRecurring(position.bankToken, position.user, underlying, rewardAmounts);
+            position.amount+=minted;
+        }
         positionInteractions[positionId].push([block.number, block.timestamp, 3]);
         emit HarvestRecompound(positionId, newLpTokens);
+    }
+
+    /// @inheritdoc IPositionsManager
+    function estimateValue(uint positionId, address inTermsOf) external view returns (uint) {
+        Position storage position = positions[positionId];
+        BankBase bank = BankBase(banks[position.bankId]);
+        (address[] memory underlyingTokens, uint[] memory underlyingAmounts) = bank.getPositionTokens(position.bankToken, position.user);
+        (address[] memory rewardTokens, uint[] memory rewardAmounts) = bank.getPendingRewardsForUser(position.bankToken, position.user);
+        return IUniversalSwap(universalSwap).estimateValue(underlyingTokens.concat(rewardTokens), underlyingAmounts.concat(rewardAmounts), inTermsOf);
+    }
+
+    /// @inheritdoc IPositionsManager
+    function getPositionTokens(uint positionId) external view returns (address[] memory tokens, uint[] memory amounts) {
+        Position storage position = positions[positionId];
+        BankBase bank = BankBase(banks[position.bankId]);
+        (tokens, amounts) = bank.getPositionTokens(position.bankToken, position.user);
+        (tokens, amounts) = IUniversalSwap(universalSwap).getUnderlying(tokens, amounts);
+    }
+
+    /// @inheritdoc IPositionsManager
+    function getPositionRewards(uint positionId) external view returns (address[] memory rewards, uint[] memory rewardAmounts) {
+        Position storage position = positions[positionId];
+        BankBase bank = BankBase(banks[position.bankId]);
+        (rewards, rewardAmounts) = bank.getPendingRewardsForUser(position.bankToken, position.user);
     }
 
     /// @inheritdoc IPositionsManager

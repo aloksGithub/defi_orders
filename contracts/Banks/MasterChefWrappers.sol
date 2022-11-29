@@ -5,79 +5,74 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./BankBase.sol";
 import "../interfaces/MasterChefInterfaces.sol";
+import "../libraries/AddressArray.sol";
+import "../libraries/UintArray.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 import "hardhat/console.sol";
 
 abstract contract IMasterChefWrapper is Ownable {
+    using AddressArray for address[];
+    using UintArray for uint[];
+    using Address for address;
+
     event LPTokenAdded(address masterChef, address lpToken, uint poolId);
 
-    mapping (address => mapping (uint => address)) supportedLps;
-    mapping (address => mapping (address => uint)) supportedLpIndices;
-    mapping (address=>address) baseRewards;
+    mapping (uint => address) supportedLps;
+    mapping (address => uint) supportedLpIndices;
+    address public masterChef;
+    address public baseReward;
+    string public pendingRewardGetter;
     mapping (address=>bool) hasExtraRewards;
 
-    function addMasterChef(address masterChef, string memory rewardGetter, bool _hasExtraRewards) virtual public onlyOwner {
-        (bool success, bytes memory returnData) = masterChef.call(abi.encodeWithSignature(rewardGetter));
-        if (!success) revert("Failed to get reward token");
-        (address reward) = abi.decode(returnData, (address));
-        baseRewards[masterChef] = reward;
-        hasExtraRewards[masterChef] = _hasExtraRewards;
+
+    function getIdFromLpToken(address lpToken) virtual external view returns (bool, uint);
+
+    function getRewards(uint pid) virtual external view returns (address[] memory) {
+        address[] memory rewards = new address[](1);
+        rewards[0] = baseReward;
+        return rewards;
     }
 
-    function initializeMasterChef(address masterChef, string memory rewardGetter, bool _hasExtraRewards) virtual public onlyOwner {
-        (bool success, bytes memory returnData) = masterChef.call(abi.encodeWithSignature(rewardGetter));
-        if (!success) revert("Failed to get reward token");
-        (address reward) = abi.decode(returnData, (address));
-        baseRewards[masterChef] = reward;
-        hasExtraRewards[masterChef] = _hasExtraRewards;
+    function getPendingRewards(uint pid) virtual external view returns (address[] memory rewards, uint[] memory amounts) {
+        bytes memory returnData = masterChef.functionStaticCall(abi.encodeWithSignature(pendingRewardGetter, pid, msg.sender));
+        (uint pending) = abi.decode(returnData, (uint));
+        rewards = new address[](1);
+        rewards[0] = baseReward;
+        amounts = new uint[](1);
+        amounts[0] = pending;
     }
-    function setSupportedLp(address masterChef, uint poolId) virtual external;
 
-    function getIdFromLpToken(address masterChef, address lpToken) virtual external view returns (bool, uint) {
-        uint index = supportedLpIndices[masterChef][lpToken];
-        if (supportedLps[masterChef][index]==lpToken) {
-            return (true, index);
-        }
-        return (false, 0);      
-    }
-    function getLpToken(address masterchef, uint pid) virtual external view returns (address);
-    function getRewards(address masterchef, uint pid) virtual external view returns (address[] memory);
+    function getLpToken(uint pid) virtual external view returns (address);
     function deposit(address masterChef, uint pid, uint amount) virtual external;
     function withdraw(address masterChef, uint pid, uint amount) virtual external;
     function harvest(address masterChef, uint pid) virtual external;
 }
 
 contract MasterChefV1Wrapper is IMasterChefWrapper {
+    using AddressArray for address[];
+    using UintArray for uint[];
+    using Address for address;
 
-    function initializeMasterChef(address masterChef, string memory rewardGetter, bool _hasExtraRewards) override public onlyOwner {
-        super.initializeMasterChef(masterChef, rewardGetter, _hasExtraRewards);
-        IMasterChefV1 sushiMasterChef = IMasterChefV1(masterChef);
-        uint numPools = sushiMasterChef.poolLength();
-        // WARNING: Don't forget to change 10 to numPools
-        for (uint i = 0; i<numPools; i++) {
-            IMasterChefV1.PoolInfo memory pool = sushiMasterChef.poolInfo(i);
-            supportedLps[masterChef][i] = pool.lpToken;
-            supportedLpIndices[masterChef][pool.lpToken] = i;
-            emit LPTokenAdded(masterChef, pool.lpToken, i);
+    constructor(address _masterChef, address _baseReward, string memory _pendingRewardGetter) {
+        masterChef = _masterChef;
+        baseReward = _baseReward;
+        pendingRewardGetter = _pendingRewardGetter;
+    }
+
+    function getIdFromLpToken(address lpToken) override external view returns (bool, uint) {
+        uint poolLength = IMasterChefV1(masterChef).poolLength();
+        for (uint i = 0; i<poolLength; i++) {
+            IMasterChefV1.PoolInfo memory poolInfo = IMasterChefV1(masterChef).poolInfo(i);
+            if (poolInfo.lpToken==lpToken) {
+                return (true, i);
+            }
         }
+        return (false, 0);      
     }
 
-    function setSupportedLp(address masterChef, uint poolId) override external onlyOwner {
-        IMasterChefV1 masterChefContract = IMasterChefV1(masterChef);
-        IMasterChefV1.PoolInfo memory pool = masterChefContract.poolInfo(poolId);
-        supportedLps[masterChef][poolId] = pool.lpToken;
-        supportedLpIndices[masterChef][pool.lpToken] = poolId;
-        emit LPTokenAdded(masterChef, pool.lpToken, poolId);
-    }
-
-    function getLpToken(address masterchef, uint pid) override external view returns (address) {
-        IMasterChefV1.PoolInfo memory pool = IMasterChefV1(masterchef).poolInfo(pid);
+    function getLpToken(uint pid) override external view returns (address) {
+        IMasterChefV1.PoolInfo memory pool = IMasterChefV1(masterChef).poolInfo(pid);
         return pool.lpToken;
-    }
-
-    function getRewards(address masterchef, uint pid) override external view returns (address[] memory) {
-        address[] memory rewards = new address[](1);
-        rewards[0] = baseRewards[masterchef];
-        return rewards;
     }
 
     function deposit(address masterChef, uint pid, uint amount) override external {
@@ -95,102 +90,95 @@ contract MasterChefV1Wrapper is IMasterChefWrapper {
 }
 
 contract MasterChefV2Wrapper is IMasterChefWrapper {
-    mapping (address => mapping (uint=>address)) extraRewards;
+    using AddressArray for address[];
+    using UintArray for uint[];
+    using Address for address;
+    mapping (uint=>address) extraRewards;
 
-    function initializeMasterChef(address masterChef, string memory rewardGetter, bool _hasExtraRewards) virtual override public onlyOwner {
-        super.initializeMasterChef(masterChef, rewardGetter, _hasExtraRewards);
-        ISushiSwapMasterChefV2 sushiMasterChef = ISushiSwapMasterChefV2(masterChef);
-        uint numPools = sushiMasterChef.poolLength();
-        // WARNING: Don't forget to change 10 to numPools
-        for (uint i = 0; i<numPools; i++) {
-            address lpToken = sushiMasterChef.lpToken(i);
-            supportedLps[masterChef][i] = lpToken;
-            supportedLpIndices[masterChef][lpToken] = i;
-            emit LPTokenAdded(masterChef, lpToken, i);
+    constructor(address _masterChef, address _baseReward, string memory _pendingRewardGetter) {
+        masterChef = _masterChef;
+        baseReward = _baseReward;
+        pendingRewardGetter = _pendingRewardGetter;
+    }
+
+    function getIdFromLpToken(address lpToken) override external view returns (bool, uint) {
+        uint poolLength = ISushiSwapMasterChefV2(masterChef).poolLength();
+        for (uint i = 0; i<poolLength; i++) {
+            if (ISushiSwapMasterChefV2(masterChef).lpToken(i)==lpToken) {
+                return (true, i);
+            }
         }
+        return (false, 0);      
     }
     
-    function setSupportedLp(address masterChef, uint poolId) virtual override external onlyOwner {
-        ISushiSwapMasterChefV2 masterChefContract = ISushiSwapMasterChefV2(masterChef);
-        address lpToken = masterChefContract.lpToken(poolId);
-        supportedLps[masterChef][poolId] = lpToken;
-        supportedLpIndices[masterChef][lpToken] = poolId;
-        emit LPTokenAdded(masterChef, lpToken, poolId);
-    }
-    
-    function getLpToken(address masterchef, uint pid) override external view returns (address) {
-        return ISushiSwapMasterChefV2(masterchef).lpToken(pid);
+    function getLpToken(uint pid) override external view returns (address) {
+        return ISushiSwapMasterChefV2(masterChef).lpToken(pid);
     }
 
-    function getRewards(address masterchef, uint pid) override external view returns (address[] memory) {
-        if (extraRewards[masterchef][pid]!=address(0)) {
-            address[] memory r = new address[](2);
-            r[0] = baseRewards[masterchef];
-            r[1] = extraRewards[masterchef][pid];
-            return r;
+    function getRewards(uint pid) override external view returns (address[] memory) {
+        address[] memory rewards = new address[](1);
+        rewards[0] = baseReward;
+        address rewarder = ISushiSwapMasterChefV2(masterChef).rewarder(pid);
+        if (rewarder!=address(0)) {
+            (address[] memory tokens,) = IRewarder(rewarder).pendingTokens(0, address(this), 0);
+            rewards = rewards.concat(tokens);
         }
-        address rewarder;
-        if (hasExtraRewards[masterchef]) {
-            rewarder = ISushiSwapMasterChefV2(masterchef).rewarder(pid);
-        } else {
-            rewarder = address(0);
-        }
-        if (rewarder==address(0)) {
-            address[] memory reward = new address[](1);
-            reward[0] = baseRewards[masterchef];
-            return reward;
-        } else {
-            address rewardToken = IMasterChefRewarder(rewarder).rewardToken();
-            address[] memory reward = new address[](2);
-            reward[0] = baseRewards[masterchef];
-            reward[1] = rewardToken;
-            return reward;
+        return rewards;
+    }
+
+    function getPendingRewards(uint pid) override external view returns (address[] memory rewards, uint[] memory rewardAmounts) {
+        bytes memory returnData = masterChef.functionStaticCall(abi.encodeWithSignature(pendingRewardGetter, pid, msg.sender));
+        (uint pending) = abi.decode(returnData, (uint));
+        rewards = new address[](1);
+        rewards[0] = baseReward;
+        rewardAmounts = new uint[](1);
+        rewardAmounts[0] = pending;
+        address rewarder = ISushiSwapMasterChefV2(masterChef).rewarder(pid);
+        if (rewarder!=address(0)) {
+            (address[] memory tokens, uint[] memory amounts) = IRewarder(rewarder).pendingTokens(pid, msg.sender, 0);
+            rewards = rewards.concat(tokens);
+            rewardAmounts = rewardAmounts.concat(amounts);
         }
     }
 
-    function deposit(address masterChef, uint pid, uint amount) virtual override external {
+    function deposit(address masterChef, uint pid, uint amount) override external {
         ISushiSwapMasterChefV2(masterChef).deposit(pid, amount, address(this));
     }
     
-    function withdraw(address masterChef, uint pid, uint amount) virtual override external {
+    function withdraw(address masterChef, uint pid, uint amount) override external {
         ISushiSwapMasterChefV2(masterChef).withdraw(pid, amount, address(this));
     }
 
-    function harvest(address masterChef, uint pid) virtual override external {
-        ISushiSwapMasterChefV2(masterChef).harvest(pid, address(this));
+    function harvest(address masterChef, uint pid) override external {
+        try ISushiSwapMasterChefV2(masterChef).pendingSushi(pid, address(this)) returns (uint) {
+            ISushiSwapMasterChefV2(masterChef).harvest(pid, address(this));
+        } catch {}
     }
 }
 
-contract PancakeSwapMasterChefV2Wrapper is MasterChefV2Wrapper {
-    function initializeMasterChef(address masterChef, string memory rewardGetter, bool _hasExtraRewards) override public onlyOwner {
-        (bool success, bytes memory returnData) = masterChef.call(abi.encodeWithSignature(rewardGetter));
-        if (!success) revert("Failed to get reward token");
-        (address reward) = abi.decode(returnData, (address));
-        baseRewards[masterChef] = reward;
-        hasExtraRewards[masterChef] = _hasExtraRewards;
-        IPancakeSwapMasterChefV2 pancakeMasterChef = IPancakeSwapMasterChefV2(masterChef);
-        uint numPools = pancakeMasterChef.poolLength();
-        // WARNING: Don't forget to change 10 to numPools
-        for (uint i = 0; i<numPools; i++) {
-            address lpToken = pancakeMasterChef.lpToken(i);
-            bool isRegular = pancakeMasterChef.poolInfo(i).isRegular;
-            if (isRegular) {
-                supportedLps[masterChef][i] = lpToken;
-                supportedLpIndices[masterChef][lpToken] = i;
-                emit LPTokenAdded(masterChef, lpToken, i);
-            }
-        }
+contract PancakeSwapMasterChefV2Wrapper is IMasterChefWrapper {
+    using AddressArray for address[];
+    using UintArray for uint[];
+    using Address for address;
+
+    constructor(address _masterChef, address _baseReward, string memory _pendingRewardGetter) {
+        masterChef = _masterChef;
+        baseReward = _baseReward;
+        pendingRewardGetter = _pendingRewardGetter;
     }
 
-    function setSupportedLp(address masterChef, uint poolId) virtual override external onlyOwner {
-        IPancakeSwapMasterChefV2 masterChefContract = IPancakeSwapMasterChefV2(masterChef);
-        bool isRegular = masterChefContract.poolInfo(poolId).isRegular;
-        address lpToken = masterChefContract.lpToken(poolId);
-        if (isRegular) {
-            supportedLps[masterChef][poolId] = lpToken;
-            supportedLpIndices[masterChef][lpToken] = poolId;
-            emit LPTokenAdded(masterChef, lpToken, poolId);
+    function getIdFromLpToken(address lpToken) override external view returns (bool, uint) {
+        uint poolLength = IPancakeSwapMasterChefV2(masterChef).poolLength();
+        for (uint i = 0; i<poolLength; i++) {
+            if (IPancakeSwapMasterChefV2(masterChef).lpToken(i)==lpToken) {
+                return (true, i);
+            }
         }
+        return (false, 0);      
+    }
+    
+    function getLpToken(uint pid) override external view returns (address) {
+        return ISushiSwapMasterChefV2(masterChef).lpToken(pid);
     }
 
     function deposit(address masterChef, uint pid, uint amount) override external {

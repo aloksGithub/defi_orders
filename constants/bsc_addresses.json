@@ -11,8 +11,18 @@
         ],
         "uniswapV3Factories": [],
         "NFTManagers": [],
-        "v1MasterChefs": [{"address": "0xDbc1A13490deeF9c3C12b44FE77b503c1B061739", "rewardGetter": "BSW()", "hasExtraRewards": false}],
+        "v1MasterChefs": [
+            {
+                "address": "0xDbc1A13490deeF9c3C12b44FE77b503c1B061739",
+                "rewardGetter": "BSW()",
+                "reward": "0x965F527D9159dCe6288a2219DB51fc6Eef120dD1",
+                "pendingRewardsGetter": "pendingBSW(uint256,address)",
+                "hasExtraRewards": false
+            }
+        ],
         "masterChefLps": [
+            "0xe0625903565bfCDd738b7AB9b156CB14DC9977b3",
+            "0x50e4837Fc2eEFFD34EF78483A89c6Afb7Dd70c77",
             "0x58F876857a02D6762E0101bb5C46A8c1ED44Dc16",
             "0xDA8ceb724A06819c0A5cDb4304ea0cB27F8304cF",
             "0x8840C6252e2e86e545deFb6da98B2a0E26d8C1BA",
@@ -32,6 +42,12 @@
 
         ],
         "v2MasterChefs": [],
-        "pancakeV2MasterChef": {"address": "0xa5f8C5Dbd5F286960b9d90548680aE5ebFf07652", "rewardGetter": "CAKE()", "hasExtraRewards": false}
+        "pancakeV2MasterChef": {
+            "address": "0xa5f8C5Dbd5F286960b9d90548680aE5ebFf07652",
+            "rewardGetter": "CAKE()",
+            "reward": "0x0E09FaBB73Bd3Ade0a17ECC321fD13a19e81cE82",
+            "pendingRewardsGetter": "pendingCake(uint256,address)",
+            "hasExtraRewards": false
+        }
     }
 }

@@ -8,6 +8,7 @@ import "./ERC721Wrappers.sol";
 import "./BankBase.sol";
 
 contract ERC721Bank is BankBase {
+    using Address for address;
 
     struct PoolInfo {
         address user;
@@ -73,8 +74,7 @@ contract ERC721Bank is BankBase {
         (,address manager, uint id) = decodeId(tokenId);
         address wrapper = erc721Wrappers[manager];
 
-        (bool success, bytes memory returnData) = wrapper.delegatecall(abi.encodeWithSelector(IERC721Wrapper.deposit.selector, manager, id, suppliedTokens, suppliedAmounts));
-        if (!success) revert("Failed to deposit");
+        bytes memory returnData = wrapper.functionDelegateCall(abi.encodeWithSelector(IERC721Wrapper.deposit.selector, manager, id, suppliedTokens, suppliedAmounts));
         (uint minted) = abi.decode(returnData, (uint));
         poolInfo[tokenId].liquidity+=minted;
         return minted;
@@ -84,8 +84,7 @@ contract ERC721Bank is BankBase {
         require(poolInfo[tokenId].user==userAddress, "User doesn't own the asset");
         (,address manager, uint id) = decodeId(tokenId);
         address wrapper = erc721Wrappers[manager];
-        (bool success, bytes memory returnData) = wrapper.delegatecall(abi.encodeWithSelector(IERC721Wrapper.withdraw.selector, manager, id, amount, receiver));
-        if (!success) revert("Failed to withdraw");
+        bytes memory returnData = wrapper.functionDelegateCall(abi.encodeWithSelector(IERC721Wrapper.withdraw.selector, manager, id, amount, receiver));
         (outTokens, tokenAmounts) = abi.decode(returnData, (address[], uint[]));
         // (outTokens, tokenAmounts) = withdraw(manager, id, amount, receiver);
         (,,,,,,,uint liquidity,,,,) = INonfungiblePositionManager(manager).positions(id);
@@ -96,8 +95,7 @@ contract ERC721Bank is BankBase {
         require(poolInfo[tokenId].user==userAddress, "User doesn't own the asset");
         (,address manager, uint id) = decodeId(tokenId);
         address wrapper = erc721Wrappers[manager];
-        (bool success, bytes memory returnData) = wrapper.delegatecall(abi.encodeWithSelector(IERC721Wrapper.harvest.selector, manager, id, receiver));
-        if (!success) revert("Failed to withdraw");
+        bytes memory returnData = wrapper.functionDelegateCall(abi.encodeWithSelector(IERC721Wrapper.harvest.selector, manager, id, receiver));
         (,,,,,,,uint liquidity,,,,) = INonfungiblePositionManager(manager).positions(id);
         poolInfo[tokenId].liquidity = liquidity;
         (rewardAddresses, rewardAmounts) = abi.decode(returnData, (address[], uint[]));

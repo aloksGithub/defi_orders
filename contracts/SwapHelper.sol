@@ -86,6 +86,23 @@ contract SwapHelper is Ownable {
         return address(0);
     }
 
+    function getTokenValues(address[] memory tokens, uint[] memory tokenAmounts) public view returns (uint[] memory values, uint total) {
+        values = new uint[](tokens.length);
+        for (uint i = 0; i<tokens.length; i++) {
+            uint tokenWorth = oracle.getPrice(tokens[i], networkToken);
+            values[i] = tokenWorth*tokenAmounts[i]/uint(10)**ERC20(tokens[i]).decimals();
+            total+=values[i];
+        }
+    }
+
+    function estimateValue(address[] memory tokens, uint[] memory amounts, address inTermsOf) public view returns (uint) {
+        (tokens, amounts) = simplifyWithoutWrite(tokens, amounts, new Asset[](0));
+        (,uint value) = getTokenValues(tokens, amounts);
+        uint tokenWorth = oracle.getPrice(networkToken, inTermsOf);
+        value = tokenWorth*value/uint(10)**ERC20(networkToken).decimals();
+        return value;
+    }
+
     function _getConversionsERC20(address desired, uint valueAllocated) internal view returns (Conversion[] memory) {
         (address[] memory underlying, uint[] memory ratios) = getUnderlyingERC20(desired);
         ratios = ratios.scale(valueAllocated);
@@ -119,6 +136,15 @@ contract SwapHelper is Ownable {
         for (uint i = 0; i<desiredERC721s.length; i++) {
             conversions = conversions.concat(_getConversionsERC721(desiredERC721s[i], ratios[desiredERC20s.length+i]));
         }
+    }
+
+    function simulateConversions(
+        Conversion[] memory conversions,
+        address[] memory outputTokens,
+        uint[] memory minAmountsOut,
+        uint percentageNetworkToken
+    ) public view returns (uint[] memory) {
+        
     }
 
     function getUnderlyingERC20(address token) public view returns (address[] memory underlyingTokens, uint[] memory ratios) {
@@ -227,5 +253,15 @@ contract SwapHelper is Ownable {
             }
         }
         return bestSingleSwap;
+    }
+
+    function simulateSwaps(SwapPoint[] memory swaps, address[] memory tokens, uint[] memory amounts) public view returns (address[] memory tokensOut, uint[] memory amountsOut) {
+        tokensOut = new address[](swaps.length);
+        amountsOut = new uint[](swaps.length);
+        for (uint i = 0; i<swaps.length; i++) {
+            uint amount = swaps[i].amountIn*amounts[tokens.findFirst(swaps[i].tokenIn)]/1e18;
+            tokensOut[i] = swaps[i].tokenOut;
+            amountsOut[i] = ISwapper(swaps[i].swapper).getAmountOutWithPath(amount, swaps[i].path);
+        }
     }
 }

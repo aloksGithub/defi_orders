@@ -27,11 +27,12 @@
     "uniswapV3Routers": ["0xE592427A0AEce92De3Edee1F18E0157C05861564"],
     "NFTManagers": ["0xC36442b4a4522E871399CD717aBDD847Ab11FE88"],
     "masterChefLps": [
+      "0x99B42F2B49C395D2a77D973f6009aBb5d67dA343",
       "0x269Db91Fc3c7fCC275C2E6f22e5552504512811c",
+      "0x0C6F06b32E6Ae0C110861b8607e67dA594781961",
       "0x06da0fd433C1A5d7a4faa01111c044910A184553",
       "0xF1F85b2C54a2bD284B1cf4141D64fD171Bd85539",
-      "0x33F6DDAEa2a8a54062E021873bCaEE006CdF4007",
-      "0x99B42F2B49C395D2a77D973f6009aBb5d67dA343"
+      "0x33F6DDAEa2a8a54062E021873bCaEE006CdF4007"
     ],
     "erc20BankLps": [
       "0x9bA00D6856a4eDF4665BcA2C2309936572473B7E",
@@ -58,6 +59,8 @@
       {
         "address": "0xc2EdaD668740f1aA35E4D8f227fB8E17dcA888Cd",
         "rewardGetter": "sushi()",
+        "reward": "0x6B3595068778DD592e39A122f4f5a5cF09C90fE2",
+        "pendingRewardsGetter": "pendingSushi(uint256,address)",
         "hasExtraRewards": false
       }
     ],
@@ -65,6 +68,8 @@
       {
         "address": "0xEF0881eC094552b2e128Cf945EF17a6752B4Ec5d",
         "rewardGetter": "SUSHI()",
+        "reward": "0x6B3595068778DD592e39A122f4f5a5cF09C90fE2",
+        "pendingRewardsGetter": "pendingSushi(uint256,address)",
         "hasExtraRewards": true
       }
     ]

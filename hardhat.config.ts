@@ -19,7 +19,7 @@ const rpcs = {
 
 const approximateGasPrices = {
   bsc: 7*10**9,
-  mainnet: 16*10**9
+  mainnet: 14*10**9
 }
 
 const config: HardhatUserConfig = {
@@ -49,7 +49,7 @@ const config: HardhatUserConfig = {
       },
       chainId: 1337,
         // @ts-ignore
-      gasPrice: approximateGasPrices[process.env.CURRENTLY_FORKING!]
+      // gasPrice: approximateGasPrices[process.env.CURRENTLY_FORKING!]
     },
     // localhost: {
     //   url: "http://127.0.0.1:8545/",

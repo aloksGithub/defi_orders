@@ -16,6 +16,11 @@ interface ISwapper {
         address outToken
     ) external view returns (uint256, address[] memory);
 
+    function getAmountOutWithPath(
+        uint256 amount,
+        address[] memory path
+    ) external view returns (uint256);
+
     function checkSwappable(address token)
         external
         view

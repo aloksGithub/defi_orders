@@ -9,8 +9,14 @@ const NETWORK = hre.network.name
 // @ts-ignore
 const networkAddresses = addresses[NETWORK]
 const liquidationPoints = [{liquidateTo: networkAddresses.networkToken, watchedToken: networkAddresses.networkToken, lessThan:true, liquidationPoint: 100}]
+const ethUsed = "1"
 
-describe("MasterChefBank tests", function () {
+const getPositionSize = async (manager:PositionsManager, positionId:any) => {
+    const info = await manager.getPosition(positionId)
+    return info.amount
+}
+
+describe.only("MasterChefBank tests", function () {
     let manager: PositionsManager
     let owners: any[]
     let networkTokenContract: IWETH
@@ -26,9 +32,9 @@ describe("MasterChefBank tests", function () {
         networkTokenContract = await ethers.getContractAt("IWETH", networkAddresses.networkToken)
         universalSwap = await ethers.getContractAt("UniversalSwap", universalSwapAddress)
     })
-    it.only("Opens recompounds and closes position", async function () {
+    it("Opens recompounds and closes position", async function () {
         const test = async (lpToken: string) => {
-            const {lpBalance: lpBalance0, lpTokenContract} = await getLPToken(lpToken, universalSwap, "1", owners[0])
+            const {lpBalance: lpBalance0, lpTokenContract} = await getLPToken(lpToken, universalSwap, ethUsed, owners[0])
             expect(lpBalance0).to.greaterThan(0)
     
             await lpTokenContract.connect(owners[0]).approve(manager.address, lpBalance0)
@@ -41,19 +47,18 @@ describe("MasterChefBank tests", function () {
             )
             const positionInfo1 = await manager.getPosition(positionId)
             await ethers.provider.send("hardhat_mine", ["0x100"]);
-            console.log(lpToken)
             await manager.connect(owners[0]).harvestAndRecompound(positionId, [], [], new Array(rewardContracts.length).fill(0))
-            await manager.callStatic.closeToUSDC(positionId)
-            console.log("CHECK1")
+            const positionValue = await manager.estimateValue(positionId, networkTokenContract.address)
+            expect(positionValue).to.greaterThan(ethers.utils.parseEther(ethUsed).mul('95').div('100'))
             const positionInfo2 = await manager.getPosition(positionId)
-            // expect(positionInfo2.amount).to.greaterThanOrEqual(positionInfo1.amount)
+            expect(positionInfo2.amount).to.greaterThanOrEqual(positionInfo1.amount)
             await manager.connect(owners[0]).close(positionId)
             const positionInfo3 = await manager.getPosition(positionId)
-            // expect(positionInfo3.amount).to.equal(0)
-            await manager.callStatic.closeToUSDC(positionId)
-            console.log("CHECK2")
+            expect(positionInfo3.amount).to.equal(0)
+            const finalValue = await manager.estimateValue(positionId, networkTokenContract.address)
+            expect(finalValue).to.equal('0')
             const finalLpBalance = await lpTokenContract.balanceOf(owners[0].address)
-            // expect(finalLpBalance).to.greaterThanOrEqual(lpBalance0)
+            expect(finalLpBalance).to.greaterThanOrEqual(lpBalance0)
         }
         const lpTokens = networkAddresses.masterChefLps
         for (const lpToken of lpTokens) {
@@ -61,21 +66,16 @@ describe("MasterChefBank tests", function () {
         }
     })
     it("Handles multiple actions", async function () {
+        const checkRewards = async (user:any, positionId:any) => {
+            const {rewards, rewardAmounts} = await manager.connect(user).callStatic.harvestRewards(positionId)
+            const {rewards:rewardsComputed, rewardAmounts:rewardAmountsComputed} = await manager.getPositionRewards(positionId)
+            await manager.connect(user).harvestRewards(positionId)
+            for (let i = 0; i<rewards.length; i++) {
+                expect(rewards[i]).to.equal(rewardsComputed[i])
+                expect(rewardAmounts[i]).to.equal(rewardAmountsComputed[i])
+            }
+        }
         const test = async (lpToken:string) => {
-            const users = [owners[3], owners[4], owners[5], owners[6]]
-            const {lpBalance: lpBalance0, lpTokenContract} = await getLPToken(lpToken, universalSwap, "1", owners[3])
-            const {lpBalance: lpBalance1} = await getLPToken(lpToken, universalSwap, "1", owners[4])
-            const {lpBalance: lpBalance2} = await getLPToken(lpToken, universalSwap, "1", owners[5])
-            const {lpBalance: lpBalance3} = await getLPToken(lpToken, universalSwap, "1", owners[6])
-            const lpBalances = [lpBalance0, lpBalance1, lpBalance2, lpBalance3]
-            
-            const {positionId: position0, rewards, rewardContracts} = await depositNew(
-                manager,
-                lpToken,
-                lpBalance0.toString(),
-                liquidationPoints,
-                users[0]
-            )
             const clearRewards = async (usersToClear: any[]) => {
                 for (const user of usersToClear) {
                     for (const rewardContract of rewardContracts) {
@@ -84,7 +84,20 @@ describe("MasterChefBank tests", function () {
                     }
                 }
             }
-            await clearRewards(users)
+            const users = [owners[3], owners[4], owners[5], owners[6]]
+            const {lpBalance: lpBalance0, lpTokenContract} = await getLPToken(lpToken, universalSwap, "1", owners[3])
+            const {lpBalance: lpBalance1} = await getLPToken(lpToken, universalSwap, "1", owners[4])
+            const {lpBalance: lpBalance2} = await getLPToken(lpToken, universalSwap, "1", owners[5])
+            const {lpBalance: lpBalance3} = await getLPToken(lpToken, universalSwap, "1", owners[6])
+            const lpBalances = [lpBalance0, lpBalance1, lpBalance2, lpBalance3]
+            
+            const {positionId: position0, rewardContracts} = await depositNew(
+                manager,
+                lpToken,
+                lpBalance0.toString(),
+                liquidationPoints,
+                users[0]
+            )
             const {positionId: position1} = await depositNew(
                 manager,
                 lpToken,
@@ -92,15 +105,15 @@ describe("MasterChefBank tests", function () {
                 liquidationPoints,
                 users[1]
             )
-            await ethers.provider.send("hardhat_mine", ["0x100"]);
-            await manager.connect(users[0]).harvestRewards(position0)
-            await manager.connect(users[1]).harvestRewards(position1)
+            await ethers.provider.send("hardhat_mine", ["0x10000"]);
+            await checkRewards(users[0], position0)
+            await checkRewards(users[1], position1)
 
             for (const rewardContract of rewardContracts) {
                 const user0Bal = await rewardContract.balanceOf(users[0].address)
                 const user1Bal = await rewardContract.balanceOf(users[1].address)
                 if (user1Bal.div("1000000000000").toNumber()>0) {
-                    isRoughlyEqual(user0Bal.mul('1000').div(user1Bal), lpBalances[0].mul('1000').div(lpBalances[1].div('3')))
+                    isRoughlyEqual(user0Bal.mul('1000').div(user1Bal), lpBalances[0].mul('1000').div(lpBalances[1].div('3')), 100)
                 }
             }
 
@@ -108,24 +121,24 @@ describe("MasterChefBank tests", function () {
 
             const {positionId: position2} = await depositNew(manager, lpToken, lpBalance2.toString(), liquidationPoints, users[2])
             const {positionId: position3} = await depositNew(manager, lpToken, lpBalance3.div("2").toString(), liquidationPoints, users[3])
-            await ethers.provider.send("hardhat_mine", ["0x100"]);
-            await manager.connect(users[2]).harvestRewards(position2)
-            await manager.connect(users[3]).harvestRewards(position3)
+            await ethers.provider.send("hardhat_mine", ["0x10000"]);
+            await checkRewards(users[2], position2)
+            await checkRewards(users[3], position3)
             
             for (const rewardContract of rewardContracts) {
                 const user2Bal = await rewardContract.balanceOf(users[2].address)
                 const user3Bal = await rewardContract.balanceOf(users[3].address)
                 if (user3Bal.div("1000000000000").toNumber()>0) {
-                    isRoughlyEqual(user2Bal.mul('1000').div(user3Bal), lpBalances[2].mul('1000').div(lpBalances[3].div('2')))
+                    isRoughlyEqual(user2Bal.mul('1000').div(user3Bal), lpBalances[2].mul('1000').div(lpBalances[3].div('2')), 100)
                 }
             }
             await clearRewards(users)
 
-            await ethers.provider.send("hardhat_mine", ["0x100"]);
-            await manager.connect(users[0]).harvestRewards(position0)
-            await manager.connect(users[1]).harvestRewards(position1)
-            await manager.connect(users[2]).harvestRewards(position2)
-            await manager.connect(users[3]).harvestRewards(position3)
+            await ethers.provider.send("hardhat_mine", ["0x10000"]);
+            await checkRewards(users[0], position0)
+            await checkRewards(users[1], position1)
+            await checkRewards(users[2], position2)
+            await checkRewards(users[3], position3)
             
             for (const rewardContract of rewardContracts) {
                 const user0Bal = await rewardContract.balanceOf(users[0].address)
@@ -133,23 +146,24 @@ describe("MasterChefBank tests", function () {
                 const user2Bal = await rewardContract.balanceOf(users[2].address)
                 const user3Bal = await rewardContract.balanceOf(users[3].address)
                 if (user1Bal.div("1000000000000").toNumber()>0) {
-                    isRoughlyEqual(user0Bal.mul('1000').div(user1Bal), lpBalance0.mul('1000').div(lpBalance1.div('3')))
-                    isRoughlyEqual(user2Bal.mul('1000').div(user3Bal), lpBalance2.mul('1000').div(lpBalance3.div('2')))
-                    isRoughlyEqual(user0Bal.mul('1000').div(user2Bal), lpBalance0.mul('1000').div(lpBalance2.div('2')))
+                    isRoughlyEqual(user0Bal.mul('1000').div(user1Bal), lpBalance0.mul('1000').div(lpBalance1.div('3')), 100)
+                    isRoughlyEqual(user2Bal.mul('1000').div(user3Bal), lpBalance2.mul('1000').div(lpBalance3.div('2')), 100)
+                    isRoughlyEqual(user0Bal.mul('1000').div(user2Bal), lpBalance0.mul('1000').div(lpBalance2.div('2')), 100)
                 }
             }
 
             await manager.connect(users[0]).withdraw(position0, lpBalance0.mul("2").div("3"))
             expect(lpBalance0.mul("2").div("3")).to.equal(await lpTokenContract.balanceOf(users[0].address))
             await lpTokenContract.connect(users[3]).approve(manager.address, lpBalance3.div("2"))
-            await manager.connect(users[3]).depositInExisting(position3, {tokens: [lpToken], amounts: [lpBalance3.div("2")], nfts: []}, [], [], [0])
+            await manager.connect(users[3]).depositInExisting(position3, {tokens: [lpToken], amounts: [lpBalance3.div("2")], nfts: []}, [], [], [])
             await clearRewards(users)
+
             
-            await ethers.provider.send("hardhat_mine", ["0x100"]);
-            await manager.connect(users[0]).harvestRewards(position0)
-            await manager.connect(users[1]).harvestRewards(position1)
-            await manager.connect(users[2]).harvestRewards(position2)
-            await manager.connect(users[3]).harvestRewards(position3)
+            await ethers.provider.send("hardhat_mine", ["0x10000"]);
+            await checkRewards(users[0], position0)
+            await checkRewards(users[1], position1)
+            await checkRewards(users[2], position2)
+            await checkRewards(users[3], position3)
 
             for (const rewardContract of rewardContracts) {
                 const user0Bal = await rewardContract.balanceOf(users[0].address)
@@ -157,10 +171,11 @@ describe("MasterChefBank tests", function () {
                 const user2Bal = await rewardContract.balanceOf(users[2].address)
                 const user3Bal = await rewardContract.balanceOf(users[3].address)
                 if (user1Bal.div("1000000000000").toNumber()>0) {
-                    isRoughlyEqual(user0Bal.mul('1000').div(user1Bal), lpBalance0.mul('1000').div(lpBalance1))
-                    isRoughlyEqual(user2Bal.mul('1000').div(user3Bal), lpBalance2.mul('1000').div(lpBalance3))
+                    isRoughlyEqual(user0Bal.mul('1000').div(user1Bal), lpBalance0.mul('1000').div(lpBalance1), 100)
+                    isRoughlyEqual(user2Bal.mul('1000').div(user3Bal), lpBalance2.mul('1000').div(lpBalance3), 100)
                 }
             }
+            await clearRewards(users)
         }
         const lpTokens = networkAddresses.masterChefLps
         for (const lpToken of lpTokens) {
@@ -182,7 +197,7 @@ describe("MasterChefBank tests", function () {
                 owner
             )
             const positionInfo1 = await manager.getPosition(positionId)
-            await ethers.provider.send("hardhat_mine", ["0x100"]);
+            await ethers.provider.send("hardhat_mine", ["0x10000"]);
             await manager.connect(owner).harvestAndRecompound(positionId, [], [], new Array(rewardContracts.length).fill(0))
             const positionInfo2 = await manager.getPosition(positionId)
             expect(positionInfo2.amount).to.greaterThanOrEqual(positionInfo1.amount)

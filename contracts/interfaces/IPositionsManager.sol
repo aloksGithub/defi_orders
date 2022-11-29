@@ -124,6 +124,17 @@ interface IPositionsManager {
     /// @param positionId Position ID
     function close(uint positionId) external;
 
+    /// @notice Estimates the net worth of the position in terms of another token
+    /// @param positionId Position ID
+    /// @return value Value of the position in terms of inTermsOf
+    function estimateValue(uint positionId, address inTermsOf) external view returns (uint value);
+
+    /// @notice Get the underlying tokens and amounts for a position
+    function getPositionTokens(uint positionId) external view returns (address[] memory tokens, uint[] memory amounts);
+
+    /// @notice Get the rewards and rewad amounts that have been generated for a position
+    function getPositionRewards(uint positionId) external view returns (address[] memory tokens, uint[] memory amounts);
+
     /// @notice Close a function and convert all assets to USDC
     /// @notice This function is intended to be called using callstatic, just to check the USD value of the position
     /// @return usdcValue The value of the position in terms of USDC

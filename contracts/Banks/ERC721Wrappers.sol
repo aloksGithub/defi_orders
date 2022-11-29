@@ -148,7 +148,8 @@ contract UniswapV3Wrapper is IERC721Wrapper {
     }
 
     function getRewardsForPosition(address manager, uint tokenId) override external view returns (address[] memory rewards, uint[] memory amounts) {
-        (,,address token0, address token1,,,,,,,uint128 fee0, uint128 fee1) = INonfungiblePositionManager(manager).positions(tokenId);
+        (uint fee0, uint fee1) = getPendingFees(manager, tokenId);
+        (,,address token0, address token1,,,,,,,,) = INonfungiblePositionManager(manager).positions(tokenId);
         rewards = new address[](2);
         rewards[0] = token0;
         rewards[1] = token1;
@@ -180,5 +181,95 @@ contract UniswapV3Wrapper is IERC721Wrapper {
         underlyingTokens = new address[](2);
         underlyingTokens[0] = token0;
         underlyingTokens[1] = token1;
+    }
+
+    function getPendingFees(address manager, uint _positionId) internal view returns (uint feeAmt0, uint feeAmt1) {
+        int24 tickLower; int24  tickUpper; uint feeGrowthInside0LastX128; uint feeGrowthInside1LastX128; IUniswapV3Pool pool;
+        {
+            address token0; address token1; uint24 fee;
+            (,,token0, token1, fee, tickLower, tickUpper,, feeGrowthInside0LastX128, feeGrowthInside1LastX128,,) = INonfungiblePositionManager(manager).positions(_positionId);
+            pool = IUniswapV3Pool(
+                IUniswapV3Factory(INonfungiblePositionManager(manager).factory()).getPool(token0, token1, fee)
+            );
+        }
+        (, int24 curTick,,,,,) = pool.slot0();
+
+        (uint128 liquidity, , , uint128 tokensOwed0, uint128 tokensOwed1) = pool.positions(_getPositionID(manager, tickLower, tickUpper));
+
+        feeAmt0 =
+        _computeFeesEarned(
+            pool,
+            true,
+            feeGrowthInside0LastX128,
+            curTick,
+            tickLower,
+            tickUpper,
+            liquidity
+        ) +
+        tokensOwed0;
+        feeAmt1 =
+        _computeFeesEarned(
+            pool,
+            false,
+            feeGrowthInside1LastX128,
+            curTick,
+            tickLower,
+            tickUpper,
+            liquidity
+        ) +
+        tokensOwed1;
+    }
+
+    function _getPositionID(
+    address _owner,
+    int24 _lowerTick,
+    int24 _upperTick
+    ) internal pure returns (bytes32 positionId) {
+        return keccak256(abi.encodePacked(_owner, _lowerTick, _upperTick));
+    }
+
+    // ref: from arrakis finance: https://github.com/ArrakisFinance/vault-v1-core/blob/main/contracts/ArrakisVaultV1.sol
+    function _computeFeesEarned(
+        IUniswapV3Pool _pool,
+        bool _isZero,
+        uint _feeGrowthInsideLast,
+        int24 _tick,
+        int24 _lowerTick,
+        int24 _upperTick,
+        uint128 _liquidity
+    ) internal view returns (uint fee) {
+        uint feeGrowthOutsideLower;
+        uint feeGrowthOutsideUpper;
+        uint feeGrowthGlobal;
+        if (_isZero) {
+        feeGrowthGlobal = _pool.feeGrowthGlobal0X128();
+        (, , feeGrowthOutsideLower, , , , , ) = _pool.ticks(_lowerTick);
+        (, , feeGrowthOutsideUpper, , , , , ) = _pool.ticks(_upperTick);
+        } else {
+        feeGrowthGlobal = _pool.feeGrowthGlobal1X128();
+        (, , , feeGrowthOutsideLower, , , , ) = _pool.ticks(_lowerTick);
+        (, , , feeGrowthOutsideUpper, , , , ) = _pool.ticks(_upperTick);
+        }
+
+        unchecked {
+        // calculate fee growth below
+        uint feeGrowthBelow;
+        if (_tick >= _lowerTick) {
+            feeGrowthBelow = feeGrowthOutsideLower;
+        } else {
+            feeGrowthBelow = feeGrowthGlobal - feeGrowthOutsideLower;
+        }
+
+        // calculate fee growth above
+        uint feeGrowthAbove;
+        if (_tick < _upperTick) {
+            feeGrowthAbove = feeGrowthOutsideUpper;
+        } else {
+            feeGrowthAbove = feeGrowthGlobal - feeGrowthOutsideUpper;
+        }
+
+        uint feeGrowthInside = feeGrowthGlobal - feeGrowthBelow - feeGrowthAbove;
+        fee = (_liquidity * (feeGrowthInside - _feeGrowthInsideLast)) / 2**128;
+        }
     }
 }

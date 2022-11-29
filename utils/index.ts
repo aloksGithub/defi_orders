@@ -11,7 +11,7 @@ var fs = require('fs');
 
 const ENVIRONMENT = process.env.ENVIRONMENT!
 const CURRENTLY_FORKING = process.env.CURRENTLY_FORKING!
-const NUM_INITIALIZE_MASTERCHEFS = 10
+const NUM_INITIALIZE_MASTERCHEFS = 0
 
 const delay = (ms:number) => new Promise(res => setTimeout(res, ms));
 
@@ -418,81 +418,70 @@ const deployERC721Bank = async (positionsManager: string, verify:boolean=false, 
 const masterChefV1Wrapper = async (verify:boolean=false, log:boolean=false) => {
   const network = hre.network.name
   const wrapperV1Factory = await ethers.getContractFactory("MasterChefV1Wrapper")
-  const wrapperV1 = await wrapperV1Factory.deploy()
+  const wrappers = []
   // @ts-ignore
   for (const masterChef of addresses[network].v1MasterChefs) {
-    await wrapperV1.addMasterChef(masterChef.address, masterChef.rewardGetter, masterChef.hasExtraRewards)
+    const wrapperV1 = await wrapperV1Factory.deploy(masterChef.address, masterChef.reward, masterChef.pendingRewardsGetter)
+    wrappers.push(wrapperV1.address)
     const masterChefContract = await ethers.getContractAt("IMasterChefV1", masterChef.address)
-    const numPools = ENVIRONMENT==='prod'?(await masterChefContract.poolLength()).toNumber():NUM_INITIALIZE_MASTERCHEFS
-    for (let i = 0; i<numPools; i++) {
-      await wrapperV1.setSupportedLp(masterChef.address, i)
+    if (verify) {
+      await delay(10000)
+      try {
+      await hre.run("verify:verify", {
+        address: wrapperV1.address,
+        constructorArguments: [masterChef.address, masterChef.reward, masterChef.pendingRewardsGetter],
+        network
+      })
+      } catch (e) {
+        console.log(e)
+      }
+    }
+    if (log) {
+      logDeployment('MasterChefV1Wrapper', wrapperV1)
     }
   }
-  if (verify) {
-    await delay(10000)
-    try {
-    await hre.run("verify:verify", {
-      address: wrapperV1.address,
-      constructorArguments: [],
-      network
-    })
-    } catch (e) {
-      console.log(e)
-    }
-  }
-  if (log) {
-    logDeployment('MasterChefV1Wrapper', wrapperV1)
-  }
-  return wrapperV1
+  return wrappers
 }
 
 const masterChefV2Wrapper = async (verify:boolean=false, log:boolean=false) => {
   const network = hre.network.name
   const wrapperV2Factory = await ethers.getContractFactory("MasterChefV2Wrapper")
-  const wrapperV2 = await wrapperV2Factory.deploy()
+  const wrappers = []
   // @ts-ignore
   for (const masterChef of addresses[network].v2MasterChefs) {
-    await wrapperV2.addMasterChef(masterChef.address, masterChef.rewardGetter, masterChef.hasExtraRewards)
+    const wrapperV2 = await wrapperV2Factory.deploy(masterChef.address, masterChef.reward, masterChef.pendingRewardsGetter)
+    wrappers.push(wrapperV2.address)
     const masterChefContract = await ethers.getContractAt("ISushiSwapMasterChefV2", masterChef.address)
-    const numPools = ENVIRONMENT==='prod'?(await masterChefContract.poolLength()).toNumber():NUM_INITIALIZE_MASTERCHEFS
-    for (let i = 0; i<numPools; i++) {
-      await wrapperV2.setSupportedLp(masterChef.address, i)
+    if (verify) {
+      await delay(10000)
+      try{
+      await hre.run("verify:verify", {
+        address: wrapperV2.address,
+        constructorArguments: [],
+        network
+      })
+    } catch (e) {
+      console.log(e)
+    }
+    }
+    if (log) {
+      logDeployment('MasterChefV2Wrapper', wrapperV2)
     }
   }
-  if (verify) {
-    await delay(10000)
-    try{
-    await hre.run("verify:verify", {
-      address: wrapperV2.address,
-      constructorArguments: [],
-      network
-    })
-  } catch (e) {
-    console.log(e)
-  }
-  }
-  if (log) {
-    logDeployment('MasterChefV2Wrapper', wrapperV2)
-  }
-  return wrapperV2
+  return wrappers
 }
 
 const pancakeMasterChefWrapper = async (verify:boolean=false, log:boolean=false) => {
   const factory = await ethers.getContractFactory("PancakeSwapMasterChefV2Wrapper")
-  const wrapper = await factory.deploy()
   const masterChef = addresses['bsc'].pancakeV2MasterChef
-  await wrapper.addMasterChef(masterChef.address, masterChef.rewardGetter, masterChef.hasExtraRewards)
+  const wrapper = await factory.deploy(masterChef.address, masterChef.reward, masterChef.pendingRewardsGetter)
   const masterChefContract = await ethers.getContractAt("IPancakeSwapMasterChefV2", masterChef.address)
-  const numPools = ENVIRONMENT==='prod'?(await masterChefContract.poolLength()).toNumber():NUM_INITIALIZE_MASTERCHEFS
-  for (let i = 0; i<numPools; i++) {
-    await wrapper.setSupportedLp(masterChef.address, i)
-  }
   if (verify) {
     await delay(10000)
     try {
       await hre.run("verify:verify", {
         address: wrapper.address,
-        constructorArguments: [],
+        constructorArguments: [masterChef.address, masterChef.rewardGetter, masterChef.pendingRewardsGetter],
         network: 'bsc'
       })
     } catch (e) {
@@ -507,17 +496,17 @@ const pancakeMasterChefWrapper = async (verify:boolean=false, log:boolean=false)
 
 const deployMasterChefBank = async (positionsManager: string, verify:boolean=false, log:boolean=false) => {
   const network = hre.network.name
-  const wrapperV1 = await masterChefV1Wrapper(verify, log)
-  const wrapperV2 = await masterChefV2Wrapper(verify, log)
+  const wrappersV1 = await masterChefV1Wrapper(verify, log)
+  const wrappersV2 = await masterChefV2Wrapper(verify, log)
   const bankFactory = await ethers.getContractFactory("MasterChefBank")
   const masterChefBank = await bankFactory.deploy(positionsManager)
   // @ts-ignore
-  for (const masterChef of addresses[network].v2MasterChefs) {
-    await masterChefBank.setMasterChefWrapper(masterChef.address, wrapperV2.address)
+  for (const [i, masterChef] of addresses[network].v2MasterChefs.entries()) {
+    await masterChefBank.setMasterChefWrapper(masterChef.address, wrappersV2[i])
   }
   // @ts-ignore
-  for (const masterChef of addresses[network].v1MasterChefs) {
-    await masterChefBank.setMasterChefWrapper(masterChef.address, wrapperV1.address)
+  for (const [i, masterChef] of addresses[network].v1MasterChefs.entries()) {
+    await masterChefBank.setMasterChefWrapper(masterChef.address, wrappersV1[i])
   }
   if (network=='bsc' || ((network=='localhost' || network=='hardhat') && CURRENTLY_FORKING=='bsc')) {
     const pancakeWrapper = await pancakeMasterChefWrapper(verify, log)
@@ -665,7 +654,7 @@ export const checkNFTLiquidity = async (manager:string, id:string) => {
   return data.liquidity
 }
 
-export const isRoughlyEqual = (a:BigNumber, b:BigNumber) => {
-  expect(a).to.lessThan(b.mul("105").div("100"))
-  expect(a).to.greaterThan(b.mul("95").div("100"))
+export const isRoughlyEqual = (a:BigNumber, b:BigNumber, percentage:number = 500) => {
+  expect(a).to.lessThanOrEqual(b.mul(10000+percentage).div("10000"))
+  expect(a).to.greaterThanOrEqual(b.mul(10000-percentage).div("10000"))
 }
