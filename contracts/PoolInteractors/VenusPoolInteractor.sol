@@ -40,6 +40,12 @@ contract VenusPoolInteractor is IPoolInteractor {
         }
         return minted;
     }
+
+    function simulateMint(address toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts) external view returns (uint minted) {
+        IVToken lpToken = IVToken(toMint);
+        uint exchangeRate = lpToken.exchangeRateStored();
+        minted = underlyingAmounts[0]*uint(10)**18/exchangeRate;
+    }
     
     function testSupported(address token) external view override returns (bool) {
         try IVToken(token).underlying() returns (address) {} catch {return false;}

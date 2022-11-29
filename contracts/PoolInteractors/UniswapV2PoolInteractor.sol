@@ -3,9 +3,12 @@ pragma solidity ^0.8.9;
 
 import "../interfaces/IPoolInteractor.sol";
 import "../interfaces/UniswapV2/IUniswapV2Pair.sol";
+import "../libraries/Math.sol";
 
 contract UniswapV2PoolInteractor is IPoolInteractor {
     using SafeERC20 for IERC20;
+
+    uint public constant MINIMUM_LIQUIDITY = 10**3;
 
     function burn(address lpTokenAddress, uint256 amount, address self)
         payable
@@ -44,6 +47,25 @@ contract UniswapV2PoolInteractor is IPoolInteractor {
         }
         uint256 minted = poolContract.mint(receiver);
         return minted;
+    }
+
+    function simulateMint(address toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts) external view returns (uint minted) {
+        IUniswapV2Pair pair = IUniswapV2Pair(toMint);
+        (uint r0, uint r1,) = pair.getReserves();
+        uint totalSupply = pair.totalSupply();
+        uint amount0; uint amount1;
+        if (underlyingTokens[0]==pair.token0()) {
+            amount0 = underlyingAmounts[0];
+            amount1 = underlyingAmounts[1];
+        } else {
+            amount0 = underlyingAmounts[1];
+            amount1 = underlyingAmounts[0];
+        }
+        if (totalSupply==0) {
+            minted = Math.sqrt(amount0*amount1)-MINIMUM_LIQUIDITY;
+        } else {
+            minted = Math.min(amount0*totalSupply/r0, amount1*totalSupply/r1);
+        }
     }
 
     function testSupported(address token) external view override returns (bool) {

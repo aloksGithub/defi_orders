@@ -100,6 +100,10 @@ contract AaveV2PoolInteractor is IPoolInteractor {
         require(minted>0, "Failed to mint LP tokens");
         return minted;
     }
+
+    function simulateMint(address toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts) external view returns (uint minted) {
+        return underlyingAmounts[0];
+    }
     
     function testSupported(address token) external view override returns (bool) {
         try IAToken(token).UNDERLYING_ASSET_ADDRESS() returns (address) {return true;} catch {
@@ -107,12 +111,6 @@ contract AaveV2PoolInteractor is IPoolInteractor {
                 return false;
             }
         }
-        // string memory name = ERC20(token).name();
-        // if (name.toSlice().startsWith("Aave".toSlice())) {
-        //     getUnderlyingTokens(token);
-        //     return true;
-        // }
-        // return false;
     }
 
     function getUnderlyingAmount(address aTokenAddress, uint amount) external view returns (address[] memory underlying, uint[] memory amounts) {
@@ -131,14 +129,6 @@ contract AaveV2PoolInteractor is IPoolInteractor {
                 revert("Failed to get underlying");
             }
         }
-        // (bool success, bytes memory returnData) = lpTokenAddress.call(abi.encodeWithSignature("UNDERLYING_ASSET_ADDRESS()"));
-        // if (!success) {
-        //     (success, returnData) = lpTokenAddress.call(abi.encodeWithSignature("underlyingAssetAddress()"));
-        //     if (!success) {
-        //         revert("Failed to get underlying");
-        //     }
-        // }
-        // (address underlyingAddress) = abi.decode(returnData, (address));
         address[] memory receivedTokens = new address[](1);
         receivedTokens[0] = underlyingAddress;
         uint[] memory ratios = new uint[](1);

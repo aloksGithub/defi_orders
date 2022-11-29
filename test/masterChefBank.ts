@@ -16,7 +16,7 @@ const getPositionSize = async (manager:PositionsManager, positionId:any) => {
     return info.amount
 }
 
-describe.only("MasterChefBank tests", function () {
+describe("MasterChefBank tests", function () {
     let manager: PositionsManager
     let owners: any[]
     let networkTokenContract: IWETH

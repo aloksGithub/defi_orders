@@ -16,6 +16,8 @@ interface IPoolInteractor {
 
     function mint(address toMint, address[] memory underlyingTokens, uint256[] memory underlyingAmounts, address receiver, address self) payable external returns (uint256);
 
+    function simulateMint(address toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts) external view returns (uint);
+
     function testSupported(address lpToken) external view returns (bool);
 
     function getUnderlyingAmount(address lpTokenAddress, uint amount) external view returns (address[] memory underlying, uint[] memory amounts);

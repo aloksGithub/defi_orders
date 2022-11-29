@@ -138,13 +138,79 @@ contract SwapHelper is Ownable {
         }
     }
 
+    function _simulateConversionERC20(Conversion memory conversion, address[] memory inputTokens, uint[] memory inputTokenAmounts) internal view returns (uint, uint[] memory) {
+        if (conversion.underlying[0]==conversion.desiredERC20 && conversion.underlying.length==1) {
+            uint idx = inputTokens.findFirst(conversion.desiredERC20);
+            uint balance = inputTokenAmounts[idx];
+            inputTokenAmounts[idx]-=balance*conversion.underlyingValues[0]/1e18;
+            return (balance*conversion.underlyingValues[0]/1e18, inputTokenAmounts);
+        } else {
+            uint[] memory amounts = new uint[](conversion.underlying.length);
+            for (uint i = 0; i<conversion.underlying.length; i++) {
+                uint idx = inputTokens.findFirst(conversion.underlying[i]);
+                uint balance = inputTokenAmounts[idx];
+                uint amountToUse = balance*conversion.underlyingValues[i]/1e18;
+                amounts[i] = amountToUse;
+                inputTokenAmounts[idx]-=amountToUse;
+            }
+            address poolInteractor = getProtocol(conversion.desiredERC20);
+            uint mintable = IPoolInteractor(poolInteractor).simulateMint(conversion.desiredERC20, conversion.underlying, amounts);
+            return (mintable, inputTokenAmounts);
+        }
+    }
+
+    function _simulateConversionERC721(Conversion memory conversion, address[] memory inputTokens, uint[] memory inputTokenAmounts) internal view returns (uint, uint[] memory) {
+        uint[] memory amounts = new uint[](conversion.underlying.length);
+        for (uint j = 0; j<conversion.underlying.length; j++) {
+            uint idx = inputTokens.findFirst(conversion.underlying[j]);
+            uint balance = inputTokenAmounts[idx];
+            uint amountToUse = balance*conversion.underlyingValues[j]/1e18;
+            inputTokenAmounts[idx]-=amountToUse;
+            amounts[j] = amountToUse;
+        }
+        address poolInteractor = getProtocol(conversion.desiredERC20);
+        uint liquidityMinted = INFTPoolInteractor(poolInteractor).simulateMint(conversion.desiredERC721, conversion.underlying, amounts);
+        return (liquidityMinted, inputTokenAmounts);
+    }
+
     function simulateConversions(
         Conversion[] memory conversions,
         address[] memory outputTokens,
-        uint[] memory minAmountsOut,
+        address[] memory inputTokens,
+        uint[] memory inputAmounts,
         uint percentageNetworkToken
-    ) public view returns (uint[] memory) {
-        
+    ) public view returns (uint[] memory amounts) {
+        amounts = new uint[](conversions.length);
+        uint amountsAdded;
+        for (uint i = 0; i<conversions.length; i++) {
+            if (conversions[i].desiredERC20==address(0)) {
+                (uint liquidity, uint[] memory newAmounts) = _simulateConversionERC721(conversions[i], inputTokens, inputAmounts);
+                inputAmounts = newAmounts;
+                amounts[amountsAdded] = liquidity;
+                amountsAdded+=1;
+            } else {
+                (uint amountObtained, uint[] memory newAmounts) = _simulateConversionERC20(conversions[i], inputTokens, inputAmounts);
+                inputAmounts = newAmounts;
+                if (outputTokens.exists(conversions[i].desiredERC20) && conversions[i].underlying.length!=0) {
+                    amounts[amountsAdded] = amountObtained;
+                    amountsAdded+=1;
+                } else {
+                    inputTokens = inputTokens.append(conversions[i].desiredERC20);
+                    inputAmounts.append(amountObtained);
+                }
+                amounts[i] = amountObtained;
+            }
+        }
+        uint idx = outputTokens.findFirst(address(0));
+        if (idx==outputTokens.length) return amounts;
+        else {
+            uint idxWrappedToken = outputTokens.findFirst(networkToken);
+            uint balance = amounts[idxWrappedToken];
+            uint amountNetworkToken = balance*percentageNetworkToken/1e12;
+            uint amountWrappedNetworkToken = balance-amountNetworkToken;
+            amounts[idxWrappedToken] = amountWrappedNetworkToken;
+            amounts = amounts.insert(idx, amountNetworkToken);
+        }
     }
 
     function getUnderlyingERC20(address token) public view returns (address[] memory underlyingTokens, uint[] memory ratios) {

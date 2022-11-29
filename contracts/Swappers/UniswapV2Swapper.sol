@@ -114,6 +114,9 @@ contract UniswapV2Swapper is ISwapper, Ownable {
     }
 
     function getAmountOutWithPath(uint256 amount, address[] memory path) external view returns (uint256) {
+        if (path.length==0 || path[0] == path[path.length-1] || amount==0) {
+            return amount;
+        }
         uint[] memory amountsOut = IUniswapV2Router02(router).getAmountsOut(amount, path);
         return amountsOut[amountsOut.length-1];
     }

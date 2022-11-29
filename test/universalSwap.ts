@@ -1,11 +1,25 @@
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { IWETH, UniversalSwap } from "../typechain-types";
+import { IWETH, UniversalSwap, INonfungiblePositionManager } from "../typechain-types";
+import { ProvidedStruct } from "../typechain-types/contracts/PositionsManager";
+import { DesiredStruct } from "../typechain-types/contracts/UniversalSwap";
 import { getUniversalSwap, addresses, getNetworkToken, getNFT, isRoughlyEqual, getNearestUsableTick } from "../utils"
 
 // @ts-ignore
 const networkAddresses = addresses[hre.network.name]
 
+const compareComputedWithActual = async (computed: any[], actual: any[], manager: string, numERC20s: number) => {
+    for (let i = 0; i<numERC20s; i++) {
+        isRoughlyEqual(computed[i], actual[i])
+    }
+    if (!manager) return
+    const managerContract = await ethers.getContractAt("INonfungiblePositionManager", manager)
+    for (let i = numERC20s; i<computed.length; i++) {
+        const tokenId = actual[i]
+        const {liquidity} = await managerContract.positions(tokenId)
+        expect(liquidity).to.equal(computed[i])
+    }
+}
 
 describe("UniversalSwap tests", function () {
     let universalSwap: UniversalSwap
@@ -57,7 +71,7 @@ describe("UniversalSwap tests", function () {
             await getNFTForPool(pool)
         }
     })
-    it("Performs multi-swap", async function () {
+    it.only("Performs multi-swap", async function () {
         const startingBalance = await networkTokenContract.balanceOf(owners[0].address)
         const adminBalanceBegin = await owners[0].getBalance()
         const erc20s: string[] = networkAddresses.universwalSwapTestingTokens
@@ -89,80 +103,47 @@ describe("UniversalSwap tests", function () {
         const minAmountsStep1 = Array(erc20sStep1.length).fill(0)
         const minAmountsStep2 = Array(erc20sStep2.length).fill(0)
         await networkTokenContract.approve(universalSwap.address, (await networkTokenContract.balanceOf(owners[0].address)))
-        const [bestSwaps1, conversions1] = await universalSwap.preSwapComputation(
+
+
+        const performMultiSwap = async (provided:ProvidedStruct, desired:DesiredStruct) => {
+            const {amounts, swaps, conversions} = await universalSwap.getAmountsOut(provided, desired)
+            const tx = await universalSwap.swap(provided, swaps, conversions, desired, owners[0].address)
+            const rc = await tx.wait()
+            const events = rc.events?.filter((event:any) => event.event === 'NFTMinted')
+            // @ts-ignore
+            const ids = events.map(event=>event.args?.tokenId.toNumber())
+            let nextInputERC721sPromises = await desired.outputERC721s.map(async (nft:any, index:number)=> {
+                const managerContract = await ethers.getContractAt("INonfungiblePositionManager", nft.manager)
+                await managerContract.approve(universalSwap.address, ids[index])
+                const position = await managerContract.positions(ids[index])
+                return {...nft, tokenId: ids[index], liquidity: position.liquidity}
+            })
+            const nextInputERC721s = await Promise.all(nextInputERC721sPromises)
+            const erc20sBalance = []
+            for (const erc20 of desired.outputERC20s) {
+                // @ts-ignore
+                const contract = await ethers.getContractAt("ERC20", erc20)
+                const balance = await contract.balanceOf(owners[0].address)
+                await contract.approve(universalSwap.address, balance)
+                erc20sBalance.push(balance)
+            }
+            await compareComputedWithActual(amounts, erc20sBalance.concat(ids), networkAddresses.NFTManagers[0], erc20sBalance.length)
+            return {tokens: desired.outputERC20s, amounts: erc20sBalance, nfts: nextInputERC721s}
+        }
+
+        let nextProvided = await performMultiSwap(
             {tokens: [networkAddresses.networkToken], amounts: [(await networkTokenContract.balanceOf(owners[0].address))], nfts: []},
             {outputERC20s: erc20sStep1, outputERC721s: erc721sStep1, ratios: ratiosStep1, minAmountsOut: minAmountsStep1}
         )
-        // const tx1Gas = await universalSwap.estimateGas.swap(
-        //     {tokens: [networkAddresses.networkToken], amounts: [(await networkTokenContract.balanceOf(owners[0].address))], nfts: []}, bestSwaps1, conversions1, 
-        //     {outputERC20s: erc20sStep1, outputERC721s: erc721sStep1, ratios: ratiosStep1, minAmountsOut: minAmountsStep1}, owners[0].address)
-        // console.log(tx1Gas)
-        const tx = await universalSwap.swap(
-            {tokens: [networkAddresses.networkToken], amounts: [(await networkTokenContract.balanceOf(owners[0].address))], nfts: []}, bestSwaps1, conversions1, 
-            {outputERC20s: erc20sStep1, outputERC721s: erc721sStep1, ratios: ratiosStep1, minAmountsOut: minAmountsStep1}, owners[0].address)
-        const rc = await tx.wait()
-        const events = rc.events?.filter((event:any) => event.event === 'NFTMinted')
-        // @ts-ignore
-        const ids = events.map(event=>event.args?.tokenId.toNumber())
-        const erc20sBalance = []
-        for (const erc20 of erc20sStep1) {
-            const contract = await ethers.getContractAt("ERC20", erc20)
-            const balance = await contract.balanceOf(owners[0].address)
-            await contract.approve(universalSwap.address, balance)
-            erc20sBalance.push(balance)
-        }
-        let inputERC721s = erc721sStep1.map(async (nft:any, index:number)=> {
-            const managerContract = await ethers.getContractAt("INonfungiblePositionManager", nft.manager)
-            await managerContract.approve(universalSwap.address, ids[index])
-            const position = await managerContract.positions(ids[index])
-            return {...nft, tokenId: ids[index], liquidity: position.liquidity}
-        })
-        inputERC721s = await Promise.all(inputERC721s)
 
-        const [bestSwaps2, conversions2] = await universalSwap.preSwapComputation(
-            {tokens: erc20sStep1, amounts: erc20sBalance, nfts: inputERC721s},
-            {outputERC20s: erc20sStep2, outputERC721s: erc721sStep2, ratios: ratiosStep2, minAmountsOut: minAmountsStep2}
+        nextProvided = await performMultiSwap(
+            nextProvided, {outputERC20s: erc20sStep2, outputERC721s: erc721sStep2, ratios: ratiosStep2, minAmountsOut: minAmountsStep2}
         )
-        // const tx2Gas = await universalSwap.estimateGas.swap(
-        //     {tokens: erc20sStep1, amounts: erc20sBalance, nfts: inputERC721s}, bestSwaps2, conversions2,
-        //     {outputERC20s: erc20sStep2, outputERC721s: erc721sStep2, ratios: ratiosStep2, minAmountsOut: minAmountsStep2}, owners[0].address
-        // )
-        // console.log(tx2Gas)
-        const tx2 = await universalSwap.swap(
-            {tokens: erc20sStep1, amounts: erc20sBalance, nfts: inputERC721s}, bestSwaps2, conversions2,
-            {outputERC20s: erc20sStep2, outputERC721s: erc721sStep2, ratios: ratiosStep2, minAmountsOut: minAmountsStep2}, owners[0].address
+        
+        nextProvided = await performMultiSwap(
+            nextProvided, {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}
         )
-        const rc2 = await tx2.wait()
-        const events2 = rc2.events?.filter((event:any) => event.event === 'NFTMinted')
-        // @ts-ignore
-        const ids2 = events2.map(event=>event.args?.tokenId.toNumber())
-        inputERC721s = erc721sStep2.map(async (nft:any, index:number)=> {
-            const managerContract = await ethers.getContractAt("INonfungiblePositionManager", nft.manager)
-            await managerContract.approve(universalSwap.address, ids2[index])
-            const position = await managerContract.positions(ids2[index])
-            return {...nft, tokenId: ids2[index], liquidity: position.liquidity}
-        })
-        inputERC721s = await Promise.all(inputERC721s)
-        const erc20sBalanceFinal = []
-        for (const erc20 of erc20sStep2) {
-            const contract = await ethers.getContractAt("ERC20", erc20)
-            const balance = await contract.balanceOf(owners[0].address)
-            await contract.approve(universalSwap.address, balance)
-            erc20sBalanceFinal.push(balance)
-        }
-        const [bestSwaps3, conversions3] = await universalSwap.preSwapComputation(
-            {tokens: erc20sStep2, amounts: erc20sBalanceFinal, nfts: inputERC721s},
-            {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}
-        )
-        // const tx3Gas = await universalSwap.estimateGas.swap(
-        //     {tokens: erc20sStep2, amounts: erc20sBalanceFinal, nfts: inputERC721s}, bestSwaps3, conversions3,
-        //     {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}, owners[0].address
-        // )
-        // console.log(tx3Gas)
-        await universalSwap.swap(
-            {tokens: erc20sStep2, amounts: erc20sBalanceFinal, nfts: inputERC721s}, bestSwaps3, conversions3,
-            {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}, owners[0].address
-        )
+
         const balanceFinal = await networkTokenContract.balanceOf(owners[0].address)
         isRoughlyEqual(startingBalance, balanceFinal)
         console.log(`Slippage: ${startingBalance.sub(balanceFinal).mul('10000').div(startingBalance).toNumber()/100}%`)

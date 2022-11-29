@@ -87,6 +87,21 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
         require(amount0>minAmount0 && amount1>minAmount1, "Failed slippage check");
         return tokenId;
     }
+
+    function simulateMint(Asset memory toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts) external view returns (uint liquidity) {
+        IUniswapV3Pool pool = IUniswapV3Pool(toMint.pool);
+        (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
+        (int24 tick0, int24 tick1,,) = abi.decode(toMint.data, (int24, int24, uint, uint));
+        uint amount0; uint amount1;
+        if (underlyingTokens[0]==pool.token0()) {
+            amount0 = underlyingAmounts[0];
+            amount1 = underlyingAmounts[1];
+        } else {
+            amount0 = underlyingAmounts[1];
+            amount1 = underlyingAmounts[0];
+        }
+        liquidity = LiquidityAmounts.getLiquidityForAmounts(sqrtRatioX96, TickMath.getSqrtRatioAtTick(tick0), TickMath.getSqrtRatioAtTick(tick1), amount0, amount1);
+    }
     
     function testSupported(address token) external view returns (bool) {
         if (token==supportedManager) {

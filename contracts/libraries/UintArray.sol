@@ -52,4 +52,15 @@ library UintArray {
         }
         return self;
     }
+
+    function insert(uint[] memory self, uint idx, uint value) internal pure returns (uint[] memory newArray) {
+        newArray = new uint[](self.length+1);
+        for (uint i = 0; i<idx; i++) {
+            newArray[i] = self[i];
+        }
+        newArray[idx] = value;
+        for (uint i = idx; i<self.length; i++) {
+            newArray[i+1] = self[i];
+        }
+    }
 }
