@@ -132,4 +132,8 @@ contract ERC721Bank is BankBase {
         IERC721Wrapper wrapper = IERC721Wrapper(erc721Wrappers[manager]);
         return wrapper.getPositionUnderlying(manager, pos_id);
     }
+
+    function isUnderlyingERC721() override external pure returns (bool) {
+        return true;
+    }
 }

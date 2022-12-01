@@ -71,7 +71,7 @@ describe("ERC721Bank tests", function () {
             const id = await getNFT(universalSwap, "100", nftManagerAddress, pool, owners[0])
             const nftManager = await ethers.getContractAt("INonfungiblePositionManager", nftManagerAddress)
             const {positionId, rewardContracts} = await depositNewNFT(manager, nftManagerAddress, id, liquidationPoints, owners[0])
-            const liquidity1 = (await manager.getPosition(positionId)).amount
+            const liquidity1 = (await manager.getPosition(positionId)).position.amount
             expect(liquidity1).to.greaterThan(0)
             const poolContract = await ethers.getContractAt("IUniswapV3Pool", pool)
             const token0 = await poolContract.token0()
@@ -149,7 +149,7 @@ describe("ERC721Bank tests", function () {
                 await ethers.provider.send("hardhat_mine", ["0x10"]);
             }
             await manager.connect(owners[0]).harvestAndRecompound(positionId, [], [], [0, 0])
-            const liquidity2 = (await manager.getPosition(positionId)).amount
+            const liquidity2 = (await manager.getPosition(positionId)).position.amount
             expect(liquidity2).to.greaterThan(liquidity1)
 
             await manager.connect(owners[0]).close(positionId)
@@ -179,18 +179,18 @@ describe("ERC721Bank tests", function () {
             const id = await getNFT(universalSwap, "10", nftManagerAddress, pool, owners[0])
             const nftManager = await ethers.getContractAt("INonfungiblePositionManager", nftManagerAddress)
             const {positionId, rewardContracts} = await depositNewNFT(manager, nftManagerAddress, id, liquidationPoints, owners[0])
-            const liquidity1 = (await manager.getPosition(positionId)).amount
+            const liquidity1 = (await manager.getPosition(positionId)).position.amount
             let liquidityInNFT = await checkNFTLiquidity(nftManagerAddress, id)
             expect(liquidityInNFT).to.equal(liquidity1)
             expect(liquidityInNFT).to.greaterThan(1)
             await networkTokenContract.connect(owners[0]).approve(manager.address, ethers.utils.parseEther("10"))
             await manager.connect(owners[0]).depositInExisting(positionId, {tokens: [networkAddresses.networkToken], amounts: [ethers.utils.parseEther("10")], nfts: []}, [], [], [0, 0])
-            const liquidity2 = (await manager.getPosition(positionId)).amount
+            const liquidity2 = (await manager.getPosition(positionId)).position.amount
             liquidityInNFT = await checkNFTLiquidity(nftManagerAddress, id)
             expect(liquidityInNFT).to.equal(liquidity2)
             isRoughlyEqual(liquidity2, liquidity1.mul("2"))
             await manager.connect(owners[0]).withdraw(positionId, liquidity1)
-            const liquidity3 = (await manager.getPosition(positionId)).amount
+            const liquidity3 = (await manager.getPosition(positionId)).position.amount
             isRoughlyEqual(liquidity1, liquidity3)
             for (const reward of rewardContracts) {
                 const balance = await reward.balanceOf(owners[0].address)

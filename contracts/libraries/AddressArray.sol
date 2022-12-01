@@ -120,4 +120,11 @@ library AddressArray {
         }
         return true;
     }
+
+    function copy(address[] memory self) internal pure returns (address[] memory copied) {
+        copied = new address[](self.length);
+        for (uint i = 0; i<self.length; i++) {
+            copied[i] = self[i];
+        }
+    }
 }

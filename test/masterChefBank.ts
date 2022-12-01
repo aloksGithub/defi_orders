@@ -13,7 +13,7 @@ const ethUsed = "1"
 
 const getPositionSize = async (manager:PositionsManager, positionId:any) => {
     const info = await manager.getPosition(positionId)
-    return info.amount
+    return info.position.amount
 }
 
 describe("MasterChefBank tests", function () {
@@ -51,10 +51,10 @@ describe("MasterChefBank tests", function () {
             const positionValue = await manager.estimateValue(positionId, networkTokenContract.address)
             expect(positionValue).to.greaterThan(ethers.utils.parseEther(ethUsed).mul('95').div('100'))
             const positionInfo2 = await manager.getPosition(positionId)
-            expect(positionInfo2.amount).to.greaterThanOrEqual(positionInfo1.amount)
+            expect(positionInfo2.position.amount).to.greaterThanOrEqual(positionInfo1.position.amount)
             await manager.connect(owners[0]).close(positionId)
             const positionInfo3 = await manager.getPosition(positionId)
-            expect(positionInfo3.amount).to.equal(0)
+            expect(positionInfo3.position.amount).to.equal(0)
             const finalValue = await manager.estimateValue(positionId, networkTokenContract.address)
             expect(finalValue).to.equal('0')
             const finalLpBalance = await lpTokenContract.balanceOf(owners[0].address)
@@ -200,7 +200,7 @@ describe("MasterChefBank tests", function () {
             await ethers.provider.send("hardhat_mine", ["0x10000"]);
             await manager.connect(owner).harvestAndRecompound(positionId, [], [], new Array(rewardContracts.length).fill(0))
             const positionInfo2 = await manager.getPosition(positionId)
-            expect(positionInfo2.amount).to.greaterThanOrEqual(positionInfo1.amount)
+            expect(positionInfo2.position.amount).to.greaterThanOrEqual(positionInfo1.position.amount)
             await manager.connect(owners[0]).botLiquidate(positionId, 0, [], [], 0)
             const finalBalance = await networkTokenContract.balanceOf(owner.address)
             expect(finalBalance).to.greaterThan(ethers.utils.parseEther("1"))

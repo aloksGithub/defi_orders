@@ -63,4 +63,11 @@ library UintArray {
             newArray[i+1] = self[i];
         }
     }
+
+    function copy(uint[] memory self) internal pure returns (uint[] memory copied) {
+        copied = new uint[](self.length);
+        for (uint i = 0; i<self.length; i++) {
+            copied[i] = self[i];
+        }
+    }
 }

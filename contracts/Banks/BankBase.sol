@@ -52,4 +52,7 @@ abstract contract BankBase is Ownable {
     function harvest(uint tokenId, address userAddress, address receiver) onlyAuthorized virtual external returns (address[] memory rewardAddresses, uint[] memory rewardAmounts) {
         return (rewardAddresses, rewardAmounts);
     }
+    function isUnderlyingERC721() virtual external pure returns (bool) {
+        return false;
+    }
 }

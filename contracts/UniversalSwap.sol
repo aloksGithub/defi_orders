@@ -26,6 +26,7 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     using Conversions for Conversion[];
 
     event NFTMinted(address manager, uint tokenId, address pool);
+    event AssetsSent(address receiver, address[] tokens, address[] managers, uint[] amountsAndIds);
 
     address public networkToken;
     SwapHelper public helper;
@@ -67,6 +68,11 @@ contract UniversalSwap is IUniversalSwap, Ownable {
 
     function _mint(address toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts, address receiver) internal returns (uint amountMinted) {
         if (toMint==underlyingTokens[0]) return underlyingAmounts[0];
+        if (toMint==address(0)) {
+            IWETH(payable(networkToken)).withdraw(underlyingAmounts[0]);
+            payable(receiver).transfer(underlyingAmounts[0]);
+            return underlyingAmounts[0];
+        }
         address poolInteractor = helper.getProtocol(toMint);
         bytes memory returnData = poolInteractor.functionDelegateCall(
             abi.encodeWithSelector(IPoolInteractor(poolInteractor).mint.selector, toMint, underlyingTokens, underlyingAmounts, receiver, poolInteractor)
@@ -114,6 +120,7 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     function _collectAndBreak(address[] memory inputTokens, uint[] memory inputTokenAmounts, Asset[] memory inputNFTs) internal returns (address[] memory, uint[] memory) {
         for (uint i = 0; i<inputTokenAmounts.length; i++) {
             // uint balanceBefore = IERC20(inputTokens[i]).balanceOf(address(this));
+            console.log(inputTokens[i], IERC20(inputTokens[i]).balanceOf(msg.sender), inputTokenAmounts[i]);
             IERC20(inputTokens[i]).safeTransferFrom(msg.sender, address(this), inputTokenAmounts[i]);
             // inputTokenAmounts[i] = IERC20(inputTokens[i]).balanceOf(address(this))-balanceBefore;
         }
@@ -142,11 +149,9 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     }
 
     function _conductERC20Conversion(Conversion memory conversion, address receiver) internal returns(uint) {
-        if (conversion.underlying[0]==conversion.desiredERC20 && conversion.underlying.length==1) {
-            uint balance = IERC20(conversion.desiredERC20).balanceOf(address(this));
-            if (conversion.desiredERC20!=networkToken) {
-                IERC20(conversion.desiredERC20).safeTransfer(receiver, balance*conversion.underlyingValues[0]/1e18);
-            }
+        if ((conversion.underlying[0]==conversion.desiredERC20 && conversion.underlying.length==1)) {
+            uint balance = IERC20(conversion.underlying[0]).balanceOf(address(this));
+            IERC20(conversion.underlying[0]).safeTransfer(receiver, balance*conversion.underlyingValues[0]/1e18);
             return balance*conversion.underlyingValues[0]/1e18;
         } else {
             uint[] memory inputTokenAmounts = new uint[](conversion.underlying.length);
@@ -177,11 +182,11 @@ contract UniversalSwap is IUniversalSwap, Ownable {
         return tokenId;
     }
 
-    function _conductConversions(Conversion[] memory conversions, address[] memory outputTokens, uint[] memory minAmountsOut, address receiver, uint percentageNetworkToken) internal returns (uint[] memory amounts) {
+    function _conductConversions(Conversion[] memory conversions, address[] memory outputTokens, uint[] memory minAmountsOut, address receiver) internal returns (uint[] memory amounts) {
         amounts = new uint[](conversions.length);
         uint amountsAdded;
         for (uint i = 0; i<conversions.length; i++) {
-            if (conversions[i].desiredERC20==address(0)) {
+            if (conversions[i].desiredERC721.manager!=address(0)) {
                 uint tokenId = _conductERC721Conversion(conversions[i], receiver);
                 amounts[amountsAdded] = tokenId;
                 amountsAdded+=1;
@@ -194,16 +199,6 @@ contract UniversalSwap is IUniversalSwap, Ownable {
                 }
             }
         }
-        uint balance = IERC20(networkToken).balanceOf(address(this));
-        uint amountNetworkToken = balance*percentageNetworkToken/1e12;
-        uint amountWrappedNetworkToken = balance-amountNetworkToken;
-        if (amountWrappedNetworkToken>0) {
-            IERC20(networkToken).safeTransfer(receiver, amountWrappedNetworkToken);
-        }
-        if (amountNetworkToken>0) {
-            IWETH(payable(networkToken)).withdraw(amountNetworkToken);
-            payable(receiver).transfer(amountNetworkToken);
-        }
     }
 
     receive() external payable {}
@@ -211,8 +206,7 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     function _conductSwaps(SwapPoint[] memory swaps, address[] memory tokens, uint[] memory amounts) internal {
         for (uint i = 0; i<swaps.length; i++) {
             uint amount = swaps[i].amountIn*amounts[tokens.findFirst(swaps[i].tokenIn)]/1e18;
-            bytes memory returnData = swaps[i].swapper.functionDelegateCall(abi.encodeWithSelector(ISwapper(swaps[i].swapper).swap.selector, amount, swaps[i].path, swaps[i].swapper));
-            uint amountObtained = abi.decode(returnData, (uint));
+            swaps[i].swapper.functionDelegateCall(abi.encodeWithSelector(ISwapper(swaps[i].swapper).swap.selector, amount, swaps[i].path, swaps[i].swapper));
         }
     }
 
@@ -227,17 +221,12 @@ contract UniversalSwap is IUniversalSwap, Ownable {
             (swaps, conversions) = preSwapComputation(provided, desired);
         }
         _conductSwaps(swaps, provided.tokens, provided.amounts);
-        uint desiredWrappedNetworkToken; uint desiredNetworkToken;
-        for (uint i = 0; i<desired.outputERC20s.length; i++) {
-            if (desired.outputERC20s[i]==address(0)) {
-                desiredNetworkToken = desired.ratios[i];
-            }
-            if (desired.outputERC20s[i]==networkToken) {
-                desiredWrappedNetworkToken = desired.ratios[i];
-            }
+        uint[] memory amountsAndIds = _conductConversions(conversions, desired.outputERC20s, desired.minAmountsOut, receiver);
+        address[] memory managers = new address[](desired.outputERC721s.length);
+        for (uint i = 0; i<managers.length; i++) {
+            managers[i] = desired.outputERC721s[i].manager;
         }
-        uint percentageNetworkToken = desiredNetworkToken+desiredWrappedNetworkToken>0?desiredNetworkToken*1e12/(desiredNetworkToken+desiredWrappedNetworkToken):0;
-        uint[] memory amountsAndIds = _conductConversions(conversions, desired.outputERC20s, desired.minAmountsOut, receiver, percentageNetworkToken);
+        emit AssetsSent(msg.sender, desired.outputERC20s, managers, amountsAndIds);
         return amountsAndIds;
     }
 
@@ -249,8 +238,8 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     }
 
     /// @inheritdoc IUniversalSwap
-    function estimateValue(address[] memory tokens, uint[] memory amounts, address inTermsOf) external view returns (uint) {
-        return helper.estimateValue(tokens, amounts, inTermsOf);
+    function estimateValue(Provided memory assets, address inTermsOf) external view returns (uint) {
+        return helper.estimateValue(assets, inTermsOf);
     }
 
     /// @inheritdoc IUniversalSwap
@@ -263,17 +252,6 @@ contract UniversalSwap is IUniversalSwap, Ownable {
         Provided memory provided,
         Desired memory desired
     ) public view returns (SwapPoint[] memory, Conversion[] memory) {
-        uint networkTokenIndex = desired.outputERC20s.findFirst(address(0));
-        if (networkTokenIndex<desired.outputERC20s.length) {
-            uint wrappedNetworkTokenIndex = desired.outputERC20s.findFirst(networkToken);
-            if (!(wrappedNetworkTokenIndex<desired.outputERC20s.length)) {
-                desired.outputERC20s[networkTokenIndex] = networkToken;
-            } else {
-                desired.ratios[wrappedNetworkTokenIndex]+=desired.ratios[networkTokenIndex];
-                desired.ratios = desired.ratios.remove(networkTokenIndex);
-                desired.outputERC20s = desired.outputERC20s.remove(networkTokenIndex);
-            }
-        }
         (provided.tokens, provided.amounts) = helper.simplifyWithoutWrite(provided.tokens, provided.amounts, provided.nfts);
         (uint[] memory inputTokenValues, uint totalValue) = helper.getTokenValues(provided.tokens, provided.amounts);
 
@@ -315,24 +293,11 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     ) external view returns (uint[] memory amounts, SwapPoint[] memory swaps, Conversion[] memory conversions) {
         uint[] memory inputTokenValues;
         {
-            uint networkTokenIndex = desired.outputERC20s.findFirst(address(0));
-            address[] memory filteredOutputERC20s = desired.outputERC20s;
-            uint[] memory filteredRatios = desired.ratios;
-            if (networkTokenIndex<filteredOutputERC20s.length) {
-                uint wrappedNetworkTokenIndex = filteredOutputERC20s.findFirst(networkToken);
-                if (!(wrappedNetworkTokenIndex<filteredOutputERC20s.length)) {
-                    filteredOutputERC20s[networkTokenIndex] = networkToken;
-                } else {
-                    filteredRatios[wrappedNetworkTokenIndex]+=filteredRatios[networkTokenIndex];
-                    filteredRatios = filteredRatios.remove(networkTokenIndex);
-                    filteredOutputERC20s = filteredOutputERC20s.remove(networkTokenIndex);
-                }
-            }
             (provided.tokens, provided.amounts) = helper.simplifyWithoutWrite(provided.tokens, provided.amounts, provided.nfts);
             uint totalValue;
             (inputTokenValues, totalValue) = helper.getTokenValues(provided.tokens, provided.amounts);
 
-            conversions = helper.prepareConversions(filteredOutputERC20s, desired.outputERC721s, filteredRatios, totalValue);
+            conversions = helper.prepareConversions(desired.outputERC20s, desired.outputERC721s, desired.ratios, totalValue);
         }
         (address[] memory underlyingTokens, uint[] memory underlyingValues) = conversions.getUnderlying();
         (underlyingTokens, underlyingValues) = underlyingTokens.shrink(underlyingValues);
@@ -340,18 +305,8 @@ contract UniversalSwap is IUniversalSwap, Ownable {
         uint[] memory expectedAmounts;
         (underlyingTokens, expectedAmounts) = helper.simulateSwaps(swaps, provided.tokens, provided.amounts);
         (underlyingTokens, expectedAmounts) = underlyingTokens.shrink(expectedAmounts);
-        uint desiredWrappedNetworkToken; uint desiredNetworkToken;
-        for (uint i = 0; i<desired.outputERC20s.length; i++) {
-            if (desired.outputERC20s[i]==address(0)) {
-                desiredNetworkToken = desired.ratios[i];
-            }
-            if (desired.outputERC20s[i]==networkToken) {
-                desiredWrappedNetworkToken = desired.ratios[i];
-            }
-        }
-        uint percentageNetworkToken = desiredNetworkToken+desiredWrappedNetworkToken>0?desiredNetworkToken*1e12/(desiredNetworkToken+desiredWrappedNetworkToken):0;
         conversions = conversions.normalizeRatios();
-        amounts = helper.simulateConversions(conversions, desired.outputERC20s, underlyingTokens, expectedAmounts, percentageNetworkToken);
+        amounts = helper.simulateConversions(conversions, desired.outputERC20s, underlyingTokens, expectedAmounts);
         return (amounts, swaps, conversions);
     }
 }

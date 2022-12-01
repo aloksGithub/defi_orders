@@ -117,8 +117,11 @@ contract UniswapV2Swapper is ISwapper, Ownable {
         if (path.length==0 || path[0] == path[path.length-1] || amount==0) {
             return amount;
         }
-        uint[] memory amountsOut = IUniswapV2Router02(router).getAmountsOut(amount, path);
-        return amountsOut[amountsOut.length-1];
+        try IUniswapV2Router02(router).getAmountsOut(amount, path) returns (uint[] memory amountsOut) {
+            return amountsOut[amountsOut.length-1];
+        } catch {
+            return 0;
+        }
     }
 
     function getPrice(address token, address inTermsOf) public view returns (uint) {

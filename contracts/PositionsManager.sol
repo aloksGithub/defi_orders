@@ -20,10 +20,10 @@ contract PositionsManager is IPositionsManager, Ownable {
     using StringArray for string[];
     using AddressArray for address[];
 
-    Position[] positions;
+    Position[] public positions;
     mapping (uint=>bool) public positionClosed; // Is position open
     // mapping (uint=>uint[]) public positionInteractions;
-    mapping (uint=>uint[3][]) public positionInteractions; // Mapping from position Id to block numbers and interaction types for all position interactions
+    mapping (uint=>PositionInteraction[]) public positionInteractions; // Mapping from position Id to block numbers and interaction types for all position interactions
     mapping (address=>uint) public numUserPositions; // Number of positions for user
     mapping (address=>uint[]) public userPositions; // Mapping from user address to a list of position IDs belonging to the user
     mapping (uint=>address) public feeModels; // Mapping from position ID to fee model used for that position
@@ -48,7 +48,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function getPositionInteractions(uint positionId) external view returns (uint[3][] memory) {
+    function getPositionInteractions(uint positionId) external view returns (PositionInteraction[] memory) {
         return positionInteractions[positionId];
     }
 
@@ -91,8 +91,17 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function getPosition(uint positionId) external view returns (Position memory position) {
-        position = positions[positionId];
+    function getPosition(uint positionId) external view returns (PositionData memory data) {
+        Position storage position = positions[positionId];
+        BankBase bank = BankBase(banks[position.bankId]);
+        (address[] memory tokens, uint[] memory amounts) = bank.getPositionTokens(position.bankToken, position.user);
+        (tokens, amounts) = IUniversalSwap(universalSwap).getUnderlying(tokens, amounts);
+        (address[] memory rewards, uint[] memory rewardAmounts) = bank.getPendingRewardsForUser(position.bankToken, position.user);
+        Provided memory assets = Provided(tokens.concat(rewards), amounts.concat(rewardAmounts), new Asset[](0));
+        uint usdValue = IUniversalSwap(universalSwap).estimateValue(assets, stableToken);
+        data = PositionData(
+            position, tokens, amounts, rewards, rewardAmounts, usdValue
+        );
     }
 
     /// @inheritdoc IPositionsManager
@@ -130,12 +139,14 @@ contract PositionsManager is IPositionsManager, Ownable {
         computeDevFee(positionId);
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
-        (address[] memory underlying, uint[] memory ratios) = bank.getUnderlyingForRecurringDeposit(position.bankToken);
-        uint ethSupplied = _getWETH();
-        if (ethSupplied>0) {
-            provided.tokens = provided.tokens.append(networkToken);
-            provided.amounts = provided.amounts.append(ethSupplied);
-            (provided.tokens, provided.amounts) = provided.tokens.shrink(provided.amounts);
+        address[] memory tokensUsed; uint[] memory amountsUsed;
+        {
+            uint ethSupplied = _getWETH();
+            if (ethSupplied>0) {
+                provided.tokens = provided.tokens.append(networkToken);
+                provided.amounts = provided.amounts.append(ethSupplied);
+                (provided.tokens, provided.amounts) = provided.tokens.shrink(provided.amounts);
+            }
         }
         if (minAmounts.length>0) {
             for (uint i = 0; i<provided.tokens.length; i++) {
@@ -144,21 +155,31 @@ contract PositionsManager is IPositionsManager, Ownable {
             for (uint i = 0; i<provided.nfts.length; i++) {
                 IERC721(provided.nfts[i].manager).safeTransferFrom(msg.sender, universalSwap, provided.nfts[i].tokenId);
             }
-            provided.amounts = IUniversalSwap(universalSwap).swapAfterTransfer(
+            (address[] memory underlying, uint[] memory ratios) = bank.getUnderlyingForRecurringDeposit(position.bankToken);
+            amountsUsed = IUniversalSwap(universalSwap).swapAfterTransfer(
                 provided,
                 swaps, conversions,
                 Desired(underlying, new Asset[](0), ratios, minAmounts),
                 address(bank)
             );
-            provided.tokens = underlying;
+            tokensUsed = underlying;
         } else {
+            tokensUsed = provided.tokens;
+            amountsUsed = provided.amounts;
             for (uint i = 0; i<provided.tokens.length; i++) {
                 IERC20(provided.tokens[i]).safeTransferFrom(msg.sender, address(bank), provided.amounts[i]);
             }
         }
-        uint minted = bank.mintRecurring(position.bankToken, position.user, provided.tokens, provided.amounts);
+        uint minted = bank.mintRecurring(position.bankToken, position.user, tokensUsed, amountsUsed);
         position.amount+=minted;
-        positionInteractions[positionId].push([block.number, block.timestamp, 0]);
+        PositionInteraction memory interaction = PositionInteraction(
+            "deposit",
+            block.timestamp, block.number,
+            provided,
+            IUniversalSwap(universalSwap).estimateValue(provided, stableToken),
+            minted
+        );
+        _addPositionInteraction(interaction, positionId);
         emit IncreasePosition(positionId, minted);
     }
 
@@ -193,7 +214,24 @@ contract PositionsManager is IPositionsManager, Ownable {
         }
         userPositions[position.user].push(positions.length-1);
         numUserPositions[position.user]+=1;
-        positionInteractions[positions.length-1].push([block.number, block.timestamp, 0]);
+        Provided memory provided;
+        if (bank.isUnderlyingERC721()) {
+            Asset memory asset = Asset(address(0), suppliedTokens[0], suppliedAmounts[0], minted, '');
+            Asset[] memory assets = new Asset[](1);
+            assets[0] = asset;
+            provided = Provided(new address[](0), new uint[](0), assets);
+        } else {
+            provided = Provided(suppliedTokens, suppliedAmounts, new Asset[](0));
+        }
+        PositionInteraction memory interaction = PositionInteraction(
+            "deposit",
+            block.timestamp,
+            block.number,
+            provided,
+            IUniversalSwap(universalSwap).estimateValue(provided, stableToken),
+            minted
+        );
+        _addPositionInteraction(interaction, positions.length-1);
         emit Deposit(positions.length-1, newPosition.bankId, newPosition.bankToken, newPosition.user, newPosition.amount, newPosition.liquidationPoints);
         return positions.length-1;
     }
@@ -206,8 +244,17 @@ contract PositionsManager is IPositionsManager, Ownable {
         require(position.amount>=amount, "Withdrawing more funds than available");
         require(position.user==msg.sender, "Unauthorized");
         position.amount-=amount;
-        bank.burn(position.bankToken, position.user, amount, msg.sender);
-        positionInteractions[positionId].push([block.number, block.timestamp, 1]);
+        (address[] memory tokens, uint[] memory amounts) = bank.burn(position.bankToken, position.user, amount, msg.sender);
+        Provided memory withdrawn = Provided(tokens, amounts, new Asset[](0));
+        PositionInteraction memory interaction = PositionInteraction(
+            "withdraw",
+            block.timestamp,
+            block.number,
+            withdrawn,
+            IUniversalSwap(universalSwap).estimateValue(withdrawn, stableToken),
+            amount
+        );
+        _addPositionInteraction(interaction, positionId);
         emit Withdraw(positionId, amount);
     }
 
@@ -218,45 +265,54 @@ contract PositionsManager is IPositionsManager, Ownable {
         BankBase bank = BankBase(banks[position.bankId]);
         require(position.user==msg.sender || msg.sender==owner(), "Unauthorized");
         bank.harvest(position.bankToken, position.user, position.user);
-        bank.burn(position.bankToken, position.user, position.amount, position.user);
+        (address[] memory tokens, uint[] memory amounts) = bank.burn(position.bankToken, position.user, position.amount, position.user);
+        Provided memory withdrawn = Provided(tokens, amounts, new Asset[](0));
+        PositionInteraction memory interaction = PositionInteraction(
+            "close",
+            block.timestamp,
+            block.number,
+            withdrawn,
+            IUniversalSwap(universalSwap).estimateValue(withdrawn, stableToken),
+            position.amount
+        );
+        _addPositionInteraction(interaction, positionId);
         position.amount = 0;
         positionClosed[positionId] = true;
-        positionInteractions[positionId].push([block.number, block.timestamp, 1]);
         emit PositionClose(positionId);
     }
 
     /// @inheritdoc IPositionsManager
-    function closeToUSDC(uint positionId) external returns (uint) {
-        // computeDevFee(positionId);
-        address[] memory tokens;
-        uint[] memory tokenAmounts;
-        Position storage position = positions[positionId];
-        {
-            BankBase bank = BankBase(banks[position.bankId]);
-            require(keepers[msg.sender] || msg.sender==owner() || position.user==msg.sender, "Unauthorized");
-            (address[] memory rewardAddresses, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, universalSwap);
-            (address[] memory outTokens, uint[] memory outTokenAmounts) = bank.burn(position.bankToken, position.user, position.amount, universalSwap);
-            tokens = rewardAddresses.concat(outTokens);
-            tokenAmounts = rewardAmounts.concat(outTokenAmounts);
-        }
-        address[] memory wanted = new address[](1);
-        uint[] memory ratios = new uint[](1);
-        uint[] memory slippage = new uint[](1);
-        wanted[0] = stableToken;
-        ratios[0] = 1;
-        uint[] memory toReturn = IUniversalSwap(universalSwap).swapAfterTransfer(
-            Provided(tokens, tokenAmounts, new Asset[](0)),
-            new SwapPoint[](0),
-            new Conversion[](0),
-            Desired(wanted, new Asset[](0), ratios, slippage),
-            position.user
-        );
-        position.amount = 0;
-        positionClosed[positionId] = true;
-        emit PositionClose(positionId);
-        positionInteractions[positionId].push([block.number, block.timestamp, 1]);
-        return toReturn[0];
-    }
+    // function closeToUSDC(uint positionId) external returns (uint) {
+    //     // computeDevFee(positionId);
+    //     address[] memory tokens;
+    //     uint[] memory tokenAmounts;
+    //     Position storage position = positions[positionId];
+    //     {
+    //         BankBase bank = BankBase(banks[position.bankId]);
+    //         require(keepers[msg.sender] || msg.sender==owner() || position.user==msg.sender, "Unauthorized");
+    //         (address[] memory rewardAddresses, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, universalSwap);
+    //         (address[] memory outTokens, uint[] memory outTokenAmounts) = bank.burn(position.bankToken, position.user, position.amount, universalSwap);
+    //         tokens = rewardAddresses.concat(outTokens);
+    //         tokenAmounts = rewardAmounts.concat(outTokenAmounts);
+    //     }
+    //     address[] memory wanted = new address[](1);
+    //     uint[] memory ratios = new uint[](1);
+    //     uint[] memory slippage = new uint[](1);
+    //     wanted[0] = stableToken;
+    //     ratios[0] = 1;
+    //     uint[] memory toReturn = IUniversalSwap(universalSwap).swapAfterTransfer(
+    //         Provided(tokens, tokenAmounts, new Asset[](0)),
+    //         new SwapPoint[](0),
+    //         new Conversion[](0),
+    //         Desired(wanted, new Asset[](0), ratios, slippage),
+    //         position.user
+    //     );
+    //     position.amount = 0;
+    //     positionClosed[positionId] = true;
+    //     emit PositionClose(positionId);
+    //     positionInteractions[positionId].push([block.number, block.timestamp, 1]);
+    //     return toReturn[0];
+    // }
 
     /// @inheritdoc IPositionsManager
     function harvestRewards(uint positionId) external returns (address[] memory rewards, uint[] memory rewardAmounts) {
@@ -265,7 +321,16 @@ contract PositionsManager is IPositionsManager, Ownable {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         (rewards, rewardAmounts) = bank.harvest(position.bankToken, position.user, position.user);
-        positionInteractions[positionId].push([block.number, block.timestamp, 2]);
+        Provided memory harvested = Provided(rewards, rewardAmounts, new Asset[](0));
+        PositionInteraction memory interaction = PositionInteraction(
+            "harvest",
+            block.timestamp,
+            block.number,
+            harvested,
+            IUniversalSwap(universalSwap).estimateValue(harvested, stableToken),
+            0
+        );
+        _addPositionInteraction(interaction, positionId);
         emit Harvest(positionId, rewards, rewardAmounts);
     }
 
@@ -276,10 +341,10 @@ contract PositionsManager is IPositionsManager, Ownable {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         (address[] memory underlying, uint[] memory ratios) = bank.getUnderlyingForRecurringDeposit(position.bankToken);
-        uint[] memory rewardAmounts;
+        address[] memory rewards; uint[] memory rewardAmounts; Provided memory harvested;
         if (minAmounts.length>0) {
-            address[] memory rewards;
             (rewards, rewardAmounts) = bank.harvest(position.bankToken, position.user, universalSwap);
+            harvested = Provided(rewards, rewardAmounts, new Asset[](0));
             rewardAmounts = IUniversalSwap(universalSwap).swapAfterTransfer(
                 Provided(rewards, rewardAmounts, new Asset[](0)),
                 swaps, conversions,
@@ -287,13 +352,22 @@ contract PositionsManager is IPositionsManager, Ownable {
                 address(bank)
             );
         } else {
-            (, rewardAmounts) = bank.harvest(position.bankToken, position.user, address(bank));
+            (rewards, rewardAmounts) = bank.harvest(position.bankToken, position.user, address(bank));
+            harvested = Provided(rewards, rewardAmounts, new Asset[](0));
         }
         if (rewardAmounts.length>0) {
-            uint minted = bank.mintRecurring(position.bankToken, position.user, underlying, rewardAmounts);
-            position.amount+=minted;
+            newLpTokens = bank.mintRecurring(position.bankToken, position.user, underlying, rewardAmounts);
+            position.amount+=newLpTokens;
         }
-        positionInteractions[positionId].push([block.number, block.timestamp, 3]);
+        PositionInteraction memory interaction = PositionInteraction(
+            "reinvest",
+            block.timestamp,
+            block.number,
+            harvested,
+            IUniversalSwap(universalSwap).estimateValue(harvested, stableToken),
+            newLpTokens
+        );
+        _addPositionInteraction(interaction, positionId);
         emit HarvestRecompound(positionId, newLpTokens);
     }
 
@@ -303,7 +377,8 @@ contract PositionsManager is IPositionsManager, Ownable {
         BankBase bank = BankBase(banks[position.bankId]);
         (address[] memory underlyingTokens, uint[] memory underlyingAmounts) = bank.getPositionTokens(position.bankToken, position.user);
         (address[] memory rewardTokens, uint[] memory rewardAmounts) = bank.getPendingRewardsForUser(position.bankToken, position.user);
-        return IUniversalSwap(universalSwap).estimateValue(underlyingTokens.concat(rewardTokens), underlyingAmounts.concat(rewardAmounts), inTermsOf);
+        Provided memory assets = Provided(underlyingTokens.concat(rewardTokens), underlyingAmounts.concat(rewardAmounts), new Asset[](0));
+        return IUniversalSwap(universalSwap).estimateValue(assets, inTermsOf);
     }
 
     /// @inheritdoc IPositionsManager
@@ -328,12 +403,14 @@ contract PositionsManager is IPositionsManager, Ownable {
         BankBase bank = BankBase(banks[position.bankId]);
         address[] memory tokens;
         uint[] memory tokenAmounts;
+        Provided memory positionAssets;
         {
             require(keepers[msg.sender] || msg.sender==owner(), "Unauthorized");
             (address[] memory rewardAddresses, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, universalSwap);
             (address[] memory outTokens, uint[] memory outTokenAmounts) = bank.burn(position.bankToken, position.user, position.amount, universalSwap);
             tokens = rewardAddresses.concat(outTokens);
             tokenAmounts = rewardAmounts.concat(outTokenAmounts);
+            positionAssets = Provided(tokens, tokenAmounts, new Asset[](0));
         }
         {
             address[] memory wanted = new address[](1);
@@ -349,16 +426,24 @@ contract PositionsManager is IPositionsManager, Ownable {
                 position.user
             );
         }
+        PositionInteraction memory interaction = PositionInteraction(
+            "liquidate",
+            block.timestamp,
+            block.number,
+            positionAssets,
+            IUniversalSwap(universalSwap).estimateValue(positionAssets, stableToken),
+            position.amount
+        );
+        _addPositionInteraction(interaction, positionId);
         position.amount = 0;
         positionClosed[positionId] = true;
-        positionInteractions[positionId].push([block.number, block.timestamp, 4]);
         emit PositionClose(positionId);
     }
 
     /// @inheritdoc IPositionsManager
     function computeDevFee(uint positionId) public {
         Position storage position = positions[positionId];
-        uint[3][] memory interactions = positionInteractions[positionId];
+        PositionInteraction[] memory interactions = positionInteractions[positionId];
         IFeeModel feeModel;
         if (feeModels[positionId]==address(0)) {
             feeModel = IFeeModel(defaultFeeModel);
@@ -378,5 +463,20 @@ contract PositionsManager is IPositionsManager, Ownable {
             IWETH(payable(networkToken)).deposit{value:msg.value}();
         }
         networkTokenObtained = IERC20(networkToken).balanceOf(address(this))-startingBalance;
+    }
+
+    function _addPositionInteraction(PositionInteraction memory interaction, uint positionId) internal {
+        positionInteractions[positionId].push();
+        uint idx = positionInteractions[positionId].length-1;
+        positionInteractions[positionId][idx].action = interaction.action;
+        positionInteractions[positionId][idx].timestamp = interaction.timestamp;
+        positionInteractions[positionId][idx].blockNumber = interaction.blockNumber;
+        positionInteractions[positionId][idx].usdValue = interaction.usdValue;
+        positionInteractions[positionId][idx].positionSizeChange = interaction.positionSizeChange;
+        positionInteractions[positionId][idx].assets.tokens = interaction.assets.tokens;
+        positionInteractions[positionId][idx].assets.amounts = interaction.assets.amounts;
+        for (uint i = 0; i<interaction.assets.nfts.length; i++) {
+            positionInteractions[positionId][idx].assets.nfts.push(interaction.assets.nfts[i]);
+        }
     }
 }

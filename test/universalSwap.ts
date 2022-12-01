@@ -25,6 +25,41 @@ describe("UniversalSwap tests", function () {
     let universalSwap: UniversalSwap
     let owners: any[]
     let networkTokenContract: IWETH
+
+    const performMultiSwap = async (provided:ProvidedStruct, desired:DesiredStruct, ether:number=0) => {
+        if (ether>0) {
+            provided.tokens.push(networkAddresses.networkToken)
+            provided.amounts.push(ethers.utils.parseEther(ether.toString()))
+        }
+        const {amounts, swaps, conversions} = await universalSwap.getAmountsOut(provided, desired)
+        if (ether>0) {
+            provided.tokens.pop()
+            provided.amounts.pop()
+        }
+        for (const [i, asset] of provided.tokens.entries()) {
+            const contract = await ethers.getContractAt("ERC20", await asset)
+            await contract.approve(universalSwap.address, provided.amounts[i])
+        }
+        for (const nft of provided.nfts) {
+            const manager = await ethers.getContractAt("INonfungiblePositionManager", await nft.manager)
+            await manager.approve(universalSwap.address, nft.tokenId)
+        }
+        const tx = await universalSwap.swap(provided, swaps, conversions, desired, owners[0].address, {value: ethers.utils.parseEther(ether.toString())})
+        const rc = await tx.wait()
+        const event = rc.events?.find((event:any) => event.event === 'AssetsSent')
+        // @ts-ignore
+        const [receiver, tokens, managers, amountsAndIds] = event!.args
+        const ids = amountsAndIds.slice(tokens.length)
+        let nextInputERC721sPromises = await desired.outputERC721s.map(async (nft:any, index:number)=> {
+            const managerContract = await ethers.getContractAt("INonfungiblePositionManager", nft.manager)
+            await managerContract.approve(universalSwap.address, ids[index])
+            const position = await managerContract.positions(ids[index])
+            return {...nft, tokenId: ids[index], liquidity: position.liquidity}
+        })
+        const nextInputERC721s = await Promise.all(nextInputERC721sPromises)
+        await compareComputedWithActual(amounts, amountsAndIds, networkAddresses.NFTManagers[0], tokens.length)
+        return {tokens: desired.outputERC20s, amounts: amountsAndIds.slice(0, tokens.length), nfts: nextInputERC721s}
+    }
     before(async function () {
         universalSwap = await getUniversalSwap()
         owners = await ethers.getSigners()
@@ -71,7 +106,7 @@ describe("UniversalSwap tests", function () {
             await getNFTForPool(pool)
         }
     })
-    it.only("Performs multi-swap", async function () {
+    it("Performs multi-swap", async function () {
         const startingBalance = await networkTokenContract.balanceOf(owners[0].address)
         const adminBalanceBegin = await owners[0].getBalance()
         const erc20s: string[] = networkAddresses.universwalSwapTestingTokens
@@ -104,33 +139,6 @@ describe("UniversalSwap tests", function () {
         const minAmountsStep2 = Array(erc20sStep2.length).fill(0)
         await networkTokenContract.approve(universalSwap.address, (await networkTokenContract.balanceOf(owners[0].address)))
 
-
-        const performMultiSwap = async (provided:ProvidedStruct, desired:DesiredStruct) => {
-            const {amounts, swaps, conversions} = await universalSwap.getAmountsOut(provided, desired)
-            const tx = await universalSwap.swap(provided, swaps, conversions, desired, owners[0].address)
-            const rc = await tx.wait()
-            const events = rc.events?.filter((event:any) => event.event === 'NFTMinted')
-            // @ts-ignore
-            const ids = events.map(event=>event.args?.tokenId.toNumber())
-            let nextInputERC721sPromises = await desired.outputERC721s.map(async (nft:any, index:number)=> {
-                const managerContract = await ethers.getContractAt("INonfungiblePositionManager", nft.manager)
-                await managerContract.approve(universalSwap.address, ids[index])
-                const position = await managerContract.positions(ids[index])
-                return {...nft, tokenId: ids[index], liquidity: position.liquidity}
-            })
-            const nextInputERC721s = await Promise.all(nextInputERC721sPromises)
-            const erc20sBalance = []
-            for (const erc20 of desired.outputERC20s) {
-                // @ts-ignore
-                const contract = await ethers.getContractAt("ERC20", erc20)
-                const balance = await contract.balanceOf(owners[0].address)
-                await contract.approve(universalSwap.address, balance)
-                erc20sBalance.push(balance)
-            }
-            await compareComputedWithActual(amounts, erc20sBalance.concat(ids), networkAddresses.NFTManagers[0], erc20sBalance.length)
-            return {tokens: desired.outputERC20s, amounts: erc20sBalance, nfts: nextInputERC721s}
-        }
-
         let nextProvided = await performMultiSwap(
             {tokens: [networkAddresses.networkToken], amounts: [(await networkTokenContract.balanceOf(owners[0].address))], nfts: []},
             {outputERC20s: erc20sStep1, outputERC721s: erc721sStep1, ratios: ratiosStep1, minAmountsOut: minAmountsStep1}
@@ -150,5 +158,62 @@ describe("UniversalSwap tests", function () {
         const adminBalanceEnd = await owners[0].getBalance()
         const gasCost = adminBalanceBegin.sub(adminBalanceEnd)
         console.log(`Gas cost: ${ethers.utils.formatEther(gasCost)}`)
+    })
+    it.only("Swaps network token and wrapped network token in the same transaction", async function () {
+        const startingBalance = await networkTokenContract.balanceOf(owners[0].address)
+        const adminBalanceBegin = await owners[0].getBalance()
+        const erc20s: string[] = networkAddresses.universwalSwapTestingTokens
+        let erc721s:any = networkAddresses.nftBasaedPairs
+        const erc20sStep1 = erc20s.slice(0, Math.floor(erc20s.length/2))
+        const erc20sStep2 = erc20s.slice(Math.floor(erc20s.length/2), erc20s.length)
+        erc721s = erc721s.map(async (pool:string)=> {
+            const abi = ethers.utils.defaultAbiCoder;
+            const poolContract = await ethers.getContractAt("IUniswapV3Pool", pool)
+            const {tick} = await poolContract.slot0()
+            const tickSpacing = await poolContract.tickSpacing()
+            const nearestTick = getNearestUsableTick(tick, tickSpacing)
+            const data = abi.encode(
+                ["int24","int24","uint256","uint256"],
+                [nearestTick-2500*tickSpacing, nearestTick+20*tickSpacing, 0, 0]);
+            return {pool, manager: networkAddresses.NFTManagers[0], tokenId: 0, liquidity: 0, data}
+        })
+        erc721s = await Promise.all(erc721s)
+        const erc721sStep1 = erc721s.slice(0, Math.floor(erc721s.length/2))
+        const erc721sStep2 = erc721s.slice(Math.floor(erc721s.length/2), erc721s.length)
+        const ratiosStep1 = []
+        for (let i = 0; i<erc20sStep1.length+erc721sStep1.length; i++) {
+            ratiosStep1.push(100)
+        }
+        const ratiosStep2 = []
+        for (let i = 0; i<erc20sStep2.length+erc721sStep2.length; i++) {
+            ratiosStep2.push(100)
+        }
+        const minAmountsStep1 = Array(erc20sStep1.length).fill(0)
+        const minAmountsStep2 = Array(erc20sStep2.length).fill(0)
+        await networkTokenContract.approve(universalSwap.address, (await networkTokenContract.balanceOf(owners[0].address)))
+
+        let nextProvided = await performMultiSwap(
+            {tokens: [networkAddresses.networkToken], amounts: [ethers.utils.parseEther("1")], nfts: []},
+            {outputERC20s: erc20sStep1, outputERC721s: erc721sStep1, ratios: ratiosStep1, minAmountsOut: minAmountsStep1}, 1
+        )
+        
+        console.log("CHECK")
+        nextProvided = await performMultiSwap(
+            nextProvided, {outputERC20s: [networkAddresses.networkToken, ethers.constants.AddressZero], outputERC721s: [], ratios: [1, 1], minAmountsOut: [0, 0]}
+        )
+        
+        console.log("CHECK")
+        nextProvided = await performMultiSwap(
+            {tokens: [networkAddresses.networkToken], amounts: [ethers.utils.parseEther("1")], nfts: []},
+            {outputERC20s: [ethers.constants.AddressZero], outputERC721s: [], ratios: [1], minAmountsOut: [0]}, 1
+        )
+        
+        console.log("CHECK")
+        nextProvided = await performMultiSwap(
+            {tokens: [], amounts: [], nfts: []},
+            {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}, 1
+        )
+
+        console.log(nextProvided)
     })
 })

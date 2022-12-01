@@ -67,6 +67,7 @@ contract SwapHelper is Ownable {
     }
 
     function isSimpleToken(address token) public view returns (bool) {
+        if (token==networkToken || token==address(0)) return true;
         for (uint i = 0;i<swappers.length; i++) {
             if (ISwapper(swappers[i]).checkSwappable(token)) {
                 return true;
@@ -95,8 +96,8 @@ contract SwapHelper is Ownable {
         }
     }
 
-    function estimateValue(address[] memory tokens, uint[] memory amounts, address inTermsOf) public view returns (uint) {
-        (tokens, amounts) = simplifyWithoutWrite(tokens, amounts, new Asset[](0));
+    function estimateValue(Provided memory assets, address inTermsOf) public view returns (uint) {
+        (address[] memory tokens, uint[] memory amounts) = simplifyWithoutWrite(assets.tokens, assets.amounts, assets.nfts);
         (,uint value) = getTokenValues(tokens, amounts);
         uint tokenWorth = oracle.getPrice(networkToken, inTermsOf);
         value = tokenWorth*value/uint(10)**ERC20(networkToken).decimals();
@@ -139,8 +140,8 @@ contract SwapHelper is Ownable {
     }
 
     function _simulateConversionERC20(Conversion memory conversion, address[] memory inputTokens, uint[] memory inputTokenAmounts) internal view returns (uint, uint[] memory) {
-        if (conversion.underlying[0]==conversion.desiredERC20 && conversion.underlying.length==1) {
-            uint idx = inputTokens.findFirst(conversion.desiredERC20);
+        if ((conversion.underlying[0]==conversion.desiredERC20 && conversion.underlying.length==1) || conversion.desiredERC20==address(0)) {
+            uint idx = inputTokens.findFirst(conversion.underlying[0]);
             uint balance = inputTokenAmounts[idx];
             inputTokenAmounts[idx]-=balance*conversion.underlyingValues[0]/1e18;
             return (balance*conversion.underlyingValues[0]/1e18, inputTokenAmounts);
@@ -177,13 +178,12 @@ contract SwapHelper is Ownable {
         Conversion[] memory conversions,
         address[] memory outputTokens,
         address[] memory inputTokens,
-        uint[] memory inputAmounts,
-        uint percentageNetworkToken
+        uint[] memory inputAmounts
     ) public view returns (uint[] memory amounts) {
         amounts = new uint[](conversions.length);
         uint amountsAdded;
         for (uint i = 0; i<conversions.length; i++) {
-            if (conversions[i].desiredERC20==address(0)) {
+            if (conversions[i].desiredERC721.manager!=address(0)) {
                 (uint liquidity, uint[] memory newAmounts) = _simulateConversionERC721(conversions[i], inputTokens, inputAmounts);
                 inputAmounts = newAmounts;
                 amounts[amountsAdded] = liquidity;
@@ -198,25 +198,14 @@ contract SwapHelper is Ownable {
                     inputTokens = inputTokens.append(conversions[i].desiredERC20);
                     inputAmounts.append(amountObtained);
                 }
-                amounts[i] = amountObtained;
             }
-        }
-        uint idx = outputTokens.findFirst(address(0));
-        if (idx==outputTokens.length) return amounts;
-        else {
-            uint idxWrappedToken = outputTokens.findFirst(networkToken);
-            uint balance = amounts[idxWrappedToken];
-            uint amountNetworkToken = balance*percentageNetworkToken/1e12;
-            uint amountWrappedNetworkToken = balance-amountNetworkToken;
-            amounts[idxWrappedToken] = amountWrappedNetworkToken;
-            amounts = amounts.insert(idx, amountNetworkToken);
         }
     }
 
     function getUnderlyingERC20(address token) public view returns (address[] memory underlyingTokens, uint[] memory ratios) {
         if (isSimpleToken(token)) {
             underlyingTokens = new address[](1);
-            underlyingTokens[0] = token;
+            underlyingTokens[0] = token!=address(0)?token:networkToken;
             ratios = new uint[](1);
             ratios[0] = 1;
         } else {
@@ -247,7 +236,11 @@ contract SwapHelper is Ownable {
     function _simplifyWithoutWriteERC20(address[] memory tokens, uint[] memory amounts) internal view returns (address[] memory simplifiedTokens, uint[] memory simplifiedAmounts) {
         for (uint i = 0; i<tokens.length; i++) {
             if (isSimpleToken(tokens[i])) {
-                simplifiedTokens = simplifiedTokens.append(tokens[i]);
+                if (tokens[i]!=address(0)) {
+                    simplifiedTokens = simplifiedTokens.append(tokens[i]);
+                } else {
+                    simplifiedTokens = simplifiedTokens.append(networkToken);
+                }
                 simplifiedAmounts = simplifiedAmounts.append(amounts[i]);
                 continue;
             }

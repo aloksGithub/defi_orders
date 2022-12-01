@@ -4,7 +4,7 @@ pragma solidity ^0.8.9;
 import "../interfaces/IPoolInteractor.sol";
 import "../interfaces/UniswapV3/INonfungiblePositionManager.sol";
 import "../interfaces/UniswapV3/IUniswapV3Pool.sol";
-import "../libraries/Strings.sol";
+import "../interfaces/UniswapV3/IUniswapV3Factory.sol";
 import "../interfaces/INFTPoolInteractor.sol";
 import '../libraries/TickMath.sol';
 import "../libraries/LiquidityAmounts.sol";
@@ -128,10 +128,21 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
     }
 
     function getUnderlyingAmount(Asset memory nft) external view returns (address[] memory underlying, uint[] memory amounts) {
-        IUniswapV3Pool pool = IUniswapV3Pool(nft.pool);
-        underlying = getUnderlyingTokens(nft.pool);
+        IUniswapV3Pool pool;
+        int24 tick0; int24 tick1;
+        if (nft.tokenId==0) {
+            pool = IUniswapV3Pool(nft.pool);
+            (tick0, tick1,,) = abi.decode(nft.data, (int24, int24, uint, uint));
+        } else {
+            INonfungiblePositionManager manager = INonfungiblePositionManager(nft.manager);
+            IUniswapV3Factory factory = IUniswapV3Factory(manager.factory());
+            (,,address token0, address token1, uint24 fee, int24 tickLower, int24 tickUpper,,,,,) = manager.positions(nft.tokenId);
+            tick0 = tickLower;
+            tick1 = tickUpper;
+            pool = IUniswapV3Pool(factory.getPool(token0, token1, fee));
+        }
+        underlying = getUnderlyingTokens(address(pool));
         (uint160 sqrtPriceX96, , , , , , ) = pool.slot0();
-        (int24 tick0, int24 tick1,,) = abi.decode(nft.data, (int24, int24, uint, uint));
         (uint amount0, uint amount1) = LiquidityAmounts.getAmountsForLiquidity(sqrtPriceX96, TickMath.getSqrtRatioAtTick(tick0), TickMath.getSqrtRatioAtTick(tick1), uint128(nft.liquidity));
         amounts = new uint[](2);
         amounts[0] = amount0;

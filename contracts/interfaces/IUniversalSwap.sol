@@ -31,11 +31,10 @@ interface IUniversalSwap {
     function isSupported(address token) external returns (bool supported);
 
     /// @notice Estimates the combined values of the provided tokens in terms of another token
-    /// @param tokens Tokens for which to estimate value
-    /// @param amounts Amounts of tokens to use to estimate value
+    /// @param assets ERC20 or ERC721 assets for whom the value needs to be estimated
     /// @param inTermsOf Token whose value equivalent value to the provided tokens needs to be returned
     /// @return value The amount of inTermsOf that is equal in value to the provided tokens
-    function estimateValue(address[] memory tokens, uint[] memory amounts, address inTermsOf) external view returns (uint value);
+    function estimateValue(Provided memory assets, address inTermsOf) external view returns (uint value);
 
     /// @notice Find the underlying tokens and amounts for some complex tokens
     function getUnderlying(address[] memory tokens, uint[] memory amounts) external view returns (address[] memory underlyingTokens, uint[] memory underlyingAmounts);

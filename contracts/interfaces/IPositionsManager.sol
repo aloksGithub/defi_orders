@@ -29,6 +29,24 @@ struct Position {
     LiquidationCondition[] liquidationPoints;
 }
 
+struct PositionInteraction {
+    string action;
+    uint timestamp;
+    uint blockNumber;
+    Provided assets;
+    uint usdValue;
+    uint positionSizeChange;
+}
+
+struct PositionData {
+    Position position;
+    address[] underlyingTokens;
+    uint[] underlyingAmounts;
+    address[] rewardTokens;
+    uint[] rewardAmounts;
+    uint usdValue;
+}
+
 interface IPositionsManager {
 
     event KeeperUpdate(address keeper, bool active);
@@ -51,7 +69,7 @@ interface IPositionsManager {
     /// @notice Interaction type 0 is deposit, 1 is withdraw, 2 is harvest, 3 is compound and 4 is bot liquidation
     /// @param positionId position ID
     /// @return interactions List of position interactions
-    function getPositionInteractions(uint positionId) external view returns (uint[3][] memory interactions);
+    function getPositionInteractions(uint positionId) external view returns (PositionInteraction[] memory interactions);
 
     /// @notice Returns number of banks
     /// @return positions Number of banks
@@ -81,8 +99,8 @@ interface IPositionsManager {
 
     /// @notice Get a position
     /// @param positionId position ID
-    /// @return position Position details
-    function getPosition(uint positionId) external view returns (Position memory position);
+    /// @return data Position details
+    function getPosition(uint positionId) external returns (PositionData memory data);
 
     /// @notice Get a list of banks and bank tokens that support the provided token
     /// @dev bankToken for ERC721 banks is not supported and will always be 0
@@ -134,11 +152,6 @@ interface IPositionsManager {
 
     /// @notice Get the rewards and rewad amounts that have been generated for a position
     function getPositionRewards(uint positionId) external view returns (address[] memory tokens, uint[] memory amounts);
-
-    /// @notice Close a function and convert all assets to USDC
-    /// @notice This function is intended to be called using callstatic, just to check the USD value of the position
-    /// @return usdcValue The value of the position in terms of USDC
-    function closeToUSDC(uint positionId) external returns (uint usdcValue);
 
     /// @notice Harvest and receive the rewards for a position
     /// @param positionId Position ID
