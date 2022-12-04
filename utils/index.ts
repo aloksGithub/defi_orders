@@ -298,14 +298,14 @@ export const getUniversalSwap = async (verify:boolean=false, log:boolean=false) 
   const nftInteractors = await nftPoolInteractors(verify, log)
   const oracle = await deployOracle(verify, log)
   // @ts-ignore
-  const universalSwap = await universalSwapContract.deploy(poolInteractors, nftInteractors, addresses[network].networkToken, swappers2, oracle.address)
+  const universalSwap = await universalSwapContract.deploy(poolInteractors, nftInteractors, addresses[network].networkToken, addresses[network].preferredStable, swappers2, oracle.address)
   if (verify) {
     await delay(10000)
     try {
     await hre.run("verify:verify", {
       address: universalSwap.address,
       // @ts-ignore
-      constructorArguments: [poolInteractors, nftInteractors, addresses[network].networkToken, swappers2, oracle.address, addresses[network].commonPoolTokens],
+      constructorArguments: [poolInteractors, nftInteractors, addresses[network].networkToken, addresses[network].preferredStable, swappers2, oracle.address, addresses[network].commonPoolTokens],
       network
     })
     } catch (e) {

@@ -27,6 +27,11 @@ describe("UniversalSwap tests", function () {
     let networkTokenContract: IWETH
 
     const performMultiSwap = async (provided:ProvidedStruct, desired:DesiredStruct, ether:number=0) => {
+        const addressZeroIndex = provided.tokens.findIndex(token=>token===ethers.constants.AddressZero)
+        if (addressZeroIndex>-1) {
+            provided.tokens.splice(addressZeroIndex, 1)
+            provided.amounts.splice(addressZeroIndex, 1)
+        }
         if (ether>0) {
             provided.tokens.push(networkAddresses.networkToken)
             provided.amounts.push(ethers.utils.parseEther(ether.toString()))
@@ -159,7 +164,7 @@ describe("UniversalSwap tests", function () {
         const gasCost = adminBalanceBegin.sub(adminBalanceEnd)
         console.log(`Gas cost: ${ethers.utils.formatEther(gasCost)}`)
     })
-    it.only("Swaps network token and wrapped network token in the same transaction", async function () {
+    it("Swaps network token and wrapped network token in the same transaction", async function () {
         const startingBalance = await networkTokenContract.balanceOf(owners[0].address)
         const adminBalanceBegin = await owners[0].getBalance()
         const erc20s: string[] = networkAddresses.universwalSwapTestingTokens
@@ -196,24 +201,27 @@ describe("UniversalSwap tests", function () {
             {tokens: [networkAddresses.networkToken], amounts: [ethers.utils.parseEther("1")], nfts: []},
             {outputERC20s: erc20sStep1, outputERC721s: erc721sStep1, ratios: ratiosStep1, minAmountsOut: minAmountsStep1}, 1
         )
-        
-        console.log("CHECK")
+
         nextProvided = await performMultiSwap(
-            nextProvided, {outputERC20s: [networkAddresses.networkToken, ethers.constants.AddressZero], outputERC721s: [], ratios: [1, 1], minAmountsOut: [0, 0]}
+            nextProvided,
+            {outputERC20s: [networkAddresses.networkToken, ethers.constants.AddressZero], outputERC721s: [], ratios: [1, 1], minAmountsOut: [0, 0]}
         )
         
-        console.log("CHECK")
+        isRoughlyEqual(nextProvided.amounts[0], ethers.utils.parseEther("1"), 100)
+        isRoughlyEqual(nextProvided.amounts[1], ethers.utils.parseEther("1"), 100)
+
         nextProvided = await performMultiSwap(
             {tokens: [networkAddresses.networkToken], amounts: [ethers.utils.parseEther("1")], nfts: []},
-            {outputERC20s: [ethers.constants.AddressZero], outputERC721s: [], ratios: [1], minAmountsOut: [0]}, 1
-        )
-        
-        console.log("CHECK")
-        nextProvided = await performMultiSwap(
-            {tokens: [], amounts: [], nfts: []},
-            {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}, 1
+            {outputERC20s: [...erc20sStep1, ethers.constants.AddressZero], outputERC721s: erc721sStep1, ratios: [...ratiosStep1, 100], minAmountsOut: [...minAmountsStep1, 0]}
         )
 
-        console.log(nextProvided)
+        isRoughlyEqual(nextProvided.amounts[nextProvided.amounts.length-1], ethers.utils.parseEther((1/(ratiosStep1.length+1)).toString()))
+
+        nextProvided = await performMultiSwap(
+            nextProvided,
+            {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], ratios: [100], minAmountsOut: [0]}, +ethers.utils.formatEther(nextProvided.amounts[nextProvided.amounts.length-1])
+        )
+
+        isRoughlyEqual(nextProvided.amounts[0], ethers.utils.parseEther("1"), 100)
     })
 })

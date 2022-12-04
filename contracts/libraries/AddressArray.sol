@@ -78,17 +78,19 @@ library AddressArray {
     }
     
     function shrink(address[] memory self, uint[] memory amounts) internal pure returns (address[] memory shrunkTokens, uint[] memory shrunkAmounts) {
+        uint[] memory toRemove = new uint[](self.length);
         for (uint i = 0; i<self.length; i++) {
             for (uint j = i; j<self.length; j++) {
                 if (j>i && self[i]==self[j]) {
                     amounts[i] = amounts[i]+amounts[j];
                     amounts[j] = 0;
+                    toRemove[j] = 1;
                 }
             }
         }
         uint shrunkSize;
         for (uint i = 0; i<self.length; i++) {
-            if (amounts[i]>0) {
+            if (toRemove[i]==0) {
                 shrunkSize+=1;
             }
         }
@@ -96,7 +98,7 @@ library AddressArray {
         shrunkAmounts = new uint[](shrunkSize);
         uint tokensAdded;
         for (uint i = 0; i<self.length; i++) {
-            if (amounts[i]>0) {
+            if (toRemove[i]==0) {
                 shrunkTokens[tokensAdded] = self[i];
                 shrunkAmounts[tokensAdded] = amounts[i];
                 tokensAdded+=1;

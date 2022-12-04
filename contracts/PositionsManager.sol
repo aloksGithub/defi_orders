@@ -2,12 +2,13 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Banks/BankBase.sol";
 import "./interfaces/IPositionsManager.sol";
 import "./interfaces/IFeeModel.sol";
-import "./UniversalSwap.sol";
 import "./interfaces/IUniversalSwap.sol";
+import "./interfaces/IWETH.sol";
 import "./DefaultFeeModel.sol";
 import "./interfaces/IPoolInteractor.sol";
 import "./libraries/AddressArray.sol";
@@ -31,8 +32,8 @@ contract PositionsManager is IPositionsManager, Ownable {
     address defaultFeeModel;
     address payable[] public banks;
     address public universalSwap;
-    address networkToken;
-    address stableToken; // Stable token such as USDC or BUSD is used to measure the value of the position using the function closeToUSDC
+    address public networkToken;
+    address public stableToken; // Stable token such as USDC or BUSD is used to measure the value of the position using the function closeToUSDC
     mapping (address=>bool) keepers;
 
     constructor(address _universalSwap, address _stableToken, address _defaultFeeModel) {
@@ -96,19 +97,29 @@ contract PositionsManager is IPositionsManager, Ownable {
         BankBase bank = BankBase(banks[position.bankId]);
         (address[] memory tokens, uint[] memory amounts) = bank.getPositionTokens(position.bankToken, position.user);
         (tokens, amounts) = IUniversalSwap(universalSwap).getUnderlying(tokens, amounts);
+        uint totalUsdValue;
+        uint[] memory underlyingValues = new uint[](tokens.length);
+        for (uint i = 0; i<tokens.length; i++) {
+            uint value = IUniversalSwap(universalSwap).estimateValueERC20(tokens[i], amounts[i], stableToken);
+            underlyingValues[i] = value;
+            totalUsdValue+=value;
+        }
         (address[] memory rewards, uint[] memory rewardAmounts) = bank.getPendingRewardsForUser(position.bankToken, position.user);
-        Provided memory assets = Provided(tokens.concat(rewards), amounts.concat(rewardAmounts), new Asset[](0));
-        uint usdValue = IUniversalSwap(universalSwap).estimateValue(assets, stableToken);
+        uint[] memory rewardValues = new uint[](tokens.length);
+        for (uint i = 0; i<rewards.length; i++) {
+            uint value = IUniversalSwap(universalSwap).estimateValueERC20(rewards[i], rewardAmounts[i], stableToken);
+            rewardValues[i] = value;
+            totalUsdValue+=value;
+        }
+        (address lpToken, address manager, uint id) = bank.decodeId(position.bankToken);
+        BankTokenInfo memory info = BankTokenInfo(lpToken, manager, id);
         data = PositionData(
-            position, tokens, amounts, rewards, rewardAmounts, usdValue
+            position, info, tokens, amounts, underlyingValues, rewards, rewardAmounts, rewardValues, totalUsdValue
         );
     }
 
     /// @inheritdoc IPositionsManager
     function recommendBank(address lpToken) external view returns (uint[] memory, string[] memory, uint[] memory) {
-        if (lpToken==address(0)) {
-            lpToken = networkToken;
-        }
         uint[] memory tokenIds;
         uint[] memory bankIds;
         string[] memory bankNames;
@@ -139,15 +150,8 @@ contract PositionsManager is IPositionsManager, Ownable {
         computeDevFee(positionId);
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
-        address[] memory tokensUsed; uint[] memory amountsUsed;
-        {
-            uint ethSupplied = _getWETH();
-            if (ethSupplied>0) {
-                provided.tokens = provided.tokens.append(networkToken);
-                provided.amounts = provided.amounts.append(ethSupplied);
-                (provided.tokens, provided.amounts) = provided.tokens.shrink(provided.amounts);
-            }
-        }
+        uint[] memory amountsUsed;
+        (address[] memory underlying, uint[] memory ratios) = bank.getUnderlyingForRecurringDeposit(position.bankToken);
         if (minAmounts.length>0) {
             for (uint i = 0; i<provided.tokens.length; i++) {
                 IERC20(provided.tokens[i]).safeTransferFrom(msg.sender, universalSwap, provided.amounts[i]);
@@ -155,23 +159,30 @@ contract PositionsManager is IPositionsManager, Ownable {
             for (uint i = 0; i<provided.nfts.length; i++) {
                 IERC721(provided.nfts[i].manager).safeTransferFrom(msg.sender, universalSwap, provided.nfts[i].tokenId);
             }
-            (address[] memory underlying, uint[] memory ratios) = bank.getUnderlyingForRecurringDeposit(position.bankToken);
-            amountsUsed = IUniversalSwap(universalSwap).swapAfterTransfer(
+            amountsUsed = IUniversalSwap(universalSwap).swapAfterTransfer{value:msg.value}(
                 provided,
                 swaps, conversions,
                 Desired(underlying, new Asset[](0), ratios, minAmounts),
                 address(bank)
             );
-            tokensUsed = underlying;
+            if (msg.value>0) {
+                provided.tokens = provided.tokens.append(address(0));
+                provided.amounts = provided.amounts.append(msg.value);
+            }
         } else {
-            tokensUsed = provided.tokens;
-            amountsUsed = provided.amounts;
             for (uint i = 0; i<provided.tokens.length; i++) {
                 IERC20(provided.tokens[i]).safeTransferFrom(msg.sender, address(bank), provided.amounts[i]);
             }
+            if (msg.value>0) {
+                provided.tokens = provided.tokens.append(address(0));
+                provided.amounts = provided.amounts.append(msg.value);
+                payable(address(bank)).transfer(msg.value);
+            }
+            amountsUsed = provided.amounts;
         }
-        uint minted = bank.mintRecurring(position.bankToken, position.user, tokensUsed, amountsUsed);
+        uint minted = bank.mintRecurring(position.bankToken, position.user, underlying, amountsUsed);
         position.amount+=minted;
+        console.log(provided.tokens[0], provided.amounts[0]);
         PositionInteraction memory interaction = PositionInteraction(
             "deposit",
             block.timestamp, block.number,
@@ -187,20 +198,17 @@ contract PositionsManager is IPositionsManager, Ownable {
     function deposit(Position memory position, address[] memory suppliedTokens, uint[] memory suppliedAmounts) payable external returns (uint) {
         BankBase bank = BankBase(banks[position.bankId]);
         address lpToken = bank.getLPToken(position.bankToken);
-        require(IUniversalSwap(universalSwap).isSupported(lpToken), "UT1"); // UnsupportedToken
-        uint ethSupplied = _getWETH();
-        if (ethSupplied>0) {
-            IERC20(networkToken).safeTransfer(address(bank), ethSupplied);
-        }
-        require(ethSupplied>0 && suppliedTokens.length==0 || ethSupplied==0 && suppliedTokens.length>0, "Invlid tokens supplied");
+        require(IUniversalSwap(universalSwap).isSupported(lpToken), "UT"); // UnsupportedToken
+        require(msg.value>0 && suppliedTokens.length==0 || msg.value==0 && suppliedTokens.length>0, "Invlid tokens supplied");
         for (uint i = 0; i<suppliedTokens.length; i++) {
             IERC20(suppliedTokens[i]).safeTransferFrom(msg.sender, address(bank), suppliedAmounts[i]);
         }
-        if (ethSupplied>0) {
+        if (msg.value>0) {
             suppliedTokens = new address[](1);
             suppliedAmounts = new uint[](1);
-            suppliedTokens[0] = networkToken;
-            suppliedAmounts[0] = ethSupplied;
+            suppliedTokens[0] = address(0);
+            suppliedAmounts[0] = msg.value;
+            payable(address(bank)).transfer(msg.value);
         }
         uint minted = bank.mint(position.bankToken, position.user, suppliedTokens, suppliedAmounts);
         positions.push();

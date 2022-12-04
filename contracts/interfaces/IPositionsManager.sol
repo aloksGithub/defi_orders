@@ -29,6 +29,12 @@ struct Position {
     LiquidationCondition[] liquidationPoints;
 }
 
+struct BankTokenInfo {
+    address lpToken;
+    address manager;
+    uint idInManager;
+}
+
 struct PositionInteraction {
     string action;
     uint timestamp;
@@ -39,12 +45,15 @@ struct PositionInteraction {
 }
 
 struct PositionData {
-    Position position;
-    address[] underlyingTokens;
-    uint[] underlyingAmounts;
-    address[] rewardTokens;
-    uint[] rewardAmounts;
-    uint usdValue;
+    Position position; // Position data such as bankId, bankToken, positionSize, etc.
+    BankTokenInfo bankTokenInfo; // The information about the banktoken from the bank
+    address[] underlyingTokens; // The underlying tokens for the token first deposited
+    uint[] underlyingAmounts; // Amounts for the aforementioned underlying tokens
+    uint[] underlyingValues; // The USD values of the underlying tokens
+    address[] rewardTokens; // Reward tokens generated for the position
+    uint[] rewardAmounts; // Amount of reward tokens that can be harvested
+    uint[] rewardValues; // Value of the reward tokens in USD
+    uint usdValue; // Combined net worth of the position
 }
 
 interface IPositionsManager {
@@ -60,6 +69,9 @@ interface IPositionsManager {
     event Harvest(uint positionId, address[] rewards, uint[] rewardAmounts);
     event HarvestRecompound(uint positionId, uint lpTokens);
     event FeeClaimed(uint positionId, uint usdcClaimed);
+
+    /// @notice Returns the address of the wrapped network token
+    function networkToken() external view returns (address networkToken);
 
     /// @notice Returns number of positions that have been opened
     /// @return positions Number of positions that have been opened

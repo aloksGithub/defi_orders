@@ -114,9 +114,6 @@
 //         BalancerLiquidityGauge gauge = BalancerLiquidityGauge(liquidityGaugeFactory.getPoolGauge(lpToken));
 //         updateToken(tokenId);
 //         PoolInfo storage pool = poolInfo[tokenId];
-//         if (amount == 0) {
-//             amount = balanceOf(userAddress, tokenId);
-//         }
 //         uint numRewards = gauge.reward_count();
 //         for (uint i = 0; i<numRewards; i++) {
 //             address reward = gauge.reward_tokens(i);

@@ -70,4 +70,13 @@ library UintArray {
             copied[i] = self[i];
         }
     }
+
+    function slice(uint[] memory self, uint start, uint end) internal pure returns (uint[] memory sliced) {
+        sliced = new uint[](end-start);
+        uint elementsAdded = 0;
+        for (uint i = start; i<end; i++) {
+            sliced[elementsAdded] = self[i];
+            elementsAdded+=1;
+        }
+    }
 }

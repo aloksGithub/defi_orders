@@ -5,9 +5,11 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
 import "./BankBase.sol";
+import "../interfaces/IPositionsManager.sol";
 import "hardhat/console.sol";
 
 contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
+    using SafeERC20 for IERC20;
 
     struct PoolInfo {
         mapping(address=>uint) userShares;
@@ -35,6 +37,7 @@ contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
     }
     
     function getIdFromLpToken(address lpToken) override external view returns (bool, uint) {
+        if (lpToken==address(0) || lpToken==IPositionsManager(positionsManager).networkToken()) return (true, encodeId(lpToken));
         try IERC721(lpToken).supportsInterface(0x80ac58cd) {return (false, 0);} catch {}
         try ERC20(lpToken).name() {} catch {return (false, 0);}
         try ERC20(lpToken).totalSupply() {} catch {return (false, 0);}
@@ -71,7 +74,12 @@ contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
             amount = balanceOf(userAddress, tokenId);
         }
         pool.userShares[userAddress]-=amount;
-        IERC20(lpToken).transfer(receiver, amount);
+        if (lpToken!=address(0)) {
+            IERC20(lpToken).safeTransfer(receiver, amount);
+        } else {
+            console.log(address(this).balance, amount);
+            payable(receiver).transfer(amount);
+        }
         _burn(userAddress, tokenId, amount);
         emit Burn(tokenId, userAddress, amount, receiver);
         outTokens = new address[](1);

@@ -36,6 +36,12 @@ interface IUniversalSwap {
     /// @return value The amount of inTermsOf that is equal in value to the provided tokens
     function estimateValue(Provided memory assets, address inTermsOf) external view returns (uint value);
 
+    /// @notice Estimates the value of a single ERC20 token in terms of another ERC20 token
+    function estimateValueERC20(address token, uint amount, address inTermsOf) external view returns (uint value);
+
+    /// @notice Estimates the value of an ECR721 token in terms of an ERC20 token
+    function estimateValueERC721(Asset memory nft, address inTermsOf) external view returns (uint value);
+
     /// @notice Find the underlying tokens and amounts for some complex tokens
     function getUnderlying(address[] memory tokens, uint[] memory amounts) external view returns (address[] memory underlyingTokens, uint[] memory underlyingAmounts);
 

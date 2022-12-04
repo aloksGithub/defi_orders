@@ -29,16 +29,19 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     event AssetsSent(address receiver, address[] tokens, address[] managers, uint[] amountsAndIds);
 
     address public networkToken;
+    address public stableToken;
     SwapHelper public helper;
 
     constructor (
         address[] memory _poolInteractors,
         address[] memory _nftPoolInteractors,
         address _networkToken,
+        address _stableToken,
         address[] memory _swappers,
         IOracle _oracle
     ) {
         networkToken = _networkToken;
+        stableToken = _stableToken;
         helper = new SwapHelper(_poolInteractors, _nftPoolInteractors, _networkToken, _swappers, _oracle);
         helper.transferOwnership(msg.sender);
     }
@@ -120,7 +123,6 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     function _collectAndBreak(address[] memory inputTokens, uint[] memory inputTokenAmounts, Asset[] memory inputNFTs) internal returns (address[] memory, uint[] memory) {
         for (uint i = 0; i<inputTokenAmounts.length; i++) {
             // uint balanceBefore = IERC20(inputTokens[i]).balanceOf(address(this));
-            console.log(inputTokens[i], IERC20(inputTokens[i]).balanceOf(msg.sender), inputTokenAmounts[i]);
             IERC20(inputTokens[i]).safeTransferFrom(msg.sender, address(this), inputTokenAmounts[i]);
             // inputTokenAmounts[i] = IERC20(inputTokens[i]).balanceOf(address(this))-balanceBefore;
         }
@@ -238,8 +240,23 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     }
 
     /// @inheritdoc IUniversalSwap
-    function estimateValue(Provided memory assets, address inTermsOf) external view returns (uint) {
+    function estimateValue(Provided memory assets, address inTermsOf) public view returns (uint) {
         return helper.estimateValue(assets, inTermsOf);
+    }
+
+    function estimateValueERC20(address token, uint amount, address inTermsOf) public view returns (uint) {
+        address[] memory tokens = new address[](1);
+        uint[] memory amounts = new uint[](1);
+        tokens[0] = token;
+        amounts[0] = amount;
+        Provided memory asset = Provided(tokens, amounts, new Asset[](0));
+        return helper.estimateValue(asset, inTermsOf);
+    }
+
+    function estimateValueERC721(Asset memory nft, address inTermsOf) public view returns (uint) {
+        Asset[] memory assets = new Asset[](1);
+        assets[0] = nft;
+        return helper.estimateValue(Provided(new address[](0), new uint[](0), assets), inTermsOf);
     }
 
     /// @inheritdoc IUniversalSwap
@@ -251,16 +268,16 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     function preSwapComputation(
         Provided memory provided,
         Desired memory desired
-    ) public view returns (SwapPoint[] memory, Conversion[] memory) {
+    ) public view returns (SwapPoint[] memory swaps, Conversion[] memory conversions) {
         (provided.tokens, provided.amounts) = helper.simplifyWithoutWrite(provided.tokens, provided.amounts, provided.nfts);
         (uint[] memory inputTokenValues, uint totalValue) = helper.getTokenValues(provided.tokens, provided.amounts);
 
-        Conversion[] memory conversions = helper.prepareConversions(desired.outputERC20s, desired.outputERC721s, desired.ratios, totalValue);
+        conversions = helper.prepareConversions(desired.outputERC20s, desired.outputERC721s, desired.ratios, totalValue);
         (address[] memory underlyingTokens, uint[] memory underlyingValues) = conversions.getUnderlying();
         (underlyingTokens, underlyingValues) = underlyingTokens.shrink(underlyingValues);
-        SwapPoint[] memory bestSwaps = helper.findMultipleSwaps(provided.tokens, provided.amounts, inputTokenValues, underlyingTokens, underlyingValues);
+        swaps = helper.findMultipleSwaps(provided.tokens, provided.amounts, inputTokenValues, underlyingTokens, underlyingValues);
         conversions = conversions.normalizeRatios();
-        return (bestSwaps, conversions);
+        return (swaps, conversions);
     }
 
     /// @inheritdoc IUniversalSwap
@@ -290,8 +307,13 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     function getAmountsOut(
         Provided memory provided,
         Desired memory desired
-    ) external view returns (uint[] memory amounts, SwapPoint[] memory swaps, Conversion[] memory conversions) {
+    ) external view returns (uint[] memory amounts, SwapPoint[] memory swaps, Conversion[] memory conversions, uint[] memory expectedUSDValues) {
         uint[] memory inputTokenValues;
+        for (uint i = 0; i<provided.tokens.length; i++) {
+            if (provided.tokens[i]==address(0)) {
+                provided.tokens[i] = networkToken;
+            }
+        }
         {
             (provided.tokens, provided.amounts) = helper.simplifyWithoutWrite(provided.tokens, provided.amounts, provided.nfts);
             uint totalValue;
@@ -307,6 +329,21 @@ contract UniversalSwap is IUniversalSwap, Ownable {
         (underlyingTokens, expectedAmounts) = underlyingTokens.shrink(expectedAmounts);
         conversions = conversions.normalizeRatios();
         amounts = helper.simulateConversions(conversions, desired.outputERC20s, underlyingTokens, expectedAmounts);
-        return (amounts, swaps, conversions);
+        expectedUSDValues = new uint[](amounts.length);
+        for (uint i = 0; i<desired.outputERC20s.length; i++) {
+            address[] memory token = new address[](1);
+            uint[] memory amount = new uint[](1);
+            token[0] = desired.outputERC20s[i];
+            amount[0] = amounts[i];
+            uint value = estimateValue(Provided(token, amount, new Asset[](0)), stableToken);
+            expectedUSDValues[i] = value;
+        }
+        for (uint i = 0; i<desired.outputERC721s.length; i++) {
+            desired.outputERC721s[i].liquidity = amounts[desired.outputERC20s.length+i];
+            Asset[] memory nft = new Asset[](1);
+            nft[0] = desired.outputERC721s[i];
+            uint value = estimateValue(Provided(new address[](0), new uint[](0), nft), stableToken);
+            expectedUSDValues[desired.outputERC20s.length+i] = value;
+        }
     }
 }

@@ -162,9 +162,6 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
         updateToken(tokenId);
         (address lpToken, address masterChef, uint pid) = decodeId(tokenId);
         PoolInfo storage pool = poolInfo[tokenId];
-        if (amount == 0) {
-            amount = balanceOf(userAddress, tokenId);
-        }
         address[] memory rewards = IMasterChefWrapper(masterChefWrappers[masterChef]).getRewards(pid);
         for (uint i = 0; i<rewards.length; i++) {
             address reward = rewards[i];
