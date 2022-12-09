@@ -17,20 +17,34 @@ abstract contract IMasterChefWrapper is Ownable {
 
     event LPTokenAdded(address masterChef, address lpToken, uint poolId);
 
-    mapping (uint => address) supportedLps;
-    mapping (address => uint) supportedLpIndices;
+    mapping (address => bool) public supportedLps;
+    mapping (address => uint) public supportedLpIndices;
     address public masterChef;
     address public baseReward;
     string public pendingRewardGetter;
-    mapping (address=>bool) hasExtraRewards;
-
-
-    function getIdFromLpToken(address lpToken) virtual external view returns (bool, uint);
 
     function getRewards(uint pid) virtual external view returns (address[] memory) {
         address[] memory rewards = new address[](1);
         rewards[0] = baseReward;
         return rewards;
+    }
+
+    function initialize() virtual public {
+        uint poolLength = IMasterChefV1(masterChef).poolLength();
+        for (uint i = 0; i<poolLength; i++) {
+            setSupported(i);
+        }
+    }
+
+    function setSupported(uint pid) virtual public {
+        address lpToken = getLpToken(pid);
+        supportedLpIndices[lpToken] = pid;
+        supportedLps[lpToken] = true;
+    }
+
+    function getIdFromLpToken(address lpToken) virtual external view returns (bool, uint) {
+        if (!supportedLps[lpToken]) return (false, 0);
+        else return (true, supportedLpIndices[lpToken]);
     }
 
     function getPendingRewards(uint pid) virtual external view returns (address[] memory rewards, uint[] memory amounts) {
@@ -42,7 +56,7 @@ abstract contract IMasterChefWrapper is Ownable {
         amounts[0] = pending;
     }
 
-    function getLpToken(uint pid) virtual external view returns (address);
+    function getLpToken(uint pid) virtual public view returns (address);
     function deposit(address masterChef, uint pid, uint amount) virtual external;
     function withdraw(address masterChef, uint pid, uint amount) virtual external;
     function harvest(address masterChef, uint pid) virtual external;
@@ -57,20 +71,21 @@ contract MasterChefV1Wrapper is IMasterChefWrapper {
         masterChef = _masterChef;
         baseReward = _baseReward;
         pendingRewardGetter = _pendingRewardGetter;
+        initialize();
     }
 
-    function getIdFromLpToken(address lpToken) override external view returns (bool, uint) {
-        uint poolLength = IMasterChefV1(masterChef).poolLength();
-        for (uint i = 0; i<poolLength; i++) {
-            IMasterChefV1.PoolInfo memory poolInfo = IMasterChefV1(masterChef).poolInfo(i);
-            if (poolInfo.lpToken==lpToken) {
-                return (true, i);
-            }
-        }
-        return (false, 0);      
-    }
+    // function getIdFromLpToken(address lpToken) override external view returns (bool, uint) {
+    //     uint poolLength = IMasterChefV1(masterChef).poolLength();
+    //     for (uint i = 0; i<poolLength; i++) {
+    //         IMasterChefV1.PoolInfo memory poolInfo = IMasterChefV1(masterChef).poolInfo(i);
+    //         if (poolInfo.lpToken==lpToken) {
+    //             return (true, i);
+    //         }
+    //     }
+    //     return (false, 0);      
+    // }
 
-    function getLpToken(uint pid) override external view returns (address) {
+    function getLpToken(uint pid) override public view returns (address) {
         IMasterChefV1.PoolInfo memory pool = IMasterChefV1(masterChef).poolInfo(pid);
         return pool.lpToken;
     }
@@ -99,19 +114,20 @@ contract MasterChefV2Wrapper is IMasterChefWrapper {
         masterChef = _masterChef;
         baseReward = _baseReward;
         pendingRewardGetter = _pendingRewardGetter;
+        initialize();
     }
 
-    function getIdFromLpToken(address lpToken) override external view returns (bool, uint) {
-        uint poolLength = ISushiSwapMasterChefV2(masterChef).poolLength();
-        for (uint i = 0; i<poolLength; i++) {
-            if (ISushiSwapMasterChefV2(masterChef).lpToken(i)==lpToken) {
-                return (true, i);
-            }
-        }
-        return (false, 0);      
-    }
+    // function getIdFromLpToken(address lpToken) override external view returns (bool, uint) {
+    //     uint poolLength = ISushiSwapMasterChefV2(masterChef).poolLength();
+    //     for (uint i = 0; i<poolLength; i++) {
+    //         if (ISushiSwapMasterChefV2(masterChef).lpToken(i)==lpToken) {
+    //             return (true, i);
+    //         }
+    //     }
+    //     return (false, 0);      
+    // }
     
-    function getLpToken(uint pid) override external view returns (address) {
+    function getLpToken(uint pid) override public view returns (address) {
         return ISushiSwapMasterChefV2(masterChef).lpToken(pid);
     }
 
@@ -165,19 +181,20 @@ contract PancakeSwapMasterChefV2Wrapper is IMasterChefWrapper {
         masterChef = _masterChef;
         baseReward = _baseReward;
         pendingRewardGetter = _pendingRewardGetter;
+        initialize();
     }
 
-    function getIdFromLpToken(address lpToken) override external view returns (bool, uint) {
-        uint poolLength = IPancakeSwapMasterChefV2(masterChef).poolLength();
-        for (uint i = 0; i<poolLength; i++) {
-            if (IPancakeSwapMasterChefV2(masterChef).lpToken(i)==lpToken) {
-                return (true, i);
-            }
-        }
-        return (false, 0);      
-    }
+    // function getIdFromLpToken(address lpToken) override external view returns (bool, uint) {
+    //     uint poolLength = IPancakeSwapMasterChefV2(masterChef).poolLength();
+    //     for (uint i = 0; i<poolLength; i++) {
+    //         if (IPancakeSwapMasterChefV2(masterChef).lpToken(i)==lpToken) {
+    //             return (true, i);
+    //         }
+    //     }
+    //     return (false, 0);      
+    // }
     
-    function getLpToken(uint pid) override external view returns (address) {
+    function getLpToken(uint pid) override public view returns (address) {
         return ISushiSwapMasterChefV2(masterChef).lpToken(pid);
     }
 

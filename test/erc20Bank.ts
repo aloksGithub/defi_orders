@@ -27,9 +27,14 @@ describe("ERC20Bank tests", function () {
         networkTokenContract = await ethers.getContractAt("IWETH", networkAddresses.networkToken)
         universalSwap = await ethers.getContractAt("UniversalSwap", universalSwapAddress)
     })
-    it("Opens, deposits, withdraws and closes position", async function () {
+    it.only("Opens, deposits, withdraws and closes position", async function () {
         const test = async (lpToken: string) => {
             const {lpBalance: lpBalance0, lpTokenContract} = await getLPToken(lpToken, universalSwap, "1", owners[0])
+            const amountsOut = await universalSwap.getAmountsOut(
+                {tokens: [networkTokenContract.address], amounts: [ethers.utils.parseEther('1')], nfts: []},
+                {outputERC20s: [lpToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}
+            )
+            console.log(lpToken, lpBalance0, amountsOut)
             const {lpBalance: lpBalance1} = await getLPToken(lpToken, universalSwap, "1", owners[1])
             expect(lpBalance0).to.greaterThan(0)
             expect(lpBalance1).to.greaterThan(0)

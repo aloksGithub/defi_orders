@@ -182,7 +182,6 @@ contract PositionsManager is IPositionsManager, Ownable {
         }
         uint minted = bank.mintRecurring(position.bankToken, position.user, underlying, amountsUsed);
         position.amount+=minted;
-        console.log(provided.tokens[0], provided.amounts[0]);
         PositionInteraction memory interaction = PositionInteraction(
             "deposit",
             block.timestamp, block.number,

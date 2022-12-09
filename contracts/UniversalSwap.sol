@@ -196,7 +196,7 @@ contract UniversalSwap is IUniversalSwap, Ownable {
                 uint amountObtained = _conductERC20Conversion(conversions[i], receiver);
                 if (outputTokens.exists(conversions[i].desiredERC20) && conversions[i].underlying.length!=0) {
                     amounts[amountsAdded] = amountObtained;
-                    require(amountObtained>=minAmountsOut[amountsAdded]);
+                    require(amountObtained>=minAmountsOut[amountsAdded], "SLIPPAGE");
                     amountsAdded+=1;
                 }
             }
@@ -275,6 +275,9 @@ contract UniversalSwap is IUniversalSwap, Ownable {
         conversions = helper.prepareConversions(desired.outputERC20s, desired.outputERC721s, desired.ratios, totalValue);
         (address[] memory underlyingTokens, uint[] memory underlyingValues) = conversions.getUnderlying();
         (underlyingTokens, underlyingValues) = underlyingTokens.shrink(underlyingValues);
+        for (uint i = 0; i<underlyingValues.length; i++) {
+            require(underlyingValues[i]>0, "INSUFFICIENT_INPUT");
+        }
         swaps = helper.findMultipleSwaps(provided.tokens, provided.amounts, inputTokenValues, underlyingTokens, underlyingValues);
         conversions = conversions.normalizeRatios();
         return (swaps, conversions);

@@ -49,12 +49,14 @@ const config: HardhatUserConfig = {
       },
       chainId: 1337,
         // @ts-ignore
-      // gasPrice: approximateGasPrices[process.env.CURRENTLY_FORKING!]
+      gasPrice: approximateGasPrices[process.env.CURRENTLY_FORKING!]
     },
-    // localhost: {
-    //   url: "http://127.0.0.1:8545/",
-    //   accounts: ["0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"]
-    // },
+    localhost: {
+      url: "http://127.0.0.1:8545/",
+      timeout: 100000000,
+      // @ts-ignore
+    gasPrice: approximateGasPrices[process.env.CURRENTLY_FORKING!]
+    },
     bsc: {
       url: process.env.BSC_RPC!,
       accounts: [process.env.BSC_ACCOUNT!]

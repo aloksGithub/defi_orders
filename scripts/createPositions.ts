@@ -10,7 +10,7 @@ async function main() {
   // @ts-ignore
   const networkAddresses = addresses[hre.network.name]
   const liquidationPoints = [{liquidateTo: networkAddresses.networkToken, watchedToken: ethers.constants.AddressZero, lessThan:true, liquidationPoint: '100000000000000000000'}]
-  const {wethContract} = await getNetworkToken(owner, '1000.0')
+  const {wethContract} = await getNetworkToken(owner, '10.0')
   // @ts-ignore
   const positionManager = await ethers.getContractAt("PositionsManager", deployments[hre.network.name].positionsManager)
   const universalSwapAddress = await positionManager.universalSwap()
@@ -20,7 +20,6 @@ async function main() {
   console.log("Deploying ERC-20 bank positions")
   const lpTokens = networkAddresses.erc20BankLps
   for (const lpToken of lpTokens) {
-    console.log("CHECK")
     const {lpBalance, lpTokenContract} = await getLPToken(lpToken, universalSwap, "1", owner)
     await depositNew(positionManager, lpToken, lpBalance.toString(), liquidationPoints, owner)
   }
@@ -28,7 +27,6 @@ async function main() {
   console.log("Deploying Uniswap-V3 positions")
   const pools = networkAddresses.nftBasaedPairs
   for (const pool of pools) {
-    console.log("CHECK")
     const nftManagerAddress = networkAddresses.NFTManagers[0]
     const id = await getNFT(universalSwap, "10", nftManagerAddress, pool, owner)
     await depositNewNFT(positionManager, nftManagerAddress, id, liquidationPoints, owner)
@@ -37,7 +35,6 @@ async function main() {
   console.log("Deploying MasterChef bank positions")
   const masterChefLpTokens = networkAddresses.masterChefLps
   for (const lpToken of masterChefLpTokens) {
-    console.log("CHECK")
     const {lpBalance, lpTokenContract} = await getLPToken(lpToken, universalSwap, "1", owner)
     await lpTokenContract.connect(owner).approve(positionManager.address, lpBalance)
     await depositNew(positionManager, lpToken, lpBalance.toString(), liquidationPoints, owner)

@@ -23,7 +23,7 @@ In order to deploy locally:
 3) Run `npx hardhat node`
 4) `npx hardhat run --network localhost scripts/deploy.ts`
 5) The addresses of the deployed contracts as well as the hashes of the deployment transactions should show up in deployments/localhost
-6) Run `npx hardhat run --network localhost scripts/createPositions.ts` to create a bunch of positions for testing. If you get UND_ERR_HEADERS_TIMEOUT error, just run again, I don't know why that happens.
+6) Run `npx hardhat run --network localhost scripts/createPositions.ts` to create a bunch of positions for testing.
 
 # Testing
 
