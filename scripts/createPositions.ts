@@ -39,7 +39,7 @@ async function main() {
     await lpTokenContract.connect(owner).approve(positionManager.address, lpBalance)
     await depositNew(positionManager, lpToken, lpBalance.toString(), liquidationPoints, owner)
   }
-  await ethers.provider.send("hardhat_mine", ["0x100"]);
+  await ethers.provider.send("hardhat_mine", ["0x93A80", "0x3"]);
   // const fetchPositions = async () => {
   //   const numPositions = await positionManager.numPositions()
   //   console.log(`Testing time to fetch ${numPositions} positions`)
