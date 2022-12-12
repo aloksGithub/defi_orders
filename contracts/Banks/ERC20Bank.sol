@@ -15,12 +15,8 @@ contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
         mapping(address=>uint) userShares;
     }
 
-    uint PRECISION = 1e12;
-    string[] supportedAssetTypes;
-    address[] supportedMasterchefs;
-    mapping (uint=>address[]) rewards; // Rewards for a masterchef/gauge or some other reward giving contract
     mapping (uint=>PoolInfo) poolInfo;
-    mapping (uint=>address) lpTokens;
+    mapping (address=>uint) balances;
 
     constructor(address _positionsManager) BankBase(_positionsManager) {}
 
@@ -63,16 +59,16 @@ contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
         PoolInfo storage pool = poolInfo[tokenId];
         pool.userShares[userAddress]+=suppliedAmounts[0];
         _mint(userAddress, tokenId, suppliedAmounts[0], '');
-        emit Mint(tokenId, userAddress, suppliedAmounts[0]);
+
+        // Sanity check
+        require(balances[suppliedTokens[0]]+suppliedAmounts[0]<=IERC20(suppliedTokens[0]).balanceOf(address(this)), "INSANITY");
+        balances[suppliedTokens[0]]+=suppliedAmounts[0];
         return suppliedAmounts[0];
     }
 
     function burn(uint tokenId, address userAddress, uint amount, address receiver) onlyAuthorized override external returns (address[] memory outTokens, uint[] memory tokenAmounts){
         (address lpToken,,) = decodeId(tokenId);
         PoolInfo storage pool = poolInfo[tokenId];
-        if (amount == 0) {
-            amount = balanceOf(userAddress, tokenId);
-        }
         pool.userShares[userAddress]-=amount;
         if (lpToken!=address(0)) {
             IERC20(lpToken).safeTransfer(receiver, amount);
@@ -81,10 +77,13 @@ contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
             payable(receiver).transfer(amount);
         }
         _burn(userAddress, tokenId, amount);
-        emit Burn(tokenId, userAddress, amount, receiver);
         outTokens = new address[](1);
         tokenAmounts = new uint[](1);
         outTokens[0] = lpToken;
         tokenAmounts[0] = amount;
+
+        // Sanity check
+        require(balances[lpToken]-amount<=IERC20(lpToken).balanceOf(address(this)), "INSANITY");
+        balances[lpToken]-=amount;
     }
 }

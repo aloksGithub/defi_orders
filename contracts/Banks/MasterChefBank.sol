@@ -23,9 +23,10 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
     }
 
     uint PRECISION = 1e12;
-    mapping (uint=>PoolInfo) poolInfo;
-    mapping (address=>address) masterChefWrappers;
-    address[] supportedMasterChefs;
+    mapping (uint=>PoolInfo) public poolInfo;
+    mapping (address=>address) public masterChefWrappers;
+    address[] public supportedMasterChefs;
+    mapping (address=>uint) public balances;
 
     constructor(address _positionsManager) BankBase(_positionsManager) {}
 

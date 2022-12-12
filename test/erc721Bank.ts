@@ -9,7 +9,13 @@ require('dotenv').config();
 const NETWORK = hre.network.name
 // @ts-ignore
 const networkAddresses = addresses[NETWORK]
-const liquidationPoints = [{liquidateTo: networkAddresses.networkToken, watchedToken: networkAddresses.networkToken, lessThan:true, liquidationPoint: 100}]
+const liquidationPoints = [{
+    liquidateTo: networkAddresses.networkToken,
+    watchedToken: ethers.constants.AddressZero,
+    lessThan:true,
+    liquidationPoint: '100000000000000000000',
+    slippage: ethers.utils.parseUnits("1", 17)
+  }]
 
 async function getTimestamp() {
     const now = new Date().getTime()
@@ -196,7 +202,7 @@ describe("ERC721Bank tests", function () {
                 const balance = await reward.balanceOf(owners[0].address)
                 expect(balance).to.greaterThan(0)
             }
-            await manager.connect(owners[0]).botLiquidate(positionId, 0, [], [], 0)
+            await manager.connect(owners[0]).botLiquidate(positionId, 0, [], [])
             // const balances = []
             // for (const reward of rewardContracts) {
             //     const balance = await reward.balanceOf(owners[0].address)

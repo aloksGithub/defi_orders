@@ -8,7 +8,13 @@ require('dotenv').config();
 const NETWORK = hre.network.name
 // @ts-ignore
 const networkAddresses = addresses[NETWORK]
-const liquidationPoints = [{liquidateTo: networkAddresses.networkToken, watchedToken: networkAddresses.networkToken, lessThan:true, liquidationPoint: 100}]
+const liquidationPoints = [{
+    liquidateTo: networkAddresses.networkToken,
+    watchedToken: ethers.constants.AddressZero,
+    lessThan:true,
+    liquidationPoint: '100000000000000000000',
+    slippage: ethers.utils.parseUnits("1", 17)
+}]
 const ethUsed = "1"
 
 const getPositionSize = async (manager:PositionsManager, positionId:any) => {
@@ -16,7 +22,7 @@ const getPositionSize = async (manager:PositionsManager, positionId:any) => {
     return info.position.amount
 }
 
-describe("MasterChefBank tests", function () {
+describe.only("MasterChefBank tests", function () {
     let manager: PositionsManager
     let owners: any[]
     let networkTokenContract: IWETH
@@ -201,7 +207,7 @@ describe("MasterChefBank tests", function () {
             await manager.connect(owner).harvestAndRecompound(positionId, [], [], new Array(rewardContracts.length).fill(0))
             const positionInfo2 = await manager.getPosition(positionId)
             expect(positionInfo2.position.amount).to.greaterThanOrEqual(positionInfo1.position.amount)
-            await manager.connect(owners[0]).botLiquidate(positionId, 0, [], [], 0)
+            await manager.connect(owners[0]).botLiquidate(positionId, 0, [], [])
             const finalBalance = await networkTokenContract.balanceOf(owner.address)
             expect(finalBalance).to.greaterThan(ethers.utils.parseEther("1"))
         }

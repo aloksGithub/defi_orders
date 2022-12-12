@@ -9,7 +9,13 @@ require('dotenv').config();
 const NETWORK = hre.network.name
 // @ts-ignore
 const networkAddresses = addresses[NETWORK]
-const liquidationPoints = [{liquidateTo: networkAddresses.networkToken, watchedToken: networkAddresses.networkToken, lessThan:true, liquidationPoint: 100}]
+const liquidationPoints = [{
+    liquidateTo: networkAddresses.networkToken,
+    watchedToken: ethers.constants.AddressZero,
+    lessThan:true,
+    liquidationPoint: '100000000000000000000',
+    slippage: ethers.utils.parseUnits("1", 17)
+  }]
 
 describe("ERC20Bank tests", function () {
     let manager: PositionsManager
@@ -27,14 +33,9 @@ describe("ERC20Bank tests", function () {
         networkTokenContract = await ethers.getContractAt("IWETH", networkAddresses.networkToken)
         universalSwap = await ethers.getContractAt("UniversalSwap", universalSwapAddress)
     })
-    it.only("Opens, deposits, withdraws and closes position", async function () {
+    it("Opens, deposits, withdraws and closes position", async function () {
         const test = async (lpToken: string) => {
             const {lpBalance: lpBalance0, lpTokenContract} = await getLPToken(lpToken, universalSwap, "1", owners[0])
-            const amountsOut = await universalSwap.getAmountsOut(
-                {tokens: [networkTokenContract.address], amounts: [ethers.utils.parseEther('1')], nfts: []},
-                {outputERC20s: [lpToken], outputERC721s: [], ratios: [1], minAmountsOut: [0]}
-            )
-            console.log(lpToken, lpBalance0, amountsOut)
             const {lpBalance: lpBalance1} = await getLPToken(lpToken, universalSwap, "1", owners[1])
             expect(lpBalance0).to.greaterThan(0)
             expect(lpBalance1).to.greaterThan(0)
@@ -83,7 +84,7 @@ describe("ERC20Bank tests", function () {
             isRoughlyEqual(user1PositionBalance, lpBalance1.div("2"))
             isRoughlyEqual(user1lpBalance, lpBalance1.div("2"))
             await manager.connect(owners[1]).close(positionId2)
-            await manager.connect(owners[0]).botLiquidate(positionId1, 0, [], [], 0)
+            await manager.connect(owners[0]).botLiquidate(positionId1, 0, [], [])
             user0PositionBalance = (await manager.getPosition(positionId1)).position.amount
             user0lpBalance = await lpTokenContract.balanceOf(owners[0].address)
             expect(user0PositionBalance).to.equal(0)
@@ -97,5 +98,36 @@ describe("ERC20Bank tests", function () {
         for (const lpToken of lpTokens) {
             await test(lpToken)
         }
+    })
+    it("Reverts bot liquidate on slippage fail", async function () {
+        const test = async (lpToken: string) => {
+            const {lpBalance: lpBalance0, lpTokenContract} = await getLPToken(lpToken, universalSwap, "1", owners[0])
+            const {lpBalance: lpBalance1} = await getLPToken(lpToken, universalSwap, "1", owners[1])
+            expect(lpBalance0).to.greaterThan(0)
+            expect(lpBalance1).to.greaterThan(0)
+
+    
+            await lpTokenContract.connect(owners[0]).approve(manager.address, lpBalance0)
+            await lpTokenContract.connect(owners[1]).approve(manager.address, lpBalance1)
+            const {positionId: positionId} = await depositNew(
+                manager,
+                lpToken,
+                lpBalance0.div("2").toString(),
+                [{
+                    liquidateTo: networkAddresses.networkToken,
+                    watchedToken: ethers.constants.AddressZero,
+                    lessThan:true,
+                    liquidationPoint: '100000000000000000000',
+                    slippage: ethers.utils.parseUnits("1", 10)
+                }],
+                owners[0]
+            )
+            await expect(manager.connect(owners[0]).botLiquidate(positionId, 0, [], [])).to.be.revertedWith("Slippage")
+        }
+        const lpTokens = networkAddresses.erc20BankLps
+        for (const lpToken of lpTokens) {
+            await test(lpToken)
+        }
+        
     })
 })

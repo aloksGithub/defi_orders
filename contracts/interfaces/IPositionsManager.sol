@@ -13,6 +13,7 @@ struct LiquidationCondition {
     address liquidateTo;
     bool lessThan;
     uint liquidationPoint;
+    uint slippage;
 }
 
 /// @notice Structure representing a position
@@ -185,8 +186,13 @@ interface IPositionsManager {
     /// @param swaps Swaps to conduct to get desired asset from position
     /// @param conversions Conversions to conduct to get desired asset from position
     /// @param liquidationIndex Index of liquidation condition that is no longer satisfied
-    /// @param minAmountOut Slippage Control
-    function botLiquidate(uint positionId, uint liquidationIndex, SwapPoint[] memory swaps, Conversion[] memory conversions, uint minAmountOut) external;
+    function botLiquidate(uint positionId, uint liquidationIndex, SwapPoint[] memory swaps, Conversion[] memory conversions) external;
+
+    /// @notice Check wether one of the liquidation conditions has become true
+    /// @param positionId Position ID
+    /// @return index Index of the liquidation condition that has become true
+    /// @return liquidate Flag used to tell wether liquidation should be performed
+    function checkLiquidate(uint positionId) external view returns (uint index, bool liquidate);
 
     /// @notice Function used to claim the fees for a position
     /// @notice claimDevFee will be called on every position interaction

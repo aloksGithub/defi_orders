@@ -198,7 +198,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         BankBase bank = BankBase(banks[position.bankId]);
         address lpToken = bank.getLPToken(position.bankToken);
         require(IUniversalSwap(universalSwap).isSupported(lpToken), "UT"); // UnsupportedToken
-        require(msg.value>0 && suppliedTokens.length==0 || msg.value==0 && suppliedTokens.length>0, "Invlid tokens supplied");
+        require(msg.value>0 && suppliedTokens.length==0 || msg.value==0 && suppliedTokens.length>0, "Invalid tokens supplied");
         for (uint i = 0; i<suppliedTokens.length; i++) {
             IERC20(suppliedTokens[i]).safeTransferFrom(msg.sender, address(bank), suppliedAmounts[i]);
         }
@@ -270,7 +270,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         computeDevFee(positionId);
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
-        require(position.user==msg.sender || msg.sender==owner(), "Unauthorized");
+        require(position.user==msg.sender || msg.sender==owner() || keepers[msg.sender], "Unauthorized");
         bank.harvest(position.bankToken, position.user, position.user);
         (address[] memory tokens, uint[] memory amounts) = bank.burn(position.bankToken, position.user, position.amount, position.user);
         Provided memory withdrawn = Provided(tokens, amounts, new Asset[](0));
@@ -287,39 +287,6 @@ contract PositionsManager is IPositionsManager, Ownable {
         positionClosed[positionId] = true;
         emit PositionClose(positionId);
     }
-
-    /// @inheritdoc IPositionsManager
-    // function closeToUSDC(uint positionId) external returns (uint) {
-    //     // computeDevFee(positionId);
-    //     address[] memory tokens;
-    //     uint[] memory tokenAmounts;
-    //     Position storage position = positions[positionId];
-    //     {
-    //         BankBase bank = BankBase(banks[position.bankId]);
-    //         require(keepers[msg.sender] || msg.sender==owner() || position.user==msg.sender, "Unauthorized");
-    //         (address[] memory rewardAddresses, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, universalSwap);
-    //         (address[] memory outTokens, uint[] memory outTokenAmounts) = bank.burn(position.bankToken, position.user, position.amount, universalSwap);
-    //         tokens = rewardAddresses.concat(outTokens);
-    //         tokenAmounts = rewardAmounts.concat(outTokenAmounts);
-    //     }
-    //     address[] memory wanted = new address[](1);
-    //     uint[] memory ratios = new uint[](1);
-    //     uint[] memory slippage = new uint[](1);
-    //     wanted[0] = stableToken;
-    //     ratios[0] = 1;
-    //     uint[] memory toReturn = IUniversalSwap(universalSwap).swapAfterTransfer(
-    //         Provided(tokens, tokenAmounts, new Asset[](0)),
-    //         new SwapPoint[](0),
-    //         new Conversion[](0),
-    //         Desired(wanted, new Asset[](0), ratios, slippage),
-    //         position.user
-    //     );
-    //     position.amount = 0;
-    //     positionClosed[positionId] = true;
-    //     emit PositionClose(positionId);
-    //     positionInteractions[positionId].push([block.number, block.timestamp, 1]);
-    //     return toReturn[0];
-    // }
 
     /// @inheritdoc IPositionsManager
     function harvestRewards(uint positionId) external returns (address[] memory rewards, uint[] memory rewardAmounts) {
@@ -379,7 +346,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function estimateValue(uint positionId, address inTermsOf) external view returns (uint) {
+    function estimateValue(uint positionId, address inTermsOf) public view returns (uint) {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         (address[] memory underlyingTokens, uint[] memory underlyingAmounts) = bank.getPositionTokens(position.bankToken, position.user);
@@ -404,13 +371,15 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function botLiquidate(uint positionId, uint liquidationIndex, SwapPoint[] memory swaps, Conversion[] memory conversions, uint minAmountOut) external {
+    function botLiquidate(uint positionId, uint liquidationIndex, SwapPoint[] memory swaps, Conversion[] memory conversions) external {
         computeDevFee(positionId);
         Position storage position = positions[positionId];
         BankBase bank = BankBase(banks[position.bankId]);
         address[] memory tokens;
         uint[] memory tokenAmounts;
         Provided memory positionAssets;
+        uint positionValue;
+        uint desiredTokenObtained;
         {
             require(keepers[msg.sender] || msg.sender==owner(), "Unauthorized");
             (address[] memory rewardAddresses, uint[] memory rewardAmounts) = bank.harvest(position.bankToken, position.user, universalSwap);
@@ -422,29 +391,65 @@ contract PositionsManager is IPositionsManager, Ownable {
         {
             address[] memory wanted = new address[](1);
             uint[] memory ratios = new uint[](1);
-            uint[] memory slippage = new uint[](1);
             wanted[0] = position.liquidationPoints[liquidationIndex].liquidateTo;
             ratios[0] = 1;
-            slippage[0] = minAmountOut;
-            IUniversalSwap(universalSwap).swapAfterTransfer(
+            uint[] memory valuesOut = IUniversalSwap(universalSwap).swapAfterTransfer(
                 Provided(tokens, tokenAmounts, new Asset[](0)),
                 swaps, conversions,
-                Desired(wanted, new Asset[](0), ratios, slippage),
+                Desired(wanted, new Asset[](0), ratios, new uint[](1)),
                 position.user
             );
+            desiredTokenObtained = valuesOut[0];
+        }
+        {
+            positionValue = IUniversalSwap(universalSwap).estimateValue(positionAssets, stableToken);
+            uint minUsdOut = positionValue*(10**18-position.liquidationPoints[liquidationIndex].slippage)/10**18;
+            uint usdOut = IUniversalSwap(universalSwap).estimateValueERC20(
+                position.liquidationPoints[liquidationIndex].liquidateTo,
+                desiredTokenObtained,
+                stableToken
+            );
+            require(usdOut>minUsdOut, "Slippage");
         }
         PositionInteraction memory interaction = PositionInteraction(
             "liquidate",
             block.timestamp,
             block.number,
             positionAssets,
-            IUniversalSwap(universalSwap).estimateValue(positionAssets, stableToken),
+            positionValue,
             position.amount
         );
         _addPositionInteraction(interaction, positionId);
         position.amount = 0;
         positionClosed[positionId] = true;
         emit PositionClose(positionId);
+    }
+
+    /// @inheritdoc IPositionsManager
+    function checkLiquidate(uint positionId) external view returns (uint index, bool liquidate) {
+        Position storage position = positions[positionId];
+        for (uint i = 0; i<position.liquidationPoints.length; i++) {
+            LiquidationCondition memory condition = position.liquidationPoints[i];
+            address token = condition.watchedToken;
+            uint currentPrice;
+            if (token==address(0)) {
+                currentPrice = estimateValue(positionId, stableToken);
+                currentPrice = currentPrice*10**18/10**ERC20(stableToken).decimals();
+            } else {
+                currentPrice = IUniversalSwap(universalSwap).estimateValueERC20(token, 10**ERC20(token).decimals(), stableToken);
+                currentPrice = currentPrice*10**18/10**ERC20(stableToken).decimals();
+            }
+            if (condition.lessThan && currentPrice<condition.liquidationPoint) {
+                index = i;
+                liquidate = true;
+                break;
+            }
+            if (!condition.lessThan && currentPrice>condition.liquidationPoint) {
+                index = i;
+                liquidate = true;
+                break;
+            }
+        }
     }
 
     /// @inheritdoc IPositionsManager

@@ -9,7 +9,13 @@ async function main() {
   const [owner] = await ethers.getSigners()
   // @ts-ignore
   const networkAddresses = addresses[hre.network.name]
-  const liquidationPoints = [{liquidateTo: networkAddresses.networkToken, watchedToken: ethers.constants.AddressZero, lessThan:true, liquidationPoint: '100000000000000000000'}]
+  const liquidationPoints = [{
+    liquidateTo: networkAddresses.networkToken,
+    watchedToken: ethers.constants.AddressZero,
+    lessThan:true,
+    liquidationPoint: '100000000000000000000',
+    slippage: ethers.utils.parseUnits("1", 17)
+  }]
   const {wethContract} = await getNetworkToken(owner, '10.0')
   // @ts-ignore
   const positionManager = await ethers.getContractAt("PositionsManager", deployments[hre.network.name].positionsManager)
