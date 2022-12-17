@@ -13,16 +13,11 @@ const liquidationPoints = [{
     watchedToken: ethers.constants.AddressZero,
     lessThan:true,
     liquidationPoint: '100000000000000000000',
-    slippage: ethers.utils.parseUnits("1", 17)
+    slippage: ethers.utils.parseUnits("3", 17)
 }]
 const ethUsed = "1"
 
-const getPositionSize = async (manager:PositionsManager, positionId:any) => {
-    const info = await manager.getPosition(positionId)
-    return info.position.amount
-}
-
-describe.only("MasterChefBank tests", function () {
+describe("MasterChefBank tests", function () {
     let manager: PositionsManager
     let owners: any[]
     let networkTokenContract: IWETH

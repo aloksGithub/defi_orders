@@ -154,7 +154,7 @@ contract UniswapV2Swapper is ISwapper, Ownable {
             if (pair==address(0)) continue;
             uint bal = IERC20(commonPoolTokens[i]).balanceOf(pair);
             uint poolUsd = (bal*tokenWorth)/(10**ERC20(commonPoolTokens[i]).decimals()*10**ERC20(commonPoolTokens[1]).decimals());
-            if (poolUsd>10000) {
+            if (poolUsd>1000) {
                 return true;
             }
         }

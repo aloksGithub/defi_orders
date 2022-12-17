@@ -169,7 +169,7 @@ contract SwapHelper is Ownable {
             inputTokenAmounts[idx]-=amountToUse;
             amounts[j] = amountToUse;
         }
-        address poolInteractor = getProtocol(conversion.desiredERC20);
+        address poolInteractor = getProtocol(conversion.desiredERC721.manager);
         uint liquidityMinted = INFTPoolInteractor(poolInteractor).simulateMint(conversion.desiredERC721, conversion.underlying, amounts);
         return (liquidityMinted, inputTokenAmounts);
     }

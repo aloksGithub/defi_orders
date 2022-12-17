@@ -4,6 +4,8 @@ pragma solidity ^0.8.9;
 interface IVToken {
     function mint(uint256 mintAmount) external returns (uint256);
 
+    function mint() external payable;
+
     function mintBehalf(address receiver, uint256 mintAmount)
         external
         returns (uint256);
@@ -25,4 +27,5 @@ interface IVToken {
     function borrowBalanceCurrent(address account) external returns (uint);
     function exchangeRateStored() external view returns (uint);
     function totalSupply() external view returns (uint);
+    function isVToken() external view returns (bool);
 }

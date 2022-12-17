@@ -43,7 +43,7 @@ abstract contract IMasterChefWrapper is Ownable {
     }
 
     function getIdFromLpToken(address lpToken) virtual external view returns (bool, uint) {
-        if (!supportedLps[lpToken]) return (false, 0);
+        if (!supportedLps[lpToken] || lpToken==baseReward) return (false, 0);
         else return (true, supportedLpIndices[lpToken]);
     }
 

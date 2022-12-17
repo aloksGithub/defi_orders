@@ -1,61 +1,40 @@
 {
-    "mainnet": [
-        {
-            "name": "ERC20",
-            "url": "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3",
-            "query": "query {\ntokens (first: 100, orderBy: untrackedVolumeUSD, orderDirection: desc) {\nid\nsymbol\n}\n}",
-            "tokenName": ""
-        },
-        {
-            "name": "Uniswap V2",
-            "url": "https://api.thegraph.com/subgraphs/name/ianlapham/uniswapv2",
-            "query": "query {\npairs (first: 100, orderBy: volumeUSD, orderDirection: desc) {\nid\ntoken0 {\nid\nname\nsymbol\n}\ntoken1 {\nid\nname\nsymbol\n}\n}\n}",
-            "tokenName": "Uniswap V2"
-        },
-        {
-            "name": "Uniswap V3",
-            "url": "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3",
-            "query": "query {\npools (first: 100, orderBy: volumeUSD, orderDirection: desc) {\nid,\ntoken0 {\nid\nname\nsymbol\n}\ntoken1 {\nid\nname\nsymbol\n}\nfeeTier\n}\n}",
-            "tokenName": "Uniswap V3 Positions NFT-V1",
-            "manager": "0xC36442b4a4522E871399CD717aBDD847Ab11FE88"
-        },
-        {
-            "name": "Sushiswap",
-            "url": "https://api.thegraph.com/subgraphs/name/sushi-0m/sushiswap-ethereum",
-            "query": "query {\npairs (first: 100, orderBy: volumeUSD, orderDirection: desc) {\nid\ntoken0 {\nid\nname\nsymbol\n}\ntoken1 {\nid\nname\nsymbol\n}\n}\n}",
-            "tokenName": "SushiSwap LP Token"
-        },
-        {
-            "name": "AAVE",
-            "url": "",
-            "query": "",
-            "tokenName": ""
-        }
-    ],
-    "bsc": [
-        {
-            "name": "ERC20",
-            "url": "https://bsc.streamingfast.io/subgraphs/name/pancakeswap/exchange-v2",
-            "query": "query {\ntokens (first: 100, orderBy: tradeVolumeUSD, orderDirection: desc) {\nid\nsymbol\n}\n}",
-            "tokenName": ""
-        },
-        {
-            "name": "Pancakeswap",
-            "url": "https://bsc.streamingfast.io/subgraphs/name/pancakeswap/exchange-v2",
-            "query": "query {\npairs(first: 100, orderBy: volumeUSD, orderDirection: desc) {\nid\ntoken0 {\nid\nname\nsymbol\n}\ntoken1 {\nid\nname\nsymbol\n}\n}\n}",
-            "tokenName": "Pancake LPs"
-        },
-        {
-            "name": "Biswap",
-            "url": "https://api.thegraph.com/subgraphs/name/biswapcom/exchange5",
-            "query": "query {\npairs(first: 100, orderBy: volumeUSD, orderDirection: desc) {\nid\ntoken0 {\nid\nname\nsymbol\n}\ntoken1 {\nid\nname\nsymbol\n}\n}\n}",
-            "tokenName": "Biswap LPs"
-        },
-        {
-            "name": "Venus",
-            "url": "https://api.thegraph.com/subgraphs/name/venusprotocol/venus-subgraph",
-            "query": "query {\nmarkets (first: 100, orderBy: totalSupply, orderDirection:desc) {\nid\nname\n}\n}",
-            "tokenName": "Venus *"
-        }
-    ]
+  "mainnet": [
+    {
+      "name": "ERC20",
+      "url": "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3",
+      "query": "query {\ntokens (first: 100, orderBy: untrackedVolumeUSD, orderDirection: desc) {\nid\nsymbol\n}\n}"
+    },
+    {
+      "name": "Uniswap V2",
+      "url": "https://api.thegraph.com/subgraphs/name/ianlapham/uniswapv2",
+      "query": "query {\npairs (first: 100, orderBy: volumeUSD, orderDirection: desc) {\nid\ntoken0 {\nid\nname\nsymbol\n}\ntoken1 {\nid\nname\nsymbol\n}\n}\n}"
+    },
+    {
+      "name": "Sushiswap",
+      "url": "https://api.thegraph.com/subgraphs/name/sushi-0m/sushiswap-ethereum",
+      "query": "query {\npairs (first: 100, orderBy: volumeUSD, orderDirection: desc) {\nid\ntoken0 {\nid\nname\nsymbol\n}\ntoken1 {\nid\nname\nsymbol\n}\n}\n}"
+    }
+  ],
+  "bsc": [
+    {
+      "name": "Pancakeswap",
+      "defaultTokens": ["0x58f876857a02d6762e0101bb5c46a8c1ed44dc16","0x74e4716e431f45807dcf19f284c7aa99f18a4fbc","0xc70734ef92893cf7ae131b13874f8c531584fc4e","0x61eb789d75a95caa3ff50ed7e47b96c132fec082","0x0ed7e52944161450477ee417de9cd3a859b14fd0","0x942b294e59a8c47a0f7f20df105b082710f7c305","0x804678fa97d91b974ec2af3c843270886528a9e6","0xd99c7f6c65857ac913a8f880a4cb84032ab2fc5b","0xbe46815e0f0123ad626b82a0166eaa32274104f5","0xad1fedfb04377c4b849cef6ef9627bca41955fa0","0x713b1479fc9f1564a2ddc90ae7f2c441578aa013","0x51d6e1dbe1bd149259a17594e1394de7634241ce","0x47830b76ed49041f10b3c983bc6916688d81c195","0xf37037019ad9b762992ccdcfe4eb5cacd5669735","0x6df9c6e8774a92c481cb51bb57d6f27864e13e35","0x03f18135c44c64ebfdcbad8297fe5bdafdbbdd86","0xd9bccbbbdfd9d67beb5d2273102ce0762421d1e3","0x8fa59693458289914db0097f5f366d771b7a7c3f","0xc1b5ce0a8c25e8aba618f96f08d0b6c871b32a59","0x28415ff2c35b65b9e5c7de82126b4015ab9d031f","0x4664dd5347113886e989b2a47a2fc45cccf495d9","0x65f2ee8b6c52a263b39f1ffc8f97d4b38f14e96d","0x4526c263571eb57110d161b41df8fd073df3c44a","0xac109c8025f272414fd9e2faa805a583708a017f","0xb2678c414ebc63c9cc6d1a0fc45f43e249b50fde","0xc70163bae3e77e439c86fb91397c36df680f705d","0x5b6ef3a4dd8d32b3c3be08371845687e0eb47c9e","0x2d3b2e315e12b9f0417c92e9d841df7230afece9","0x6dcb370b61b9ee192082a1c42fa994f767916754","0xc1c302aa24b522ba5723f659274bca4b4a3c93ae"]
+    },
+    {
+      "name": "ERC20",
+      "url": "https://api.thegraph.com/subgraphs/name/biswapcom/exchange5",
+      "query": "query {tokens (first: 100, orderBy: tradeVolumeUSD, orderDirection: desc) { id symbol name decimals}}"
+    },
+    {
+      "name": "Biswap",
+      "url": "https://api.thegraph.com/subgraphs/name/biswapcom/exchange5",
+      "query": "query {\npairs(first: 100, orderBy: volumeUSD, orderDirection: desc) {\nid\ntoken0 {\nid\nname\nsymbol\ndecimals\n}\ntoken1 {\nid\nname\nsymbol\ndecimals\n}\n}\n}"
+    },
+    {
+      "name": "Venus",
+      "url": "https://api.thegraph.com/subgraphs/name/venusprotocol/venus-subgraph",
+      "query": "query {\nmarkets (first: 100, orderBy: totalSupply, orderDirection:desc) {\nid\nname\nsymbol\nunderlyingAddress\nunderlyingSymbol\nunderlyingName\nunderlyingDecimals\n}\n}"
+    }
+  ]
 }

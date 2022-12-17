@@ -90,7 +90,7 @@ library AddressArray {
         }
         uint shrunkSize;
         for (uint i = 0; i<self.length; i++) {
-            if (toRemove[i]==0) {
+            if (amounts[i]>0) {
                 shrunkSize+=1;
             }
         }
@@ -98,7 +98,7 @@ library AddressArray {
         shrunkAmounts = new uint[](shrunkSize);
         uint tokensAdded;
         for (uint i = 0; i<self.length; i++) {
-            if (toRemove[i]==0) {
+            if (amounts[i]>0) {
                 shrunkTokens[tokensAdded] = self[i];
                 shrunkAmounts[tokensAdded] = amounts[i];
                 tokensAdded+=1;

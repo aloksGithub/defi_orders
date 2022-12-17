@@ -34,7 +34,6 @@ contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
     
     function getIdFromLpToken(address lpToken) override external view returns (bool, uint) {
         if (lpToken==address(0) || lpToken==IPositionsManager(positionsManager).networkToken()) return (true, encodeId(lpToken));
-        try IERC721(lpToken).supportsInterface(0x80ac58cd) {return (false, 0);} catch {}
         try ERC20(lpToken).name() {} catch {return (false, 0);}
         try ERC20(lpToken).totalSupply() {} catch {return (false, 0);}
         try ERC20(lpToken).balanceOf(address(0)) {} catch {return (false, 0);}
@@ -61,7 +60,11 @@ contract ERC20Bank is ERC1155('ERC20Bank'), BankBase {
         _mint(userAddress, tokenId, suppliedAmounts[0], '');
 
         // Sanity check
-        require(balances[suppliedTokens[0]]+suppliedAmounts[0]<=IERC20(suppliedTokens[0]).balanceOf(address(this)), "INSANITY");
+        if (suppliedTokens[0]!=address(0)) {
+            require(balances[suppliedTokens[0]]+suppliedAmounts[0]<=IERC20(suppliedTokens[0]).balanceOf(address(this)), "INSANITY");
+        } else {
+            require(balances[suppliedTokens[0]]+suppliedAmounts[0]<=address(this).balance, "INSANITY");
+        }
         balances[suppliedTokens[0]]+=suppliedAmounts[0];
         return suppliedAmounts[0];
     }

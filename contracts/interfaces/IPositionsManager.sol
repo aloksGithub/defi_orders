@@ -94,13 +94,6 @@ interface IPositionsManager {
     /// @notice Function to change the swap utility
     function setUniversalSwap(address _universalSwap) external;
 
-    /// @notice Set the fee model to be used for specified position
-    /// @notice Will be used to discount fees for customers with large positions
-    function setFeeModel(uint positionId, address feeModel) external;
-
-    /// @notice Set the default fee model used for all newly created positions
-    function setDefaultFeeModel(address feeModel) external;
-
     /// @notice Add a new bank
     /// @param bank Address of new bank
     function addBank(address bank) external;
@@ -193,8 +186,4 @@ interface IPositionsManager {
     /// @return index Index of the liquidation condition that has become true
     /// @return liquidate Flag used to tell wether liquidation should be performed
     function checkLiquidate(uint positionId) external view returns (uint index, bool liquidate);
-
-    /// @notice Function used to claim the fees for a position
-    /// @notice claimDevFee will be called on every position interaction
-    function computeDevFee(uint positionId) external;
 }

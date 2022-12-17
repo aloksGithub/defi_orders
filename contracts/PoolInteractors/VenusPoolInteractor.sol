@@ -3,6 +3,7 @@ pragma solidity ^0.8.9;
 
 import "../interfaces/IPoolInteractor.sol";
 import "../interfaces/Venus/IVToken.sol";
+import "../interfaces/IWETH.sol";
 import "hardhat/console.sol";
 
 contract VenusPoolInteractor is IPoolInteractor {
@@ -14,26 +15,34 @@ contract VenusPoolInteractor is IPoolInteractor {
         address self
     ) payable external returns (address[] memory, uint256[] memory) {
         IVToken lpTokenContract = IVToken(lpTokenAddress);
-        address underlying = lpTokenContract.underlying();
+        (address[] memory underlying,) = getUnderlyingTokens(lpTokenAddress);
         lpTokenContract.approve(lpTokenAddress, amount);
-        uint balanceStart = IERC20(underlying).balanceOf(address(this));
+        uint balanceStart = IERC20(underlying[0]).balanceOf(address(this));
         lpTokenContract.redeem(amount);
-        uint balanceEnd = IERC20(underlying).balanceOf(address(this));
-        address[] memory receivedTokens = new address[](1);
-        receivedTokens[0] = underlying;
+        if (address(this).balance>0) {
+            IWETH(payable(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c)).deposit{value:address(this).balance}();
+        }
+        uint balanceEnd = IERC20(underlying[0]).balanceOf(address(this));
         uint256[] memory receivedTokenAmounts = new uint256[](1);
         receivedTokenAmounts[0] = balanceEnd-balanceStart;
-        return (receivedTokens, receivedTokenAmounts);
+        return (underlying, receivedTokenAmounts);
     }
+
+    receive() external payable {}
 
     function mint(address toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts, address receiver, address self) payable external returns(uint) {
         IVToken lpTokenContract = IVToken(toMint);
         uint balanceBefore = lpTokenContract.balanceOf(address(this));
-        for (uint i = 0; i<underlyingTokens.length; i++) {
-            ERC20 tokenContract = ERC20(underlyingTokens[i]);
-            tokenContract.approve(toMint, underlyingAmounts[i]);
+        if (toMint==0xA07c5b74C9B40447a954e1466938b865b6BBea36) {
+            IWETH(payable(underlyingTokens[0])).withdraw(underlyingAmounts[0]);
+            lpTokenContract.mint{value:underlyingAmounts[0]}();
+        } else {
+            for (uint i = 0; i<underlyingTokens.length; i++) {
+                ERC20 tokenContract = ERC20(underlyingTokens[i]);
+                tokenContract.approve(toMint, underlyingAmounts[i]);
+            }
+            lpTokenContract.mint(underlyingAmounts[0]);
         }
-        lpTokenContract.mint(underlyingAmounts[0]);
         uint minted = lpTokenContract.balanceOf(address(this))-balanceBefore;
         if (receiver!=address(this)) {
             lpTokenContract.transfer(receiver, minted);
@@ -48,10 +57,10 @@ contract VenusPoolInteractor is IPoolInteractor {
     }
     
     function testSupported(address token) external view override returns (bool) {
-        try IVToken(token).underlying() returns (address) {} catch {return false;}
-        try IVToken(token).borrowRatePerBlock() returns (uint) {} catch {return false;}
-        try IVToken(token).supplyRatePerBlock() returns (uint) {} catch {return false;}
-        return true;
+        try IVToken(token).isVToken() returns (bool isVToken) {return isVToken;} catch {return false;}
+        // try IVToken(token).borrowRatePerBlock() returns (uint) {} catch {return false;}
+        // try IVToken(token).supplyRatePerBlock() returns (uint) {} catch {return false;}
+        // return true;
     }
 
     function getUnderlyingAmount(address lpTokenAddress, uint amount) external view returns (address[] memory underlying, uint[] memory amounts) {
@@ -67,12 +76,16 @@ contract VenusPoolInteractor is IPoolInteractor {
         view
         returns (address[] memory, uint[] memory)
     {
+        uint[] memory ratios = new uint[](1);
+        address[] memory receivedTokens = new address[](1);
+        ratios[0] = 1;
+        if (lpTokenAddress==0xA07c5b74C9B40447a954e1466938b865b6BBea36) {
+            receivedTokens[0] = 0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c;
+            return (receivedTokens, ratios);
+        }
         IVToken lpTokenContract = IVToken(lpTokenAddress);
         address underlyingAddress = lpTokenContract.underlying();
-        address[] memory receivedTokens = new address[](1);
         receivedTokens[0] = underlyingAddress;
-        uint[] memory ratios = new uint[](1);
-        ratios[0] = 1;
         return (receivedTokens, ratios);
     }
 }

@@ -130,14 +130,12 @@ contract MasterChefBank is ERC1155('MasterChefBank'), BankBase {
 
     function _deposit(address masterChef, uint pid, uint amount) internal {
         address masterChefWrapper = masterChefWrappers[masterChef];
-        (bool success,) = masterChefWrapper.delegatecall(abi.encodeWithSelector(IMasterChefWrapper.deposit.selector, masterChef, pid, amount));
-        if (!success) revert("Failed to deposit");
+        masterChefWrapper.functionDelegateCall(abi.encodeWithSelector(IMasterChefWrapper.deposit.selector, masterChef, pid, amount));
     }
     
     function _withdraw(address masterChef, uint pid, uint amount) internal {
         address masterChefWrapper = masterChefWrappers[masterChef];
-        (bool success,) = masterChefWrapper.delegatecall(abi.encodeWithSelector(IMasterChefWrapper.withdraw.selector, masterChef, pid, amount));
-        if (!success) revert("Failed to withdraw");
+        masterChefWrapper.functionDelegateCall(abi.encodeWithSelector(IMasterChefWrapper.withdraw.selector, masterChef, pid, amount));
     }
 
     function mint(uint tokenId, address userAddress, address[] memory suppliedTokens, uint[] memory suppliedAmounts) onlyAuthorized override public returns(uint) {

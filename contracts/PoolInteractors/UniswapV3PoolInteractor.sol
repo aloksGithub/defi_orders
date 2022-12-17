@@ -67,6 +67,7 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
         require((token0==underlyingTokens[0] && token1==underlyingTokens[1]), "Invalid input");
         INonfungiblePositionManager.MintParams memory mintParams;
         for (uint i=0; i<underlyingAmounts.length; i++) {
+            IERC20(underlyingTokens[i]).safeDecreaseAllowance(toMint.manager, IERC20(underlyingTokens[i]).allowance(address(this), toMint.manager));
             IERC20(underlyingTokens[i]).safeIncreaseAllowance(toMint.manager, underlyingAmounts[i]);
         }
         uint24 fees = pool.fee();
@@ -85,6 +86,8 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
         }
         (uint256 tokenId,,uint amount0, uint amount1) = INonfungiblePositionManager(toMint.manager).mint(mintParams);
         require(amount0>minAmount0 && amount1>minAmount1, "Failed slippage check");
+        IERC20(token0).safeTransfer(receiver, underlyingAmounts[0]-amount0);
+        IERC20(token1).safeTransfer(receiver, underlyingAmounts[1]-amount1);
         return tokenId;
     }
 

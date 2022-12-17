@@ -7,11 +7,11 @@ import { expect } from "chai";
 import {addresses as ethereumAddresses} from "../constants/ethereum_addresses.json"
 import {addresses as bscAddresses} from "../constants/bsc_addresses.json"
 import {addresses as bscTestnetAddresses} from "../constants/bsc_testnet_addresses.json"
+import { getAssets } from "./protocolDataGetter";
 var fs = require('fs');
 
 const ENVIRONMENT = process.env.ENVIRONMENT!
 const CURRENTLY_FORKING = process.env.CURRENTLY_FORKING!
-const NUM_INITIALIZE_MASTERCHEFS = 0
 
 const delay = (ms:number) => new Promise(res => setTimeout(res, ms));
 
@@ -320,28 +320,17 @@ export const getUniversalSwap = async (verify:boolean=false, log:boolean=false) 
 
 const deployPositionsManager = async (verify:boolean=false, log:boolean=false) => {
   const network = hre.network.name
-  const feeModelFactory = await ethers.getContractFactory("DefaultFeeModel")
-  const feeModel = await feeModelFactory.deploy()
   const positionsManagerFactory = await ethers.getContractFactory("PositionsManager")
   const universalSwap = await getUniversalSwap(verify, log)
   // @ts-ignore
-  const positionsManager = await positionsManagerFactory.deploy(universalSwap.address, addresses[network].usdc, feeModel.address)
+  const positionsManager = await positionsManagerFactory.deploy(universalSwap.address, addresses[network].usdc)
   if (verify) {
     await delay(10000)
     try {
     await hre.run("verify:verify", {
       address: positionsManager.address,
       // @ts-ignore
-      constructorArguments: [universalSwap.address, addresses[network].usdc, feeModel.address],
-      network
-    })
-    } catch (e) {
-      console.log(e)
-    }
-    try {
-    await hre.run("verify:verify", {
-      address: feeModel.address,
-      constructorArguments: [],
+      constructorArguments: [universalSwap.address, addresses[network].usdc],
       network
     })
     } catch (e) {
@@ -658,3 +647,5 @@ export const isRoughlyEqual = (a:BigNumber, b:BigNumber, percentage:number = 500
   expect(a).to.lessThanOrEqual(b.mul(10000+percentage).div("10000"))
   expect(a).to.greaterThanOrEqual(b.mul(10000-percentage).div("10000"))
 }
+
+export {getAssets}
