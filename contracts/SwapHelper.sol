@@ -54,8 +54,12 @@ contract SwapHelper is Ownable {
         oracle = _oracle;
     }
 
-    function setSwappers(address[] calldata _swappers) external view onlyOwner {
-        _swappers = _swappers;
+    function setSwappers(address[] calldata _swappers) external onlyOwner {
+        swappers = _swappers;
+    }
+
+    function setOracle(address _oracle) external onlyOwner {
+        oracle = IOracle(_oracle);
     }
 
     function setPoolInteractors(address[] calldata _poolInteractors) external onlyOwner {

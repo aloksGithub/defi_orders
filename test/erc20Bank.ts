@@ -17,7 +17,7 @@ const liquidationPoints = [{
     slippage: ethers.utils.parseUnits("1", 17)
   }]
 
-describe("ERC20Bank tests", function () {
+describe.only("ERC20Bank tests", function () {
     let manager: PositionsManager
     let owners: any[]
     let networkTokenContract: IWETH

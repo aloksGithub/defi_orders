@@ -59,7 +59,6 @@ contract UniswapV2Swapper is ISwapper, Ownable {
 
     function getAmountOut(address inToken, uint amount, address outToken) external view returns (uint, address[] memory) {
         IUniswapV2Router02 routerContract = IUniswapV2Router02(router);
-        // Note: Finish code to use pool reserves to determine which path to take
         address bestInTokenPair = _findBestPool(inToken, routerContract);
         address bestOutTokenPair = _findBestPool(outToken, routerContract);
         uint amountOutSingleSwap;
@@ -74,43 +73,59 @@ contract UniswapV2Swapper is ISwapper, Ownable {
         uint amountOutMultiHop;
         address[] memory pathMultiHop;
         {
-            if (bestInTokenPair!=bestOutTokenPair) {
-                pathMultiHop = new address[](4);
-                pathMultiHop[0] = inToken;
-                pathMultiHop[1] = bestInTokenPair;
-                pathMultiHop[2] = bestOutTokenPair;
-                pathMultiHop[3] = outToken;
-            } else {
-                pathMultiHop = new address[](3);
-                pathMultiHop[0] = inToken;
-                pathMultiHop[1] = bestInTokenPair;
-                pathMultiHop[2] = outToken;
-
-            }
+            pathMultiHop = new address[](4);
+            pathMultiHop[0] = inToken;
+            pathMultiHop[1] = bestInTokenPair;
+            pathMultiHop[2] = bestOutTokenPair;
+            pathMultiHop[3] = outToken;
             try routerContract.getAmountsOut(amount, pathMultiHop) returns (uint256[] memory amountsOut) {
                 amountOutMultiHop = amountsOut[amountsOut.length - 1];
             } catch{}
-
-        }
-        uint amountOutNetworkToken;
-        address[] memory pathNetworkToken;
-        {
-            pathNetworkToken = new address[](3);
-            pathNetworkToken[0] = inToken;
-            pathNetworkToken[1] = commonPoolTokens[0];
-            pathNetworkToken[2] = outToken;
-            try routerContract.getAmountsOut(amount, pathNetworkToken) returns (uint256[] memory amountsOut) {
-                amountOutNetworkToken = amountsOut[amountsOut.length - 1];
+            address[] memory tripplePath = new address[](3);
+            tripplePath[0] = inToken;
+            tripplePath[1] = bestInTokenPair;
+            tripplePath[2] = outToken;
+            try routerContract.getAmountsOut(amount, tripplePath) returns (uint256[] memory amountsOut) {
+                if (amountsOut[amountsOut.length - 1]>amountOutMultiHop) {
+                    amountOutMultiHop = amountsOut[amountsOut.length - 1];
+                    pathMultiHop = tripplePath;
+                }
             } catch{}
-
+            tripplePath = new address[](3);
+            tripplePath[0] = inToken;
+            tripplePath[1] = bestOutTokenPair;
+            tripplePath[2] = outToken;
+            try routerContract.getAmountsOut(amount, tripplePath) returns (uint256[] memory amountsOut) {
+                if (amountsOut[amountsOut.length - 1]>amountOutMultiHop) {
+                    amountOutMultiHop = amountsOut[amountsOut.length - 1];
+                    pathMultiHop = tripplePath;
+                }
+            } catch{}
         }
-        if (amountOutNetworkToken>=amountOutMultiHop && amountOutNetworkToken>=amountOutSingleSwap) {
-            return (amountOutNetworkToken, pathNetworkToken);
-        } else if (amountOutMultiHop>=amountOutNetworkToken && amountOutMultiHop>=amountOutSingleSwap) {
+        // uint amountOutNetworkToken;
+        // address[] memory pathNetworkToken;
+        // {
+        //     pathNetworkToken = new address[](3);
+        //     pathNetworkToken[0] = inToken;
+        //     pathNetworkToken[1] = commonPoolTokens[0];
+        //     pathNetworkToken[2] = outToken;
+        //     try routerContract.getAmountsOut(amount, pathNetworkToken) returns (uint256[] memory amountsOut) {
+        //         amountOutNetworkToken = amountsOut[amountsOut.length - 1];
+        //     } catch{}
+
+        // }
+        if (amountOutMultiHop>amountOutSingleSwap) {
             return (amountOutMultiHop, pathMultiHop);
         } else {
             return (amountOutSingleSwap, pathSingle);
         }
+        // if (amountOutNetworkToken>=amountOutMultiHop && amountOutNetworkToken>=amountOutSingleSwap) {
+        //     return (amountOutNetworkToken, pathNetworkToken);
+        // } else if (amountOutMultiHop>=amountOutNetworkToken && amountOutMultiHop>=amountOutSingleSwap) {
+        //     return (amountOutMultiHop, pathMultiHop);
+        // } else {
+        //     return (amountOutSingleSwap, pathSingle);
+        // }
     }
 
     function getAmountOutWithPath(uint256 amount, address[] memory path) external view returns (uint256) {

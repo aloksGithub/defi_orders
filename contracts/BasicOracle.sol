@@ -18,8 +18,9 @@ contract UniswapV3Source is IOracle {
     IUniswapV3Factory factory;
     address[] commonPoolTokens;
 
-    constructor(address _factory) {
+    constructor(address _factory, address[] memory _commonPoolTokens) {
         factory = IUniswapV3Factory(_factory);
+        commonPoolTokens = _commonPoolTokens;
     }
     
     function getSqrtTwapX96(address uniswapV3Pool, uint32 twapInterval) public view returns (uint160 sqrtPriceX96) {
@@ -100,8 +101,9 @@ contract UniswapV2Source is IOracle {
     IUniswapV2Factory factory;
     address[] commonPoolTokens;
 
-    constructor(address _factory) {
+    constructor(address _factory, address[] memory _commonPoolTokens) {
         factory = IUniswapV2Factory(_factory);
+        commonPoolTokens = _commonPoolTokens;
     }
 
     function getPrice(address token, address inTermsOf) public view returns (uint) {
@@ -154,6 +156,7 @@ contract BasicOracle is IOracle, Ownable {
                 numPrices+=1;
             }
         }
+        require(numPrices>0, "No price source");
         return total/numPrices;
     }
 

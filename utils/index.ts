@@ -233,14 +233,16 @@ export const deployOracle = async (verify:boolean=false, log:boolean=false) => {
   const sources = []
   // @ts-ignore
   for (const factory of addresses[network].uniswapV2Factories) {
-    const source = await uniswapV2OracleFactory.deploy(factory)
+    // @ts-ignore
+    const source = await uniswapV2OracleFactory.deploy(factory, addresses[network].commonPoolTokens)
     sources.push(source.address)
     if (verify) {
       await delay(10000)
       try {
         await hre.run("verify:verify", {
           address: source.address,
-          constructorArguments: [factory],
+          // @ts-ignore
+          constructorArguments: [factory, addresses[network].commonPoolTokens],
           network
         })
       } catch (e) {
@@ -253,14 +255,16 @@ export const deployOracle = async (verify:boolean=false, log:boolean=false) => {
   }
   // @ts-ignore
   for (const factory of addresses[network].uniswapV3Factories) {
-    const source = await uniswapV3OracleFactory.deploy(factory)
+    // @ts-ignore
+    const source = await uniswapV3OracleFactory.deploy(factory, addresses[network].commonPoolTokens)
     sources.push(source.address)
     if (verify) {
       await delay(10000)
       try {
         await hre.run("verify:verify", {
           address: source.address,
-          constructorArguments: [factory],
+          // @ts-ignore
+          constructorArguments: [factory, addresses[network].commonPoolTokens],
           network
         })
       } catch (e) {
