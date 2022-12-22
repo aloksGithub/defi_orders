@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: BUSL 1.1
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -20,7 +20,7 @@ import "hardhat/console.sol";
 
 contract SwapHelper is Ownable {
     using Address for address;
-    using UintArray for uint[];
+    using UintArray for uint256[];
     using AddressArray for address[];
     using SwapFinder for SwapPoint[];
     using SafeERC20 for IERC20;
@@ -29,9 +29,9 @@ contract SwapHelper is Ownable {
     struct FindSwapsBetween {
         address tokenIn;
         address tokenOut;
-        uint valueNeeded;
-        uint amountInAvailable;
-        uint valueInAvailable;
+        uint256 valueNeeded;
+        uint256 amountInAvailable;
+        uint256 valueInAvailable;
     }
 
     address public networkToken;
@@ -40,7 +40,7 @@ contract SwapHelper is Ownable {
     address[] public nftPoolInteractors;
     IOracle public oracle;
 
-    constructor (
+    constructor(
         address[] memory _poolInteractors,
         address[] memory _nftPoolInteractors,
         address _networkToken,
@@ -62,17 +62,23 @@ contract SwapHelper is Ownable {
         oracle = IOracle(_oracle);
     }
 
-    function setPoolInteractors(address[] calldata _poolInteractors) external onlyOwner {
+    function setPoolInteractors(address[] calldata _poolInteractors)
+        external
+        onlyOwner
+    {
         poolInteractors = _poolInteractors;
     }
 
-    function setNFTPoolInteractors(address[] calldata _nftPoolInteractors) external onlyOwner {
+    function setNFTPoolInteractors(address[] calldata _nftPoolInteractors)
+        external
+        onlyOwner
+    {
         nftPoolInteractors = _nftPoolInteractors;
     }
 
     function isSimpleToken(address token) public view returns (bool) {
-        if (token==networkToken || token==address(0)) return true;
-        for (uint i = 0;i<swappers.length; i++) {
+        if (token == networkToken || token == address(0)) return true;
+        for (uint256 i = 0; i < swappers.length; i++) {
             if (ISwapper(swappers[i]).checkSwappable(token)) {
                 return true;
             }
@@ -82,99 +88,187 @@ contract SwapHelper is Ownable {
 
     function getProtocol(address token) public view returns (address) {
         if (isSimpleToken(token)) return address(0);
-        for (uint x = 0; x<poolInteractors.length; x++) {
-            if (IPoolInteractor(poolInteractors[x]).testSupported(token)) return poolInteractors[x];
+        for (uint256 x = 0; x < poolInteractors.length; x++) {
+            if (IPoolInteractor(poolInteractors[x]).testSupported(token))
+                return poolInteractors[x];
         }
-        for (uint i = 0; i<nftPoolInteractors.length; i++) {
-            if (INFTPoolInteractor(nftPoolInteractors[i]).testSupported(token)) return nftPoolInteractors[i];
+        for (uint256 i = 0; i < nftPoolInteractors.length; i++) {
+            if (INFTPoolInteractor(nftPoolInteractors[i]).testSupported(token))
+                return nftPoolInteractors[i];
         }
         return address(0);
     }
 
-    function getTokenValues(address[] memory tokens, uint[] memory tokenAmounts) public view returns (uint[] memory values, uint total) {
-        values = new uint[](tokens.length);
-        for (uint i = 0; i<tokens.length; i++) {
-            uint tokenWorth = oracle.getPrice(tokens[i], networkToken);
-            values[i] = tokenWorth*tokenAmounts[i]/uint(10)**ERC20(tokens[i]).decimals();
-            total+=values[i];
+    function getTokenValues(
+        address[] memory tokens,
+        uint256[] memory tokenAmounts
+    ) public view returns (uint256[] memory values, uint256 total) {
+        values = new uint256[](tokens.length);
+        for (uint256 i = 0; i < tokens.length; i++) {
+            uint256 tokenWorth = oracle.getPrice(tokens[i], networkToken);
+            values[i] =
+                (tokenWorth * tokenAmounts[i]) /
+                uint256(10)**ERC20(tokens[i]).decimals();
+            total += values[i];
         }
     }
 
-    function estimateValue(Provided memory assets, address inTermsOf) public view returns (uint) {
-        (address[] memory tokens, uint[] memory amounts) = simplifyWithoutWrite(assets.tokens, assets.amounts, assets.nfts);
-        (,uint value) = getTokenValues(tokens, amounts);
-        uint tokenWorth = oracle.getPrice(networkToken, inTermsOf);
-        value = tokenWorth*value/uint(10)**ERC20(networkToken).decimals();
+    function estimateValue(Provided memory assets, address inTermsOf)
+        public
+        view
+        returns (uint256)
+    {
+        (
+            address[] memory tokens,
+            uint256[] memory amounts
+        ) = simplifyWithoutWrite(assets.tokens, assets.amounts, assets.nfts);
+        (, uint256 value) = getTokenValues(tokens, amounts);
+        uint256 tokenWorth = oracle.getPrice(networkToken, inTermsOf);
+        value =
+            (tokenWorth * value) /
+            uint256(10)**ERC20(networkToken).decimals();
         return value;
     }
 
-    function _getConversionsERC20(address desired, uint valueAllocated) internal view returns (Conversion[] memory) {
-        (address[] memory underlying, uint[] memory ratios) = getUnderlyingERC20(desired);
+    function _getConversionsERC20(address desired, uint256 valueAllocated)
+        internal
+        view
+        returns (Conversion[] memory)
+    {
+        (
+            address[] memory underlying,
+            uint256[] memory ratios
+        ) = getUnderlyingERC20(desired);
         ratios = ratios.scale(valueAllocated);
         Asset memory placeholder;
         Conversion[] memory conversions;
-        for (uint i = 0; i<underlying.length; i++) {
+        for (uint256 i = 0; i < underlying.length; i++) {
             if (!isSimpleToken(underlying[i])) {
-                Conversion[] memory underlyingConversions = _getConversionsERC20(underlying[i], ratios[i]);
+                Conversion[]
+                    memory underlyingConversions = _getConversionsERC20(
+                        underlying[i],
+                        ratios[i]
+                    );
                 conversions = conversions.concat(underlyingConversions);
             }
         }
-        Conversion memory finalConversion = Conversion(placeholder, desired, valueAllocated, underlying, ratios);
+        Conversion memory finalConversion = Conversion(
+            placeholder,
+            desired,
+            valueAllocated,
+            underlying,
+            ratios
+        );
         conversions = conversions.append(finalConversion);
         return conversions;
     }
 
-    function _getConversionsERC721(Asset memory nft, uint valueAllocated) internal view returns (Conversion[] memory) {
-        (address[] memory underlying, uint[] memory ratios) = getUnderlyingERC721(nft);
+    function _getConversionsERC721(Asset memory nft, uint256 valueAllocated)
+        internal
+        view
+        returns (Conversion[] memory)
+    {
+        (
+            address[] memory underlying,
+            uint256[] memory ratios
+        ) = getUnderlyingERC721(nft);
         ratios = ratios.scale(valueAllocated);
         Conversion[] memory conversions;
-        Conversion memory finalConversion = Conversion(nft, address(0), valueAllocated, underlying, ratios);
+        Conversion memory finalConversion = Conversion(
+            nft,
+            address(0),
+            valueAllocated,
+            underlying,
+            ratios
+        );
         conversions = conversions.append(finalConversion);
         return conversions;
     }
 
-    function prepareConversions(address[] memory desiredERC20s, Asset[] memory desiredERC721s, uint[] memory ratios, uint totalAvailable) public view returns (Conversion[] memory conversions) {
+    function prepareConversions(
+        address[] memory desiredERC20s,
+        Asset[] memory desiredERC721s,
+        uint256[] memory ratios,
+        uint256 totalAvailable
+    ) public view returns (Conversion[] memory conversions) {
         ratios = ratios.scale(totalAvailable);
-        for (uint i = 0; i<desiredERC20s.length; i++) {
-            conversions = conversions.concat(_getConversionsERC20(desiredERC20s[i], ratios[i]));
+        for (uint256 i = 0; i < desiredERC20s.length; i++) {
+            conversions = conversions.concat(
+                _getConversionsERC20(desiredERC20s[i], ratios[i])
+            );
         }
-        for (uint i = 0; i<desiredERC721s.length; i++) {
-            conversions = conversions.concat(_getConversionsERC721(desiredERC721s[i], ratios[desiredERC20s.length+i]));
+        for (uint256 i = 0; i < desiredERC721s.length; i++) {
+            conversions = conversions.concat(
+                _getConversionsERC721(
+                    desiredERC721s[i],
+                    ratios[desiredERC20s.length + i]
+                )
+            );
         }
     }
 
-    function _simulateConversionERC20(Conversion memory conversion, address[] memory inputTokens, uint[] memory inputTokenAmounts) internal view returns (uint, uint[] memory) {
-        if ((conversion.underlying[0]==conversion.desiredERC20 && conversion.underlying.length==1) || conversion.desiredERC20==address(0)) {
-            uint idx = inputTokens.findFirst(conversion.underlying[0]);
-            uint balance = inputTokenAmounts[idx];
-            inputTokenAmounts[idx]-=balance*conversion.underlyingValues[0]/1e18;
-            return (balance*conversion.underlyingValues[0]/1e18, inputTokenAmounts);
+    function _simulateConversionERC20(
+        Conversion memory conversion,
+        address[] memory inputTokens,
+        uint256[] memory inputTokenAmounts
+    ) internal view returns (uint256, uint256[] memory) {
+        if (
+            (conversion.underlying[0] == conversion.desiredERC20 &&
+                conversion.underlying.length == 1) ||
+            conversion.desiredERC20 == address(0)
+        ) {
+            uint256 idx = inputTokens.findFirst(conversion.underlying[0]);
+            uint256 balance = inputTokenAmounts[idx];
+            inputTokenAmounts[idx] -=
+                (balance * conversion.underlyingValues[0]) /
+                1e18;
+            return (
+                (balance * conversion.underlyingValues[0]) / 1e18,
+                inputTokenAmounts
+            );
         } else {
-            uint[] memory amounts = new uint[](conversion.underlying.length);
-            for (uint i = 0; i<conversion.underlying.length; i++) {
-                uint idx = inputTokens.findFirst(conversion.underlying[i]);
-                uint balance = inputTokenAmounts[idx];
-                uint amountToUse = balance*conversion.underlyingValues[i]/1e18;
+            uint256[] memory amounts = new uint256[](
+                conversion.underlying.length
+            );
+            for (uint256 i = 0; i < conversion.underlying.length; i++) {
+                uint256 idx = inputTokens.findFirst(conversion.underlying[i]);
+                uint256 balance = inputTokenAmounts[idx];
+                uint256 amountToUse = (balance *
+                    conversion.underlyingValues[i]) / 1e18;
                 amounts[i] = amountToUse;
-                inputTokenAmounts[idx]-=amountToUse;
+                inputTokenAmounts[idx] -= amountToUse;
             }
             address poolInteractor = getProtocol(conversion.desiredERC20);
-            uint mintable = IPoolInteractor(poolInteractor).simulateMint(conversion.desiredERC20, conversion.underlying, amounts);
+            uint256 mintable = IPoolInteractor(poolInteractor).simulateMint(
+                conversion.desiredERC20,
+                conversion.underlying,
+                amounts
+            );
             return (mintable, inputTokenAmounts);
         }
     }
 
-    function _simulateConversionERC721(Conversion memory conversion, address[] memory inputTokens, uint[] memory inputTokenAmounts) internal view returns (uint, uint[] memory) {
-        uint[] memory amounts = new uint[](conversion.underlying.length);
-        for (uint j = 0; j<conversion.underlying.length; j++) {
-            uint idx = inputTokens.findFirst(conversion.underlying[j]);
-            uint balance = inputTokenAmounts[idx];
-            uint amountToUse = balance*conversion.underlyingValues[j]/1e18;
-            inputTokenAmounts[idx]-=amountToUse;
+    function _simulateConversionERC721(
+        Conversion memory conversion,
+        address[] memory inputTokens,
+        uint256[] memory inputTokenAmounts
+    ) internal view returns (uint256, uint256[] memory) {
+        uint256[] memory amounts = new uint256[](conversion.underlying.length);
+        for (uint256 j = 0; j < conversion.underlying.length; j++) {
+            uint256 idx = inputTokens.findFirst(conversion.underlying[j]);
+            uint256 balance = inputTokenAmounts[idx];
+            uint256 amountToUse = (balance * conversion.underlyingValues[j]) /
+                1e18;
+            inputTokenAmounts[idx] -= amountToUse;
             amounts[j] = amountToUse;
         }
         address poolInteractor = getProtocol(conversion.desiredERC721.manager);
-        uint liquidityMinted = INFTPoolInteractor(poolInteractor).simulateMint(conversion.desiredERC721, conversion.underlying, amounts);
+        uint256 liquidityMinted = INFTPoolInteractor(poolInteractor)
+            .simulateMint(
+                conversion.desiredERC721,
+                conversion.underlying,
+                amounts
+            );
         return (liquidityMinted, inputTokenAmounts);
     }
 
@@ -182,65 +276,118 @@ contract SwapHelper is Ownable {
         Conversion[] memory conversions,
         address[] memory outputTokens,
         address[] memory inputTokens,
-        uint[] memory inputAmounts
-    ) public view returns (uint[] memory amounts) {
-        amounts = new uint[](conversions.length);
-        uint amountsAdded;
-        for (uint i = 0; i<conversions.length; i++) {
-            if (conversions[i].desiredERC721.manager!=address(0)) {
-                (uint liquidity, uint[] memory newAmounts) = _simulateConversionERC721(conversions[i], inputTokens, inputAmounts);
+        uint256[] memory inputAmounts
+    ) public view returns (uint256[] memory amounts) {
+        amounts = new uint256[](conversions.length);
+        uint256 amountsAdded;
+        for (uint256 i = 0; i < conversions.length; i++) {
+            if (conversions[i].desiredERC721.manager != address(0)) {
+                (
+                    uint256 liquidity,
+                    uint256[] memory newAmounts
+                ) = _simulateConversionERC721(
+                        conversions[i],
+                        inputTokens,
+                        inputAmounts
+                    );
                 inputAmounts = newAmounts;
                 amounts[amountsAdded] = liquidity;
-                amountsAdded+=1;
+                amountsAdded += 1;
             } else {
-                (uint amountObtained, uint[] memory newAmounts) = _simulateConversionERC20(conversions[i], inputTokens, inputAmounts);
+                (
+                    uint256 amountObtained,
+                    uint256[] memory newAmounts
+                ) = _simulateConversionERC20(
+                        conversions[i],
+                        inputTokens,
+                        inputAmounts
+                    );
                 inputAmounts = newAmounts;
-                if (outputTokens.exists(conversions[i].desiredERC20) && conversions[i].underlying.length!=0) {
+                if (
+                    outputTokens.exists(conversions[i].desiredERC20) &&
+                    conversions[i].underlying.length != 0
+                ) {
                     amounts[amountsAdded] = amountObtained;
-                    amountsAdded+=1;
+                    amountsAdded += 1;
                 } else {
-                    inputTokens = inputTokens.append(conversions[i].desiredERC20);
+                    inputTokens = inputTokens.append(
+                        conversions[i].desiredERC20
+                    );
                     inputAmounts.append(amountObtained);
                 }
             }
         }
     }
 
-    function getUnderlyingERC20(address token) public view returns (address[] memory underlyingTokens, uint[] memory ratios) {
+    function getUnderlyingERC20(address token)
+        public
+        view
+        returns (address[] memory underlyingTokens, uint256[] memory ratios)
+    {
         if (isSimpleToken(token)) {
             underlyingTokens = new address[](1);
-            underlyingTokens[0] = token!=address(0)?token:networkToken;
-            ratios = new uint[](1);
+            underlyingTokens[0] = token != address(0) ? token : networkToken;
+            ratios = new uint256[](1);
             ratios[0] = 1;
         } else {
             address poolInteractor = getProtocol(token);
-            if (poolInteractor!=address(0)) {
-                IPoolInteractor poolInteractorContract = IPoolInteractor(poolInteractor);
-                (underlyingTokens, ratios) = poolInteractorContract.getUnderlyingTokens(token);
+            if (poolInteractor != address(0)) {
+                IPoolInteractor poolInteractorContract = IPoolInteractor(
+                    poolInteractor
+                );
+                (underlyingTokens, ratios) = poolInteractorContract
+                    .getUnderlyingTokens(token);
             } else {
                 revert("UT"); //Unsupported Token
             }
         }
     }
 
-    function getUnderlyingERC721(Asset memory nft) public view returns (address[] memory underlying, uint[] memory ratios) {
-        for (uint i = 0; i<nftPoolInteractors.length; i++) {
-            if (INFTPoolInteractor(nftPoolInteractors[i]).testSupported(nft.manager)) {
-                INFTPoolInteractor poolInteractor = INFTPoolInteractor(nftPoolInteractors[i]);
+    function getUnderlyingERC721(Asset memory nft)
+        public
+        view
+        returns (address[] memory underlying, uint256[] memory ratios)
+    {
+        for (uint256 i = 0; i < nftPoolInteractors.length; i++) {
+            if (
+                INFTPoolInteractor(nftPoolInteractors[i]).testSupported(
+                    nft.manager
+                )
+            ) {
+                INFTPoolInteractor poolInteractor = INFTPoolInteractor(
+                    nftPoolInteractors[i]
+                );
                 underlying = poolInteractor.getUnderlyingTokens(nft.pool);
-                ratios = new uint[](underlying.length);
-                (int24 tick0, int24 tick1,,) = abi.decode(nft.data, (int24, int24, uint, uint));
-                (uint ratio0, uint ratio1) = poolInteractor.getRatio(nft.pool, tick0, tick1);
+                ratios = new uint256[](underlying.length);
+                (int24 tick0, int24 tick1, , ) = abi.decode(
+                    nft.data,
+                    (int24, int24, uint256, uint256)
+                );
+                (uint256 ratio0, uint256 ratio1) = poolInteractor.getRatio(
+                    nft.pool,
+                    tick0,
+                    tick1
+                );
                 ratios[0] = ratio0;
                 ratios[1] = ratio1;
             }
         }
     }
 
-    function _simplifyWithoutWriteERC20(address[] memory tokens, uint[] memory amounts) internal view returns (address[] memory simplifiedTokens, uint[] memory simplifiedAmounts) {
-        for (uint i = 0; i<tokens.length; i++) {
+    function _simplifyWithoutWriteERC20(
+        address[] memory tokens,
+        uint256[] memory amounts
+    )
+        internal
+        view
+        returns (
+            address[] memory simplifiedTokens,
+            uint256[] memory simplifiedAmounts
+        )
+    {
+        for (uint256 i = 0; i < tokens.length; i++) {
             if (isSimpleToken(tokens[i])) {
-                if (tokens[i]!=address(0)) {
+                if (tokens[i] != address(0)) {
                     simplifiedTokens = simplifiedTokens.append(tokens[i]);
                 } else {
                     simplifiedTokens = simplifiedTokens.append(networkToken);
@@ -248,10 +395,21 @@ contract SwapHelper is Ownable {
                 simplifiedAmounts = simplifiedAmounts.append(amounts[i]);
                 continue;
             }
-            for (uint j = 0; j<poolInteractors.length; j++) {
-                if (IPoolInteractor(poolInteractors[j]).testSupported(tokens[i])) {
-                    (address[] memory brokenTokens, uint[] memory brokenAmounts) = IPoolInteractor(poolInteractors[j]).getUnderlyingAmount(tokens[i], amounts[i]);
-                    (address[] memory simpleTokens, uint[] memory simpleAmounts) = _simplifyWithoutWriteERC20(brokenTokens, brokenAmounts);
+            for (uint256 j = 0; j < poolInteractors.length; j++) {
+                if (
+                    IPoolInteractor(poolInteractors[j]).testSupported(tokens[i])
+                ) {
+                    (
+                        address[] memory brokenTokens,
+                        uint256[] memory brokenAmounts
+                    ) = IPoolInteractor(poolInteractors[j]).getUnderlyingAmount(
+                                tokens[i],
+                                amounts[i]
+                            );
+                    (
+                        address[] memory simpleTokens,
+                        uint256[] memory simpleAmounts
+                    ) = _simplifyWithoutWriteERC20(brokenTokens, brokenAmounts);
                     simplifiedTokens = simplifiedTokens.concat(simpleTokens);
                     simplifiedAmounts = simplifiedAmounts.concat(simpleAmounts);
                 }
@@ -259,11 +417,26 @@ contract SwapHelper is Ownable {
         }
     }
 
-    function _simplifyWithoutWriteERC721(Asset[] memory nfts) internal view returns (address[] memory simplifiedTokens, uint[] memory simplifiedAmounts) {
-        for (uint i = 0; i<nfts.length; i++) {
-            for (uint j = 0; j<nftPoolInteractors.length; j++) {
-                if (INFTPoolInteractor(nftPoolInteractors[j]).testSupported(nfts[i].manager)) {
-                    (address[] memory tokens, uint[] memory amounts) = INFTPoolInteractor(nftPoolInteractors[j]).getUnderlyingAmount(nfts[i]);
+    function _simplifyWithoutWriteERC721(Asset[] memory nfts)
+        internal
+        view
+        returns (
+            address[] memory simplifiedTokens,
+            uint256[] memory simplifiedAmounts
+        )
+    {
+        for (uint256 i = 0; i < nfts.length; i++) {
+            for (uint256 j = 0; j < nftPoolInteractors.length; j++) {
+                if (
+                    INFTPoolInteractor(nftPoolInteractors[j]).testSupported(
+                        nfts[i].manager
+                    )
+                ) {
+                    (
+                        address[] memory tokens,
+                        uint256[] memory amounts
+                    ) = INFTPoolInteractor(nftPoolInteractors[j])
+                            .getUnderlyingAmount(nfts[i]);
                     simplifiedTokens = simplifiedTokens.concat(tokens);
                     simplifiedAmounts = simplifiedAmounts.concat(amounts);
                 }
@@ -271,60 +444,145 @@ contract SwapHelper is Ownable {
         }
     }
 
-    function simplifyWithoutWrite(address[] memory tokens, uint[] memory amounts, Asset[] memory nfts) public view returns (address[] memory simplifiedTokens, uint[] memory simplifiedAmounts) {
-        (simplifiedTokens, simplifiedAmounts) = _simplifyWithoutWriteERC20(tokens, amounts);
-        (address[] memory simplifiedTokensERC721, uint[] memory simplifiedAmountsERC721) = _simplifyWithoutWriteERC721(nfts);
+    function simplifyWithoutWrite(
+        address[] memory tokens,
+        uint256[] memory amounts,
+        Asset[] memory nfts
+    )
+        public
+        view
+        returns (
+            address[] memory simplifiedTokens,
+            uint256[] memory simplifiedAmounts
+        )
+    {
+        (simplifiedTokens, simplifiedAmounts) = _simplifyWithoutWriteERC20(
+            tokens,
+            amounts
+        );
+        (
+            address[] memory simplifiedTokensERC721,
+            uint256[] memory simplifiedAmountsERC721
+        ) = _simplifyWithoutWriteERC721(nfts);
         simplifiedTokens = simplifiedTokens.concat(simplifiedTokensERC721);
         simplifiedAmounts = simplifiedAmounts.concat(simplifiedAmountsERC721);
-        (simplifiedTokens, simplifiedAmounts) = simplifiedTokens.shrink(simplifiedAmounts);
+        (simplifiedTokens, simplifiedAmounts) = simplifiedTokens.shrink(
+            simplifiedAmounts
+        );
     }
 
     function findMultipleSwaps(
         address[] memory inputTokens,
-        uint[] memory inputAmounts,
-        uint[] memory inputValues,
+        uint256[] memory inputAmounts,
+        uint256[] memory inputValues,
         address[] memory outputTokens,
-        uint[] memory outputValues
+        uint256[] memory outputValues
     ) public view returns (SwapPoint[] memory bestSwaps) {
-        bestSwaps = new SwapPoint[](inputTokens.length*outputTokens.length);
-        for (uint i = 0; i<inputTokens.length; i++) {
-            for (uint j = 0; j<outputTokens.length; j++) {
-                bestSwaps[(i*outputTokens.length)+j] = _findBestRoute(FindSwapsBetween(inputTokens[i], outputTokens[j], outputValues[j], inputAmounts[i], inputValues[i]));
+        bestSwaps = new SwapPoint[](inputTokens.length * outputTokens.length);
+        for (uint256 i = 0; i < inputTokens.length; i++) {
+            for (uint256 j = 0; j < outputTokens.length; j++) {
+                bestSwaps[(i * outputTokens.length) + j] = _findBestRoute(
+                    FindSwapsBetween(
+                        inputTokens[i],
+                        outputTokens[j],
+                        outputValues[j],
+                        inputAmounts[i],
+                        inputValues[i]
+                    )
+                );
             }
         }
         bestSwaps = bestSwaps.sort();
-        bestSwaps = bestSwaps.findBestSwaps(inputTokens, inputValues, inputAmounts, outputTokens, outputValues);
+        bestSwaps = bestSwaps.findBestSwaps(
+            inputTokens,
+            inputValues,
+            inputAmounts,
+            outputTokens,
+            outputValues
+        );
     }
 
-    function _findBestRoute(FindSwapsBetween memory swapsBetween) internal view returns (SwapPoint memory swapPoint) {
-        uint amountIn = swapsBetween.valueNeeded>swapsBetween.valueInAvailable?swapsBetween.amountInAvailable:swapsBetween.valueNeeded*swapsBetween.amountInAvailable/swapsBetween.valueInAvailable;
-        uint valueIn = amountIn*swapsBetween.valueInAvailable/swapsBetween.amountInAvailable;
+    function _findBestRoute(FindSwapsBetween memory swapsBetween)
+        internal
+        view
+        returns (SwapPoint memory swapPoint)
+    {
+        uint256 amountIn = swapsBetween.valueNeeded >
+            swapsBetween.valueInAvailable
+            ? swapsBetween.amountInAvailable
+            : (swapsBetween.valueNeeded * swapsBetween.amountInAvailable) /
+                swapsBetween.valueInAvailable;
+        uint256 valueIn = (amountIn * swapsBetween.valueInAvailable) /
+            swapsBetween.amountInAvailable;
         SwapPoint memory bestSingleSwap;
-        uint maxAmountOut;
-        uint tokenWorth = oracle.getPrice(swapsBetween.tokenOut, networkToken);
-        if (swapsBetween.tokenIn==swapsBetween.tokenOut) {
+        uint256 maxAmountOut;
+        uint256 tokenWorth = oracle.getPrice(
+            swapsBetween.tokenOut,
+            networkToken
+        );
+        if (swapsBetween.tokenIn == swapsBetween.tokenOut) {
             address[] memory path;
-            return SwapPoint(amountIn, valueIn, amountIn, valueIn, 0, swapsBetween.tokenIn, swappers[0], swapsBetween.tokenOut, path);
+            return
+                SwapPoint(
+                    amountIn,
+                    valueIn,
+                    amountIn,
+                    valueIn,
+                    0,
+                    swapsBetween.tokenIn,
+                    swappers[0],
+                    swapsBetween.tokenOut,
+                    path
+                );
         }
-        for (uint i = 0; i<swappers.length; i++) {
-            (uint amountOut, address[] memory path) = ISwapper(swappers[i]).getAmountOut(swapsBetween.tokenIn, amountIn, swapsBetween.tokenOut);
-            if (amountOut>maxAmountOut) {
+        for (uint256 i = 0; i < swappers.length; i++) {
+            (uint256 amountOut, address[] memory path) = ISwapper(swappers[i])
+                .getAmountOut(
+                    swapsBetween.tokenIn,
+                    amountIn,
+                    swapsBetween.tokenOut
+                );
+            if (amountOut > maxAmountOut) {
                 maxAmountOut = amountOut;
-                uint valueOut = tokenWorth*amountOut/uint(10)**ERC20(swapsBetween.tokenOut).decimals();
-                int slippage = (1e12*(int(valueIn)-int(valueOut)))/int(valueIn);
-                bestSingleSwap = SwapPoint(amountIn, valueIn, amountOut, valueOut, slippage, swapsBetween.tokenIn, swappers[i], swapsBetween.tokenOut, path);
+                uint256 valueOut = (tokenWorth * amountOut) /
+                    uint256(10)**ERC20(swapsBetween.tokenOut).decimals();
+                int256 slippage = (1e12 *
+                    (int256(valueIn) - int256(valueOut))) / int256(valueIn);
+                bestSingleSwap = SwapPoint(
+                    amountIn,
+                    valueIn,
+                    amountOut,
+                    valueOut,
+                    slippage,
+                    swapsBetween.tokenIn,
+                    swappers[i],
+                    swapsBetween.tokenOut,
+                    path
+                );
             }
         }
         return bestSingleSwap;
     }
 
-    function simulateSwaps(SwapPoint[] memory swaps, address[] memory tokens, uint[] memory amounts) public view returns (address[] memory tokensOut, uint[] memory amountsOut) {
+    function simulateSwaps(
+        SwapPoint[] memory swaps,
+        address[] memory tokens,
+        uint256[] memory amounts
+    )
+        public
+        view
+        returns (address[] memory tokensOut, uint256[] memory amountsOut)
+    {
         tokensOut = new address[](swaps.length);
-        amountsOut = new uint[](swaps.length);
-        for (uint i = 0; i<swaps.length; i++) {
-            uint amount = swaps[i].amountIn*amounts[tokens.findFirst(swaps[i].tokenIn)]/1e18;
+        amountsOut = new uint256[](swaps.length);
+        for (uint256 i = 0; i < swaps.length; i++) {
+            uint256 amount = (swaps[i].amountIn *
+                amounts[tokens.findFirst(swaps[i].tokenIn)]) / 1e18;
             tokensOut[i] = swaps[i].tokenOut;
-            amountsOut[i] = ISwapper(swaps[i].swapper).getAmountOutWithPath(amount, swaps[i].path);
+            amountsOut[i] = ISwapper(swaps[i].swapper).getAmountOutWithPath(
+                amount,
+                swaps[i].path
+            );
         }
     }
 }

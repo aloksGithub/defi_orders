@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.9;
 
 import "./IUniversalSwap.sol";
@@ -24,7 +24,7 @@ struct LiquidationCondition {
 /// @param liquidationPoints A list of conditions, where if any is not met, the position will be liquidated
 struct Position {
     address user;
-    uint bankId;
+    address bank;
     uint bankToken;
     uint amount;
     LiquidationCondition[] liquidationPoints;
@@ -60,16 +60,12 @@ struct PositionData {
 interface IPositionsManager {
 
     event KeeperUpdate(address keeper, bool active);
-    event BankAdded(address bank, uint bankId);
-    event BankUpdated(address newBankAddress, address oldBankAddress, uint bankId);
-    event Deposit(uint positionId, uint bankId, uint bankToken, address user, uint amount, LiquidationCondition[] liquidationPoints);
+    event Deposit(uint positionId, address bank, uint bankToken, address user, uint amount, LiquidationCondition[] liquidationPoints);
     event IncreasePosition(uint positionId, uint amount);
     event Withdraw(uint positionId, uint amount);
     event PositionClose(uint positionId);
-    event LiquidationPointsUpdate(uint positionId, LiquidationCondition[] liquidationPoints);
     event Harvest(uint positionId, address[] rewards, uint[] rewardAmounts);
     event HarvestRecompound(uint positionId, uint lpTokens);
-    event FeeClaimed(uint positionId, uint usdcClaimed);
 
     /// @notice Returns the address of the wrapped network token
     function networkToken() external view returns (address networkToken);
@@ -85,8 +81,11 @@ interface IPositionsManager {
     function getPositionInteractions(uint positionId) external view returns (PositionInteraction[] memory interactions);
 
     /// @notice Returns number of banks
-    /// @return positions Number of banks
-    function numBanks() external view returns (uint positions);
+    /// @return banks Addresses of banks
+    function getBanks() external view returns (address payable[] memory banks);
+
+    /// @notice Returns a list of position ids for the user
+    function getPositions(address user) external view returns (uint[] memory userPositions);
 
     /// @notice Set the address for the EOA that can be used to trigger liquidations
     function setKeeper(address keeperAddress, bool active) external;
@@ -98,11 +97,6 @@ interface IPositionsManager {
     /// @param bank Address of new bank
     function addBank(address bank) external;
 
-    /// @notice Change the address of a bank
-    /// @param bankId ID of bank being updated
-    /// @param newBankAddress New bank address
-    function migrateBank(uint bankId, address newBankAddress) external;
-
     /// @notice Get a position
     /// @param positionId position ID
     /// @return data Position details
@@ -112,9 +106,8 @@ interface IPositionsManager {
     /// @dev bankToken for ERC721 banks is not supported and will always be 0
     /// @param token The token for which to get supported banks
     /// @return banks List of banks that support the token
-    /// @return bankNames Names of recommended banks
     /// @return bankTokens token IDs corresponding to the provided token for each of the banks
-    function recommendBank(address token) external view returns (uint[] memory banks, string[] memory bankNames, uint[] memory bankTokens);
+    function recommendBank(address token) external view returns (address[] memory banks, uint[] memory bankTokens);
 
     /// @notice Change the liquidation conditions for a position
     /// @param positionId position ID
@@ -153,11 +146,11 @@ interface IPositionsManager {
     /// @return value Value of the position in terms of inTermsOf
     function estimateValue(uint positionId, address inTermsOf) external view returns (uint value);
 
-    /// @notice Get the underlying tokens and amounts for a position
-    function getPositionTokens(uint positionId) external view returns (address[] memory tokens, uint[] memory amounts);
+    /// @notice Get the underlying tokens, amounts and corresponding usd values for a position
+    function getPositionTokens(uint positionId) external view returns (address[] memory tokens, uint[] memory amounts, uint256[] memory values);
 
-    /// @notice Get the rewards and rewad amounts that have been generated for a position
-    function getPositionRewards(uint positionId) external view returns (address[] memory tokens, uint[] memory amounts);
+    /// @notice Get the rewards, rewad amounts and corresponding usd values that have been generated for a position
+    function getPositionRewards(uint positionId) external view returns (address[] memory tokens, uint[] memory amounts, uint256[] memory rewardValues);
 
     /// @notice Harvest and receive the rewards for a position
     /// @param positionId Position ID

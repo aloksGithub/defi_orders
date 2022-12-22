@@ -1,0 +1,53 @@
+[
+    
+  {
+    "contract_name": "BNB",
+    "contract_ticker_symbol": "BNB",
+    "contract_address": "0x0000000000000000000000000000000000000000",
+    "contract_decimals": 18,
+    "underlying": [],
+    "protocol_name": "ERC20",
+    "chain_id": 56,
+    "logo_url": "https://seeklogo.com/images/B/binance-coin-bnb-logo-CD94CC6D31-seeklogo.com.png?v=637697418070000000"
+  },
+  {
+    "contract_name": "WBNB",
+    "contract_address": "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
+    "contract_ticker_symbol": "WBNB",
+    "contract_decimals": "18",
+    "underlying": [],
+    "logo_url": "https://logos.covalenthq.com/tokens/56/0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c.png",
+    "protocol_name": "ERC20",
+    "chain_id": 56
+  },
+  {
+    "contract_name": "USDT",
+    "contract_address": "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd",
+    "contract_ticker_symbol": "USDT",
+    "contract_decimals": "18",
+    "underlying": [],
+    "logo_url": "https://logos.covalenthq.com/tokens/56/0x55d398326f99059ff775485246999027b3197955.png",
+    "protocol_name": "ERC20",
+    "chain_id": 56
+  },
+  {
+    "contract_name": "BUSD",
+    "contract_address": "0xeD24FC36d5Ee211Ea25A80239Fb8C4Cfd80f12Ee",
+    "contract_ticker_symbol": "BUSD",
+    "contract_decimals": "18",
+    "underlying": [],
+    "logo_url": "https://logos.covalenthq.com/tokens/56/0xe9e7cea3dedca5984780bafc599bd69add087d56.png",
+    "protocol_name": "ERC20",
+    "chain_id": 56
+  },
+  {
+    "contract_name": "USDC",
+    "contract_address": "0x64544969ed7EBf5f083679233325356EbE738930",
+    "contract_ticker_symbol": "USDC",
+    "contract_decimals": "18",
+    "underlying": [],
+    "logo_url": "https://logos.covalenthq.com/tokens/56/0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d.png",
+    "protocol_name": "ERC20",
+    "chain_id": 56
+  }
+]

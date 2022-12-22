@@ -9,6 +9,7 @@ require('hardhat-contract-sizer');
 require('solidity-coverage')
 require('@typechain/hardhat')
 require('@nomiclabs/hardhat-ethers')
+import "solidity-coverage"
 import { ethers } from "ethers";
 
 const rpcs = {
@@ -30,7 +31,7 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 10000,
+            runs: 500,
           },
         },
       },
@@ -49,13 +50,13 @@ const config: HardhatUserConfig = {
       },
       chainId: 1337,
         // @ts-ignore
-      // gasPrice: approximateGasPrices[process.env.CURRENTLY_FORKING!]
+      gasPrice: approximateGasPrices[process.env.CURRENTLY_FORKING!]
     },
     localhost: {
       url: "http://127.0.0.1:8545/",
       timeout: 100000000,
       // @ts-ignore
-    // gasPrice: approximateGasPrices[process.env.CURRENTLY_FORKING!]
+      gasPrice: approximateGasPrices[process.env.CURRENTLY_FORKING!]
     },
     bsc: {
       url: process.env.BSC_RPC!,

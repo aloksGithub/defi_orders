@@ -309,7 +309,17 @@ export const getUniversalSwap = async (verify:boolean=false, log:boolean=false) 
     await hre.run("verify:verify", {
       address: universalSwap.address,
       // @ts-ignore
-      constructorArguments: [poolInteractors, nftInteractors, addresses[network].networkToken, addresses[network].preferredStable, swappers2, oracle.address, addresses[network].commonPoolTokens],
+      constructorArguments: [poolInteractors, nftInteractors, addresses[network].networkToken, addresses[network].preferredStable, swappers2, oracle.address],
+      network
+    })
+    } catch (e) {
+      console.log(e)
+    }
+    try {
+    await hre.run("verify:verify", {
+      address: await universalSwap.helper(),
+      // @ts-ignore
+      constructorArguments: [poolInteractors, nftInteractors, addresses[network].networkToken, swappers2, oracle.address],
       network
     })
     } catch (e) {
@@ -335,6 +345,16 @@ const deployPositionsManager = async (verify:boolean=false, log:boolean=false) =
       address: positionsManager.address,
       // @ts-ignore
       constructorArguments: [universalSwap.address, addresses[network].usdc],
+      network
+    })
+    } catch (e) {
+      console.log(e)
+    }
+    try {
+    await hre.run("verify:verify", {
+      address: await positionsManager.helper(),
+      // @ts-ignore
+      constructorArguments: [],
       network
     })
     } catch (e) {
@@ -558,18 +578,17 @@ export const getLPToken = async (lpToken: string, universalSwap: UniversalSwap, 
 
 export const depositNew = async (manager:PositionsManager, lpToken: string, amount:string, liquidationPoints: any[], owner:any) => {
   const lpTokenContract = await ethers.getContractAt("ERC20", lpToken)
-  const [bankIds, bankNames, tokenIds] = await manager.recommendBank(lpToken)
-  const bankId = bankIds.slice(-1)[0]
+  const [banks, tokenIds] = await manager.recommendBank(lpToken)
+  const bankAddress = banks.slice(-1)[0]
   const tokenId = tokenIds.slice(-1)[0]
   await lpTokenContract.connect(owner).approve(manager.address, amount)
   const numPositions = await manager.numPositions()
-  const bankAddress = await manager.banks(bankId)
   const bank = await ethers.getContractAt("BankBase", bankAddress)
   const rewards = await bank.getRewards(tokenId)
   const rewardContracts = await Promise.all(rewards.map(async (r:any)=> await ethers.getContractAt("ERC20", r)))
   const position = {
     user: owner.address,
-    bankId,
+    bank: bankAddress,
     bankToken: tokenId,
     amount,
     liquidationPoints
@@ -620,19 +639,18 @@ export const getNFT = async (universalSwap:UniversalSwap, etherAmount:string, ma
 }
 
 export const depositNewNFT = async (manager:PositionsManager, nftManager:string, id:string, liquidationPoints: any[], owner:any) => {
-  const [bankIds] = await manager.recommendBank(nftManager)
-  const bankId = bankIds.slice(-1)[0]
+  const [banks] = await manager.recommendBank(nftManager)
+  const bankAddress = banks.slice(-1)[0]
   const managerContract = await ethers.getContractAt("IERC721", nftManager)
   await managerContract.connect(owner).approve(manager.address, id)
   const numPositions = await manager.numPositions()
-  const bankAddress = await manager.banks(bankId)
   const bank = await ethers.getContractAt("ERC721Bank", bankAddress)
   const bankToken = await bank.encodeId(id, nftManager)
   const rewards = await bank.getRewards(bankToken)
   const rewardContracts = await Promise.all(rewards.map(async (r:any)=> await ethers.getContractAt("ERC20", r)))
   const position = {
     user: owner.address,
-    bankId,
+    bank: bankAddress,
     bankToken,
     amount:0,
     liquidationPoints

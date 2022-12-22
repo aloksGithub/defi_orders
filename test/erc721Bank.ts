@@ -63,7 +63,7 @@ describe("ERC721Bank tests", function () {
     // })
     it("Creates, harvests, recompounds and liquidates nft position", async function () {
         const checkRewards = async (user:any, positionId:any) => {
-            const {rewards, rewardAmounts} = await manager.connect(user).callStatic.harvestRewards(positionId)
+            const [rewards, rewardAmounts] = await manager.connect(user).callStatic.harvestRewards(positionId)
             const {rewards:rewardsComputed, rewardAmounts:rewardAmountsComputed} = await manager.getPositionRewards(positionId)
             await manager.connect(user).harvestRewards(positionId)
             for (let i = 0; i<rewards.length; i++) {

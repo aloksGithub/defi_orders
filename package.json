@@ -4,11 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "yarn run hardhat test",
+    "compile": "yarn run hardhat compile",
+    "size": "yarn run hardhat size-contracts"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Alok",
+  "license": "BUSL-1.1",
   "devDependencies": {
     "@nomicfoundation/hardhat-network-helpers": "^1.0.6",
     "@nomicfoundation/hardhat-toolbox": "^1.0.2",
@@ -23,7 +25,7 @@
     "@types/node": "^18.0.6",
     "chai": "^4.3.6",
     "ethers": "^5.7.1",
-    "hardhat": "^2.10.1",
+    "hardhat": "^2.12.4",
     "hardhat-contract-sizer": "^2.6.1",
     "solidity-coverage": "^0.8.2",
     "ts-node": "^10.9.1",

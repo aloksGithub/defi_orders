@@ -17,7 +17,7 @@ const liquidationPoints = [{
     slippage: ethers.utils.parseUnits("1", 17)
   }]
 
-describe.only("ERC20Bank tests", function () {
+describe("ERC20Bank tests", function () {
     let manager: PositionsManager
     let owners: any[]
     let networkTokenContract: IWETH
@@ -122,7 +122,7 @@ describe.only("ERC20Bank tests", function () {
                 }],
                 owners[0]
             )
-            await expect(manager.connect(owners[0]).botLiquidate(positionId, 0, [], [])).to.be.revertedWith("Slippage")
+            await expect(manager.connect(owners[0]).botLiquidate(positionId, 0, [], [])).to.be.revertedWith("3")
         }
         const lpTokens = networkAddresses.erc20BankLps
         for (const lpToken of lpTokens) {

@@ -1,4 +1,4 @@
-import { ethers } from "hardhat";
+import { ethers, network } from "hardhat";
 import {deployAndInitializeManager} from '../utils'
 import hre from 'hardhat'
 require('dotenv').config();
@@ -9,7 +9,7 @@ async function main() {
   const owners = await ethers.getSigners()
   const adminBalanceBegin = await owners[0].getBalance()
   console.log(`Deploying contracts to ${hre.network.name}`)
-  const positionsManager = await deployAndInitializeManager(false, true)
+  const positionsManager = await deployAndInitializeManager(network.name!='localhost', true)
   const universalSwap = await positionsManager.universalSwap()
   const deploymentAddresses = {
     positionsManager: positionsManager.address,

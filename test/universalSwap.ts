@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { BigNumber } from "ethers";
 import { ethers } from "hardhat";
-import { IWETH, UniversalSwap, INonfungiblePositionManager } from "../typechain-types";
+import { IWETH, UniversalSwap, INonfungiblePositionManager, IERC20 } from "../typechain-types";
 import { ProvidedStruct } from "../typechain-types/contracts/PositionsManager";
 import { DesiredStruct } from "../typechain-types/contracts/UniversalSwap";
 import { getUniversalSwap, addresses, getNetworkToken, getNFT, isRoughlyEqual, getNearestUsableTick } from "../utils"
@@ -25,7 +25,7 @@ const compareComputedWithActual = async (computed: any[], actual: any[], manager
 describe("UniversalSwap tests", function () {
     let universalSwap: UniversalSwap
     let owners: any[]
-    let networkTokenContract: IWETH
+    let networkTokenContract: IERC20
 
     const performMultiSwap = async (provided:ProvidedStruct, desired:DesiredStruct, ether:number=0) => {
         const addressZeroIndex = provided.tokens.findIndex(token=>token===ethers.constants.AddressZero)
