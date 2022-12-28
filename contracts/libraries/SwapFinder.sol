@@ -2,6 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "./AddressArray.sol";
+import "hardhat/console.sol";
 
 struct SwapPoint {
     uint256 amountIn;
@@ -10,9 +11,9 @@ struct SwapPoint {
     uint256 valueOut;
     int256 slippage;
     address tokenIn;
-    address swapper;
+    address[] swappers;
     address tokenOut;
-    address[] path;
+    address[][] paths;
 }
 
 library SwapFinder {
@@ -30,11 +31,21 @@ library SwapFinder {
             for (uint256 j = 0; j < self.length; j++) {
                 if (self[j].slippage < minSlippage) {
                     minSlippageIndex = j;
+                    minSlippage = self[j].slippage;
                 }
             }
             sorted[i] = self[minSlippageIndex];
             self[minSlippageIndex].slippage = 2**128 - 1;
         }
+    }
+
+    function append(SwapPoint[] memory self, SwapPoint memory swap) internal pure returns (SwapPoint[] memory newSwaps) {
+        newSwaps = new SwapPoint[](self.length+1);
+        for (uint i = 0; i<self.length; i++) {
+            newSwaps[i] = self[i];
+        }
+        newSwaps[self.length] = swap;
+        return newSwaps;
     }
 
     struct StackMinimizingStruct {
@@ -79,29 +90,17 @@ library SwapFinder {
             ) {
                 uint256 valueInAdjusted;
                 {
-                    uint256 moreValueInAvailable = valuesToConvert[
-                        data.toConvertIndex
-                    ] - data2.valuesUsed[data.toConvertIndex];
-                    uint256 moreValueOutNeeded = wantedValues[
-                        data.convertToIndex
-                    ] - data2.valuesProvided[data.convertToIndex];
-                    valueInAdjusted = moreValueInAvailable >= data.valueIn
-                        ? data.valueIn
-                        : moreValueInAvailable;
+                    uint256 moreValueInAvailable = valuesToConvert[data.toConvertIndex] - data2.valuesUsed[data.toConvertIndex];
+                    uint256 moreValueOutNeeded = wantedValues[data.convertToIndex] - data2.valuesProvided[data.convertToIndex];
+                    valueInAdjusted = moreValueInAvailable >= data.valueIn? data.valueIn: moreValueInAvailable;
                     if (valueInAdjusted > moreValueOutNeeded) {
                         valueInAdjusted = moreValueOutNeeded;
                     }
                 }
-                self[i].amountIn =
-                    (valueInAdjusted * amountsToConvert[data.toConvertIndex]) /
-                    valuesToConvert[data.toConvertIndex];
+                self[i].amountIn = (valueInAdjusted * amountsToConvert[data.toConvertIndex]) / valuesToConvert[data.toConvertIndex];
                 self[i].valueIn = valueInAdjusted;
-                self[i].valueOut =
-                    (valueInAdjusted * self[i].valueOut) /
-                    self[i].valueIn;
-                self[i].amountOut =
-                    (valueInAdjusted * self[i].amountOut) /
-                    self[i].valueIn;
+                self[i].valueOut = (valueInAdjusted * self[i].valueOut) / self[i].valueIn;
+                self[i].amountOut = (valueInAdjusted * self[i].amountOut) / self[i].valueIn;
                 bestSwaps[data2.swapsAdded] = self[i];
                 data2.swapsAdded += 1;
                 data2.valuesUsed[data.toConvertIndex] += valueInAdjusted;
@@ -123,11 +122,32 @@ library SwapFinder {
                 swapsAdded += 1;
             }
         }
-        for (uint256 i = 0; i < self.length; i++) {
-            self[i].amountIn =
-                (1e18 * self[i].amountIn) /
-                amountsToConvert[toConvert.findFirst(self[i].tokenIn)];
+        for (uint256 i = 0; i < swaps.length; i++) {
+            swaps[i].amountIn =
+                (1e18 * swaps[i].amountIn) /
+                amountsToConvert[toConvert.findFirst(swaps[i].tokenIn)];
         }
         return swaps;
+    }
+
+    function log(SwapPoint memory self) internal view {
+        console.log("Swapping ", self.tokenIn, " for ", self.tokenOut);
+        console.log("Amount in: ", self.amountIn, " Value in: ", self.valueIn);
+        console.log("Amount out: ", self.amountOut, " Value out: ", self.valueOut);
+        console.log("Swappers used:");
+        for (uint i = 0; i<self.swappers.length; i++) {
+            console.log(self.swappers[i]);
+            console.log("Path used:");
+            for (uint j = 0; j<self.paths[i].length; j++) {
+                console.log(self.paths[i][j]);
+            }
+            console.log("___________________");
+        }
+    }
+
+    function log(SwapPoint[] memory self) internal view {
+        for (uint i = 0; i<self.length; i++) {
+            log(self[i]);
+        }
     }
 }

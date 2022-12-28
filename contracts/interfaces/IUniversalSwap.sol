@@ -4,24 +4,23 @@ pragma solidity ^0.8.9;
 import "./INFTPoolInteractor.sol";
 import "../libraries/SwapFinder.sol";
 import "../libraries/Conversions.sol";
-    
+
 struct Desired {
     address[] outputERC20s;
     Asset[] outputERC721s;
-    uint[] ratios;
-    uint[] minAmountsOut;
+    uint256[] ratios;
+    uint256[] minAmountsOut;
 }
 
 struct Provided {
     address[] tokens;
-    uint[] amounts;
+    uint256[] amounts;
     Asset[] nfts;
 }
 
 /// @title Interface for UniversalSwap utility
 /// @notice UniversalSwap allows trading between pool tokens and tokens tradeable on DEXes
 interface IUniversalSwap {
-
     /// @notice Returns the address of the wrapped network token contract such as WETH, WBNB, etc.
     function networkToken() external view returns (address tokenAddress);
 
@@ -34,27 +33,68 @@ interface IUniversalSwap {
     /// @param assets ERC20 or ERC721 assets for whom the value needs to be estimated
     /// @param inTermsOf Token whose value equivalent value to the provided tokens needs to be returned
     /// @return value The amount of inTermsOf that is equal in value to the provided tokens
-    function estimateValue(Provided memory assets, address inTermsOf) external view returns (uint value);
+    function estimateValue(Provided memory assets, address inTermsOf)
+        external
+        view
+        returns (uint256 value);
 
     /// @notice Estimates the value of a single ERC20 token in terms of another ERC20 token
-    function estimateValueERC20(address token, uint amount, address inTermsOf) external view returns (uint value);
+    function estimateValueERC20(
+        address token,
+        uint256 amount,
+        address inTermsOf
+    ) external view returns (uint256 value);
 
     /// @notice Estimates the value of an ECR721 token in terms of an ERC20 token
-    function estimateValueERC721(Asset memory nft, address inTermsOf) external view returns (uint value);
+    function estimateValueERC721(Asset memory nft, address inTermsOf)
+        external
+        view
+        returns (uint256 value);
 
     /// @notice Find the underlying tokens and amounts for some complex tokens
-    function getUnderlying(address[] memory tokens, uint[] memory amounts) external view returns (address[] memory underlyingTokens, uint[] memory underlyingAmounts);
+    function getUnderlying(
+        Provided memory provided
+    )
+        external
+        view
+        returns (
+            address[] memory underlyingTokens,
+            uint256[] memory underlyingAmounts
+        );
+
+    /// @notice Calculate the underlying tokens, amount and values for provided assets in a swap, as well
+    /// as the conversions needed to obtain desired assets along with the conversion underlying and the value that needs to be allocated to each underlying
+    /// @param provided List of provided ERC20/ERC721 assets provided to convert into the desired assets
+    /// @param desired Assets to convert provided assets into
+    /// @return tokens Tokens that can be obtained by breaking down complex assets in provided
+    /// @return amounts Amounts of tokens that will be obtained from breaking down provided assetts
+    /// @return values Worth of the amounts of tokens, in terms of usd or network token (not relevant which for purpose of swapping)
+    /// @return conversions Data structures representing the conversions that need to take place from simple assets to complex assets to obtain the desired assets
+    /// @return conversionUnderlying The simplest tokens needed in order to perform the previously mentioned conversions
+    /// @return conversionUnderlyingValues The values in terms of usd or network token that need to be allocated to each of the underlying tokens in order to perform the conversions
+    function preSwapCalculateUnderlying(Provided memory provided, Desired memory desired)
+    external
+    view
+    returns (
+        address[] memory tokens,
+        uint256[] memory amounts,
+        uint256[] memory values,
+        Conversion[] memory conversions,
+        address[] memory conversionUnderlying,
+        uint256[] memory conversionUnderlyingValues
+    );
 
     /// @notice Calculates the swaps and conversions that need to be performed prior to calling swap/swapAfterTransfer
     /// @notice It is recommended to use this function and provide the return values to swap/swapAfterTransfer as that greatly reduces gas consumption
-    /// @param provided List of provided ERC20/ERC721 assets provided to convert into the desired assets
-    /// @param desired Assets to convert provided assets into
     /// @return swaps Swaps that need to be performed with the provided assets
     /// @return conversions List of conversions from simple ERC20 tokens to complex assets such as LP tokens, Uniswap v3 positions, etc
-    function preSwapComputation(
+    function preSwapCalculateSwaps(
         Provided memory provided,
         Desired memory desired
-    ) external view returns (SwapPoint[] memory swaps, Conversion[] memory conversions);
+    )
+        external
+        view
+        returns (SwapPoint[] memory swaps, Conversion[] memory conversions);
 
     /// @notice Swap provided assets into desired assets
     /// @dev Before calling, make sure UniversalSwap contract has approvals to transfer provided assets
@@ -71,7 +111,7 @@ interface IUniversalSwap {
         Conversion[] memory conversions,
         Desired memory desired,
         address receiver
-    ) payable external returns (uint[] memory amountsAndIds);
+    ) external payable returns (uint256[] memory amountsAndIds);
 
     /// @notice Functions just like swap, but assets are transferred to universal swap contract before calling this function rather than using approval
     /// @notice Implemented as a way to save gas by eliminating needless transfers
@@ -88,5 +128,29 @@ interface IUniversalSwap {
         Conversion[] memory conversions,
         Desired memory desired,
         address receiver
-    ) payable external returns (uint[] memory amountsAndIds);
+    ) external payable returns (uint256[] memory amountsAndIds);
+
+    /// @notice Performs the pre swap computation and calculates the approximate amounts and corresponding usd values that can be expected from the swap
+    /// @return amounts Amounts of the desired assets that can be expected to be received during the actual swap
+    /// @return swaps Swaps that need to be performed with the provided assets
+    /// @return conversions List of conversions from simple ERC20 tokens to complex assets such as LP tokens, Uniswap v3 positions, etc
+    /// @return expectedUSDValues Expected usd values for the assets that can be expected from the swap
+    function getAmountsOut(Provided memory provided, Desired memory desired)
+        external
+        view
+        returns (
+            uint256[] memory amounts,
+            SwapPoint[] memory swaps,
+            Conversion[] memory conversions,
+            uint256[] memory expectedUSDValues
+        );
+
+    /// @notice The pre swap computations can be performed off-chain much faster, hence this function was created as a faster alternative to getAmountsOut
+    /// @notice Calculates the expected amounts and usd values from a swap given the pre swap calculations
+    function getAmountsOutWithSwaps(
+        Provided memory provided,
+        Desired memory desired,
+        SwapPoint[] memory swaps,
+        Conversion[] memory conversions
+    ) external view returns (uint[] memory amounts, uint[] memory expectedUSDValues);
 }

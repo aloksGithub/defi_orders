@@ -16,6 +16,7 @@ contract ManagerHelper {
     using UintArray for uint256[];
 
     function estimateValue(
+        uint positionId,
         Position memory position,
         address universalSwap,
         address inTermsOf
@@ -24,13 +25,7 @@ contract ManagerHelper {
         (
             address[] memory underlyingTokens,
             uint256[] memory underlyingAmounts
-        ) = bank.getPositionTokens(position.bankToken, position.user);
-        if (
-            underlyingAmounts.length == 1 &&
-            underlyingAmounts[0] > position.amount
-        ) {
-            underlyingAmounts[0] = position.amount;
-        }
+        ) = bank.getPositionTokens(position.bankToken, address(uint160(positionId)));
         (address[] memory rewardTokens, uint256[] memory rewardAmounts) = bank
             .getPendingRewardsForUser(position.bankToken, position.user);
         Provided memory assets = Provided(
@@ -42,6 +37,7 @@ contract ManagerHelper {
     }
 
     function checkLiquidate(
+        uint positionId,
         Position memory position,
         address universalSwap,
         address stableToken
@@ -54,6 +50,7 @@ contract ManagerHelper {
             uint256 currentPrice;
             if (token == address(0)) {
                 currentPrice = estimateValue(
+                    positionId,
                     position,
                     universalSwap,
                     stableToken
@@ -89,6 +86,7 @@ contract ManagerHelper {
     }
 
     function getPositionTokens(
+        uint positionId,
         Position memory position,
         address universalSwap,
         address stableToken
@@ -104,11 +102,14 @@ contract ManagerHelper {
         BankBase bank = BankBase(payable(position.bank));
         (tokens, amounts) = bank.getPositionTokens(
             position.bankToken,
-            position.user
+            address(uint160(positionId))
         );
         (tokens, amounts) = IUniversalSwap(universalSwap).getUnderlying(
-            tokens,
-            amounts
+            Provided(
+                tokens,
+                amounts,
+                new Asset[](0)
+            )
         );
         values = new uint256[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
@@ -129,6 +130,7 @@ contract ManagerHelper {
     }
 
     function getPositionRewards(
+        uint positionId,
         Position memory position,
         address universalSwap,
         address stableToken
@@ -144,7 +146,7 @@ contract ManagerHelper {
         BankBase bank = BankBase(payable(position.bank));
         (rewards, rewardAmounts) = bank.getPendingRewardsForUser(
             position.bankToken,
-            position.user
+            address(uint160(positionId))
         );
         rewardValues = new uint256[](rewards.length);
         for (uint256 i = 0; i < rewards.length; i++) {
@@ -158,6 +160,7 @@ contract ManagerHelper {
     }
 
     function getPosition(
+        uint positionId,
         Position memory position,
         address universalSwap,
         address stableToken
@@ -169,12 +172,12 @@ contract ManagerHelper {
             address[] memory tokens,
             uint256[] memory amounts,
             uint256[] memory underlyingValues
-        ) = getPositionTokens(position, universalSwap, stableToken);
+        ) = getPositionTokens(positionId, position, universalSwap, stableToken);
         (
             address[] memory rewards,
             uint256[] memory rewardAmounts,
             uint256[] memory rewardValues
-        ) = getPositionRewards(position, universalSwap, stableToken);
+        ) = getPositionRewards(positionId, position, universalSwap, stableToken);
         return
             PositionData(
                 position,

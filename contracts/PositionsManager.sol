@@ -34,6 +34,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         stableToken = _stableToken;
         networkToken = IUniversalSwap(_universalSwap).networkToken();
         helper = new ManagerHelper();
+        positions.push();
     }
 
     ///-------------Public view functions-------------
@@ -73,6 +74,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     {
         return
             helper.checkLiquidate(
+                positionId,
                 positions[positionId],
                 universalSwap,
                 stableToken
@@ -87,6 +89,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     {
         return
             helper.estimateValue(
+                positionId,
                 positions[positionId],
                 universalSwap,
                 inTermsOf
@@ -105,6 +108,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     {
         return
             helper.getPositionTokens(
+                positionId,
                 positions[positionId],
                 universalSwap,
                 stableToken
@@ -123,6 +127,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     {
         return
             helper.getPositionRewards(
+                positionId,
                 positions[positionId],
                 universalSwap,
                 stableToken
@@ -137,6 +142,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     {
         return
             helper.getPosition(
+                positionId,
                 positions[positionId],
                 universalSwap,
                 stableToken
@@ -234,7 +240,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         }
         uint256 minted = bank.mintRecurring(
             position.bankToken,
-            position.user,
+            address(uint160(positionId)),
             underlying,
             amountsUsed
         );
@@ -281,7 +287,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         }
         uint256 minted = bank.mint(
             position.bankToken,
-            position.user,
+            address(uint160(positions.length)),
             suppliedTokens,
             suppliedAmounts
         );
@@ -352,10 +358,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     /// @inheritdoc IPositionsManager
     function close(uint256 positionId) external {
         Position storage position = positions[positionId];
-        Provided memory harvested = _harvest(positionId, position.user);
-        Provided memory withdrawn = _withdraw(positionId, position.amount);
-        withdrawn.tokens = withdrawn.tokens.concat(harvested.tokens);
-        withdrawn.amounts = withdrawn.amounts.concat(harvested.amounts);
+        Provided memory withdrawn = _close(positionId, position.user);
         PositionInteraction memory interaction = PositionInteraction(
             "close",
             block.timestamp,
@@ -426,7 +429,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         if (amounts.sum() > 0) {
             newLpTokens = bank.mintRecurring(
                 position.bankToken,
-                position.user,
+                address(uint160(positionId)),
                 underlying,
                 amounts
             );
@@ -453,34 +456,9 @@ contract PositionsManager is IPositionsManager, Ownable {
         Conversion[] memory conversions
     ) external {
         Position storage position = positions[positionId];
-        BankBase bank = BankBase(payable(position.bank));
-        address[] memory tokens;
-        uint256[] memory tokenAmounts;
-        Provided memory positionAssets;
+        Provided memory positionAssets = _close(positionId, universalSwap);
         uint256 positionValue;
         uint256 desiredTokenObtained;
-        {
-            require(
-                keepers[msg.sender] || msg.sender == owner(),
-                "1"
-            );
-            (
-                address[] memory rewardAddresses,
-                uint256[] memory rewardAmounts
-            ) = bank.harvest(position.bankToken, position.user, universalSwap);
-            (
-                address[] memory outTokens,
-                uint256[] memory outTokenAmounts
-            ) = bank.burn(
-                    position.bankToken,
-                    position.user,
-                    position.amount,
-                    universalSwap
-                );
-            tokens = rewardAddresses.concat(outTokens);
-            tokenAmounts = rewardAmounts.concat(outTokenAmounts);
-            positionAssets = Provided(tokens, tokenAmounts, new Asset[](0));
-        }
         {
             address[] memory wanted = new address[](1);
             uint256[] memory ratios = new uint256[](1);
@@ -490,7 +468,7 @@ contract PositionsManager is IPositionsManager, Ownable {
             ratios[0] = 1;
             uint256[] memory valuesOut = IUniversalSwap(universalSwap)
                 .swapAfterTransfer(
-                    Provided(tokens, tokenAmounts, new Asset[](0)),
+                    Provided(positionAssets.tokens, positionAssets.amounts, new Asset[](0)),
                     swaps,
                     conversions,
                     Desired(wanted, new Asset[](0), ratios, new uint256[](1)),
@@ -582,8 +560,37 @@ contract PositionsManager is IPositionsManager, Ownable {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(payable(position.bank));
         (address[] memory rewards, uint256[] memory rewardAmounts) = bank
-            .harvest(position.bankToken, position.user, receiver);
+            .harvest(position.bankToken, address(uint160(positionId)), receiver);
         harvested = Provided(rewards, rewardAmounts, new Asset[](0));
+    }
+
+    function _close(uint positionId, address receiver) internal returns (Provided memory assets) {
+        Position storage position = positions[positionId];
+        BankBase bank = BankBase(payable(position.bank));
+        address[] memory tokens;
+        uint256[] memory tokenAmounts;
+        Provided memory positionAssets;
+        require(
+            keepers[msg.sender] || position.user==msg.sender || msg.sender == owner(),
+            "1"
+        );
+        (
+            address[] memory rewardAddresses,
+            uint256[] memory rewardAmounts
+        ) = bank.harvest(position.bankToken, address(uint160(positionId)), receiver);
+        (
+            address[] memory outTokens,
+            uint256[] memory outTokenAmounts
+        ) = bank.burn(
+                position.bankToken,
+                address(uint160(positionId)),
+                position.amount,
+                receiver
+            );
+        tokens = rewardAddresses.concat(outTokens);
+        tokenAmounts = rewardAmounts.concat(outTokenAmounts);
+        positionAssets = Provided(tokens, tokenAmounts, new Asset[](0));
+        return positionAssets;
     }
 
     function _withdraw(uint256 positionId, uint256 amount)
@@ -600,7 +607,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         position.amount -= amount;
         (address[] memory tokens, uint256[] memory amounts) = bank.burn(
             position.bankToken,
-            position.user,
+            address(uint160(positionId)),
             amount,
             msg.sender
         );

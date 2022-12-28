@@ -1,38 +1,54 @@
-import { expect } from "chai";
-import { BigNumber, constants } from "ethers";
+import {expect} from "chai";
+import {BigNumber, constants} from "ethers";
 import { parseEther } from "ethers/lib/utils";
-import hre from 'hardhat'
-import { ethers } from "hardhat";
-import { IWETH, UniversalSwap, INonfungiblePositionManager, IERC20 } from "../typechain-types";
-import { ProvidedStruct } from "../typechain-types/contracts/PositionsManager";
-import { DesiredStruct } from "../typechain-types/contracts/UniversalSwap";
-import { getUniversalSwap, addresses, getNetworkToken, getNFT, isRoughlyEqual, getNearestUsableTick } from "../utils"
+import {ethers} from "hardhat";
+import {
+  IWETH,
+  UniversalSwap,
+  INonfungiblePositionManager,
+  IERC20,
+} from "../typechain-types";
+import {ProvidedStruct} from "../typechain-types/contracts/PositionsManager";
+import {DesiredStruct} from "../typechain-types/contracts/UniversalSwap";
+import {
+  getUniversalSwap,
+  addresses,
+  getNetworkToken,
+  getNFT,
+  isRoughlyEqual,
+  getNearestUsableTick,
+  calculateRoute,
+} from "../utils";
+import { SwapContracts } from "../utils/routeCalculator";
 
 // @ts-ignore
 const networkAddresses = addresses[hre.network.name]
 
 const compareComputedWithActual = async (computed: any[], actual: any[], manager: string, numERC20s: number) => {
-    for (let i = 0; i<numERC20s; i++) {
-        isRoughlyEqual(computed[i], actual[i], 1)
-    }
-    if (!manager) return
-    const managerContract = await ethers.getContractAt("INonfungiblePositionManager", manager)
-    for (let i = numERC20s; i<computed.length; i++) {
-        const tokenId = actual[i]
-        const {liquidity} = await managerContract.positions(tokenId)
-        isRoughlyEqual(liquidity, computed[i])
-    }
+  for (let i = 0; i<numERC20s; i++) {
+    isRoughlyEqual(computed[i], actual[i], 1)
+  }
+  if (!manager) return
+  const managerContract = await ethers.getContractAt("INonfungiblePositionManager", manager)
+  for (let i = numERC20s; i<computed.length; i++) {
+    const tokenId = actual[i]
+    const {liquidity} = await managerContract.positions(tokenId)
+    isRoughlyEqual(liquidity, computed[i])
+  }
 }
 
-describe("UniversalSwap tests", function () {
+describe("Route calculator", async function () {
     let universalSwap: UniversalSwap
+    let contracts: SwapContracts
     let owners: any[]
     let networkTokenContract: IERC20
 
     const performMultiSwap = async (provided:ProvidedStruct, desired:DesiredStruct) => {
         const addressZeroIndex = provided.tokens.findIndex(token=>token===ethers.constants.AddressZero)
         const etherSupplied = addressZeroIndex>-1?provided.amounts[addressZeroIndex]:'0'
-        const {amounts, swaps, conversions} = await universalSwap.getAmountsOut(provided, desired)
+        const {swaps: swaps2} = await universalSwap.getAmountsOut(provided, desired)
+        const {swaps, conversions} = await calculateRoute(contracts, provided, desired)
+        const {amounts} = await universalSwap.getAmountsOutWithSwaps(provided, desired, swaps2, conversions)
         for (const [i, asset] of provided.tokens.entries()) {
             if (asset!=constants.AddressZero) {
                 const contract = await ethers.getContractAt("ERC20", await asset)
@@ -43,7 +59,7 @@ describe("UniversalSwap tests", function () {
             const manager = await ethers.getContractAt("INonfungiblePositionManager", await nft.manager)
             await manager.approve(universalSwap.address, nft.tokenId)
         }
-        const tx = await universalSwap.swap(provided, swaps, conversions, desired, owners[0].address, {value: etherSupplied})
+        const tx = await universalSwap.swap(provided, swaps2, conversions, desired, owners[0].address, {value: etherSupplied})
         const rc = await tx.wait()
         const event = rc.events?.find((event:any) => event.event === 'AssetsSent')
         // @ts-ignore
@@ -59,6 +75,7 @@ describe("UniversalSwap tests", function () {
         await compareComputedWithActual(amounts, amountsAndIds, networkAddresses.NFTManagers[0], tokens.length)
         return {tokens: desired.outputERC20s, amounts: amountsAndIds.slice(0, tokens.length), nfts: nextInputERC721s}
     }
+    
     before(async function () {
         universalSwap = await getUniversalSwap()
         owners = await ethers.getSigners()
@@ -66,6 +83,14 @@ describe("UniversalSwap tests", function () {
         await networkTokenContract.transfer(owners[1].address, networkTokenContract.balanceOf(owners[0].address))
         const {wethContract} = await getNetworkToken(owners[0], '100.0')
         await wethContract.connect(owners[0]).approve(universalSwap.address, ethers.utils.parseEther("100"))
+
+        const helperAddress = await universalSwap.helper()
+        const helper = await ethers.getContractAt("SwapHelper", helperAddress)
+        const oracleAddress = await helper.oracle()
+        const oracle = await ethers.getContractAt("IOracle", oracleAddress)
+        const swapperAddresses = await helper.getSwappers()
+        const swappers = await Promise.all(swapperAddresses.map(async (address)=>await ethers.getContractAt("ISwapper", address)))
+        contracts = {universalSwap, helper, oracle, swappers, networkTokenContract}
     })
     it("Swaps tokens correctly without losing too much equity", async function () {
         let currentToken = networkAddresses.networkToken
@@ -103,7 +128,7 @@ describe("UniversalSwap tests", function () {
             await getNFTForPool(pool)
         }
     })
-    it("Performs multi-swap", async function () {
+    it.only("Performs multi-swap", async function () {
         const startingBalance = await networkTokenContract.balanceOf(owners[0].address)
         const adminBalanceBegin = await owners[0].getBalance()
         const erc20s: string[] = networkAddresses.universwalSwapTestingTokens

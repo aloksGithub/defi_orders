@@ -315,25 +315,26 @@ contract UniswapV3Wrapper is IERC721Wrapper {
         IUniswapV3Pool pool = IUniswapV3Pool(
             factory.getPool(token0, token1, fee)
         );
+        int24 currentTick;
         (uint160 sqrtPriceX96, , , , , , ) = pool.slot0();
-        tokens = new address[](2);
-        tokens[0] = token0;
-        tokens[1] = token1;
+        {
+            currentTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96);
+            uint absTick = currentTick < 0 ? uint(-int(currentTick)) : uint(int(currentTick));
+            uint24 tickSpacing = uint24(pool.tickSpacing());
+            absTick -= absTick % tickSpacing;
+            currentTick = currentTick < 0 ? -int24(int(absTick)) : int24(int(absTick));
+            tokens = new address[](2);
+            tokens[0] = token0;
+            tokens[1] = token1;
+        }
         ratios = new uint256[](2);
         {
-            uint128 liquidity = LiquidityAmounts.getLiquidityForAmounts(
-                sqrtPriceX96,
-                TickMath.getSqrtRatioAtTick(tick0),
-                TickMath.getSqrtRatioAtTick(tick1),
-                1e18,
-                1e18
-            );
             (uint256 amount0, uint256 amount1) = LiquidityAmounts
                 .getAmountsForLiquidity(
-                    sqrtPriceX96,
+                    TickMath.getSqrtRatioAtTick(currentTick),
                     TickMath.getSqrtRatioAtTick(tick0),
                     TickMath.getSqrtRatioAtTick(tick1),
-                    liquidity
+                    pool.liquidity()
                 );
             uint256 price;
             uint256 MAX = 2**256 - 1;

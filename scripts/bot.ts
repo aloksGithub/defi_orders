@@ -17,7 +17,7 @@ async function main() {
     if (liquidate) {
       const {underlyingTokens, underlyingAmounts, rewardTokens, rewardAmounts, position: {liquidationPoints}} = await positionManager.getPosition(position)
       const liquidateTo = liquidationPoints[index.toNumber()].liquidateTo
-      const {swaps, conversions} = await universalSwap.preSwapComputation(
+      const {swaps, conversions} = await universalSwap.preSwapCalculateSwaps(
         {
           tokens: underlyingTokens.concat(rewardTokens),
           amounts: underlyingAmounts.concat(rewardAmounts),

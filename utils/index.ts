@@ -8,6 +8,7 @@ import {addresses as ethereumAddresses} from "../constants/ethereum_addresses.js
 import {addresses as bscAddresses} from "../constants/bsc_addresses.json"
 import {addresses as bscTestnetAddresses} from "../constants/bsc_testnet_addresses.json"
 import { getAssets } from "./protocolDataGetter";
+import { calculateRoute } from "./routeCalculator";
 var fs = require('fs');
 
 const ENVIRONMENT = process.env.ENVIRONMENT!
@@ -319,7 +320,7 @@ export const getUniversalSwap = async (verify:boolean=false, log:boolean=false) 
     await hre.run("verify:verify", {
       address: await universalSwap.helper(),
       // @ts-ignore
-      constructorArguments: [poolInteractors, nftInteractors, addresses[network].networkToken, swappers2, oracle.address],
+      constructorArguments: [poolInteractors, nftInteractors, addresses[network].networkToken, addresses[network].preferredStable, swappers2, oracle.address],
       network
     })
     } catch (e) {
@@ -671,3 +672,4 @@ export const isRoughlyEqual = (a:BigNumber, b:BigNumber, percentage:number = 500
 }
 
 export {getAssets}
+export {calculateRoute}

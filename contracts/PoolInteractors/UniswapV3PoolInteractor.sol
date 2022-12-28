@@ -84,21 +84,27 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
     ) external view returns (uint256, uint256) {
         IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
         (uint160 sqrtPriceX96, , , , , , ) = pool.slot0();
+        int24 currentTick = TickMath.getTickAtSqrtRatio(sqrtPriceX96);
+        uint absTick = currentTick < 0 ? uint(-int(currentTick)) : uint(int(currentTick));
+        uint24 tickSpacing = uint24(pool.tickSpacing());
+        absTick -= absTick % tickSpacing;
+        currentTick = currentTick < 0 ? -int24(int(absTick)) : int24(int(absTick));
+
         uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tick0);
         uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tick1);
-        uint128 liquidity = LiquidityAmounts.getLiquidityForAmounts(
-            sqrtPriceX96,
-            sqrtRatioAX96,
-            sqrtRatioBX96,
-            1e18,
-            1e18
-        );
+        // uint128 liquidity = LiquidityAmounts.getLiquidityForAmounts(
+        //     sqrtPriceX96,
+        //     sqrtRatioAX96,
+        //     sqrtRatioBX96,
+        //     1e18,
+        //     1e18
+        // );
         (uint256 amount0, uint256 amount1) = LiquidityAmounts
             .getAmountsForLiquidity(
-                sqrtPriceX96,
+                TickMath.getSqrtRatioAtTick(currentTick),
                 sqrtRatioAX96,
                 sqrtRatioBX96,
-                liquidity
+                pool.liquidity()
             );
         uint256 MAX = 2**256 - 1;
         if (uint256(sqrtPriceX96) * uint256(sqrtPriceX96) > MAX / 1e18) {
@@ -140,10 +146,10 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
                 underlyingAmounts[i]
             );
         }
-        uint24 fees = pool.fee();
         uint256 minAmount0;
         uint256 minAmount1;
         {
+            uint24 fees = pool.fee();
             (int24 tick0, int24 tick1, uint256 m0, uint256 m1) = abi.decode(
                 toMint.data,
                 (int24, int24, uint256, uint256)
@@ -186,6 +192,11 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
     ) external view returns (uint256 liquidity) {
         IUniswapV3Pool pool = IUniswapV3Pool(toMint.pool);
         (uint160 sqrtRatioX96, , , , , , ) = pool.slot0();
+        int24 currentTick = TickMath.getTickAtSqrtRatio(sqrtRatioX96);
+        uint absTick = currentTick < 0 ? uint(-int(currentTick)) : uint(int(currentTick));
+        uint24 tickSpacing = uint24(pool.tickSpacing());
+        absTick -= absTick % tickSpacing;
+        currentTick = currentTick < 0 ? -int24(int(absTick)) : int24(int(absTick));
         (int24 tick0, int24 tick1, , ) = abi.decode(
             toMint.data,
             (int24, int24, uint256, uint256)
@@ -200,7 +211,7 @@ contract UniswapV3PoolInteractor is INFTPoolInteractor, Ownable {
             amount1 = underlyingAmounts[0];
         }
         liquidity = LiquidityAmounts.getLiquidityForAmounts(
-            sqrtRatioX96,
+            TickMath.getSqrtRatioAtTick(currentTick),
             TickMath.getSqrtRatioAtTick(tick0),
             TickMath.getSqrtRatioAtTick(tick1),
             amount0,

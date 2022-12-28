@@ -13,12 +13,16 @@ import "hardhat/console.sol";
 contract UniswapV2Swapper is ISwapper, Ownable {
     using SafeERC20 for IERC20;
 
-    address public router;
+    IUniswapV2Router02 public router;
     address[] public commonPoolTokens; // Common pool tokens are used to test different swap paths with commonly used pool tokens to find the best swaps
 
     constructor(address _router, address[] memory _commonPoolTokens) {
-        router = _router;
+        router = IUniswapV2Router02(_router);
         commonPoolTokens = _commonPoolTokens;
+    }
+
+    function getCommonPoolTokens() external view returns (address[] memory) {
+        return commonPoolTokens;
     }
 
     function swap(
@@ -82,7 +86,7 @@ contract UniswapV2Swapper is ISwapper, Ownable {
         uint256 amount,
         address outToken
     ) external view returns (uint256, address[] memory) {
-        IUniswapV2Router02 routerContract = IUniswapV2Router02(router);
+        IUniswapV2Router02 routerContract = router;
         address bestInTokenPair = _findBestPool(inToken, routerContract);
         address bestOutTokenPair = _findBestPool(outToken, routerContract);
         uint256 amountOutSingleSwap;
@@ -160,20 +164,93 @@ contract UniswapV2Swapper is ISwapper, Ownable {
         // }
     }
 
-    function getAmountOutWithPath(uint256 amount, address[] memory path)
+    function _calculateAmountsUsed(
+        address tokenIn,
+        address pathAddress,
+        uint[][][] memory amountsForSwaps,
+        SwapPoint[] memory priorSwaps) internal view returns (uint tokenInAmount, uint tokenOutAmount) {
+        for (uint priorSwapIndex = 0; priorSwapIndex<priorSwaps.length; priorSwapIndex++) {
+            SwapPoint memory priorSwap = priorSwaps[priorSwapIndex];
+            for (uint priorSwapperIndex = 0; priorSwapperIndex<priorSwap.swappers.length; priorSwapperIndex++) {
+                if (priorSwap.swappers[priorSwapperIndex]==address(this)) {
+                    for (uint priorSwapperPathIndex = 1; priorSwapperPathIndex<priorSwap.paths[priorSwapperIndex].length; priorSwapperPathIndex++) {
+                        address tokenInPrior = priorSwap.paths[priorSwapperIndex][priorSwapperPathIndex-1];
+                        address tokenOutPrior = priorSwap.paths[priorSwapperIndex][priorSwapperPathIndex];
+                        if (tokenInPrior==tokenIn && tokenOutPrior==pathAddress) {
+                            tokenInAmount+=amountsForSwaps[priorSwapIndex][priorSwapperIndex][priorSwapperPathIndex-1];
+                        } else if (tokenInPrior==pathAddress && tokenOutPrior==tokenIn) {
+                            tokenOutAmount+=amountsForSwaps[priorSwapIndex][priorSwapperIndex][priorSwapperPathIndex-1];
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    function _calculateAmountOut(address tokenIn, address tokenOut, uint amountIn, uint tokenInAmount, uint tokenOutAmount) internal view returns (uint amountOut) {
+        IUniswapV2Factory factory = IUniswapV2Factory(router.factory());
+        IUniswapV2Pair pair = IUniswapV2Pair(factory.getPair(tokenIn, tokenOut));
+        uint rIn; uint rOut;
+        if (pair.token0()==tokenIn) {
+            (rIn, rOut, ) = pair.getReserves();
+        } else {
+            (rOut, rIn, ) = pair.getReserves();
+        }
+        try router.getAmountOut(tokenInAmount, rIn, rOut) returns (uint256 amount) {
+            rIn+=tokenInAmount;
+            rOut-=amount;
+        } catch {}
+        try router.getAmountOut(tokenOutAmount, rOut, rIn) returns (uint256 amount) {
+            rOut+=tokenOutAmount;
+            rIn-=amount;
+        } catch {}
+        try router.getAmountOut(amountIn, rIn, rOut) returns (uint256 amount) {
+            return amount;
+        } catch {
+            return 0;
+        }
+    }
+
+    function getAmountsOutWithPath(uint256 amount, address[] memory path, uint[][][] memory amountsForSwaps, SwapPoint[] memory priorSwaps)
         external
         view
-        returns (uint256)
+        returns (uint256[] memory amountsOut)
     {
         if (
             path.length == 0 || path[0] == path[path.length - 1] || amount == 0
         ) {
-            return amount;
+            amountsOut = new uint[](2);
+            amountsOut[0] = amount;
+            amountsOut[1] = amount;
+            return amountsOut;
         }
-        try IUniswapV2Router02(router).getAmountsOut(amount, path) returns (
-            uint256[] memory amountsOut
-        ) {
-            return amountsOut[amountsOut.length - 1];
+        amountsOut = new uint[](path.length);
+        amountsOut[0] = amount;
+        for (uint i = 1; i<path.length; i++) {
+            (uint tokenInAmount, uint tokenOutAmount) = _calculateAmountsUsed(path[i-1], path[i], amountsForSwaps, priorSwaps);
+            amountsOut[i] = _calculateAmountOut(path[i-1], path[i], amountsOut[i-1], tokenInAmount, tokenOutAmount);
+            address[] memory tempPath = new address[](2);
+            tempPath[0] = path[i-1];
+            tempPath[1] = path[i];
+        }
+        // try router.getAmountsOut(amount, path) returns (
+        //     uint256[] memory amountsOut
+        // ) {
+        //     amounts = amountsOut;
+        //     return amounts;
+        // } catch {
+        //     amounts = new uint[](1);
+        //     amounts[0] = 0;
+        //     return amounts;
+        // }
+    }
+
+    function getAmountOut2(
+        uint256 amount,
+        address[] memory path
+    ) public view returns (uint256) {
+        try router.getAmountsOut(amount, path) returns (uint256[] memory amountsOut) {
+            return amountsOut[amountsOut.length-1];
         } catch {
             return 0;
         }
@@ -186,7 +263,7 @@ contract UniswapV2Swapper is ISwapper, Ownable {
     {
         if (token == inTermsOf) return (uint256(10)**ERC20(token).decimals());
         IUniswapV2Factory factory = IUniswapV2Factory(
-            IUniswapV2Router02(router).factory()
+            router.factory()
         );
         address poolAddress = factory.getPair(token, inTermsOf);
         if (poolAddress != address(0)) {
@@ -202,7 +279,7 @@ contract UniswapV2Swapper is ISwapper, Ownable {
     }
 
     function checkSwappable(address inToken) external view returns (bool) {
-        address factoryAddress = IUniswapV2Router02(router).factory();
+        address factoryAddress = router.factory();
         IUniswapV2Factory factory = IUniswapV2Factory(factoryAddress);
         for (uint256 i = 0; i < commonPoolTokens.length; i++) {
             if (inToken == commonPoolTokens[i]) return true;

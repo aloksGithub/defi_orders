@@ -14,7 +14,7 @@ if (currentlyForking==="bsc") {
   ];
 } else if (currentlyForking==='mainnet') {
   skipFiles = [
-    "interfaces/*",
+    "interfaces",
     "PoolInteractors/VenusPoolInteractor.sol",
   ];
 
