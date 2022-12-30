@@ -1,40 +1,35 @@
-import {expect} from "chai";
-import {ethers} from "hardhat";
+import { expect } from "chai";
+import { ethers } from "hardhat";
 import hre from "hardhat";
-import {ERC20, IERC20, IUniswapV2Pair, IWETH, PositionsManager, UniversalSwap} from "../typechain-types";
-import {
-  deployAndInitializeManager,
-  addresses,
-  getNetworkToken,
-  getLPToken,
-  depositNew,
-  getAssets
-} from "../utils";
+import { ERC20, IERC20, IUniswapV2Pair, IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
+import { deployAndInitializeManager, addresses, getNetworkToken, getLPToken, depositNew, getAssets } from "../utils";
 import supportedProtocols from "../constants/supported_protocols.json";
 require("dotenv").config();
 import { Asset } from "../utils/protocolDataGetter";
-const fs = require('fs');
+const fs = require("fs");
 
 const chainIds = {
   bsc: 56,
-  mainnet: 1
-}
+  mainnet: 1,
+};
 
 const NETWORK = hre.network.name;
 // @ts-ignore
 const networkAddresses = addresses[NETWORK];
 // @ts-ignore
 const protocols = supportedProtocols[process.env.CURRENTLY_FORKING!];
-const liquidationPoints = [{
-  liquidateTo: networkAddresses.networkToken,
-  watchedToken: ethers.constants.AddressZero,
-  lessThan:true,
-  liquidationPoint: '100000000000000000000',
-  slippage: ethers.utils.parseUnits("3", 17)
-}]
+const liquidationPoints = [
+  {
+    liquidateTo: networkAddresses.networkToken,
+    watchedToken: ethers.constants.AddressZero,
+    lessThan: true,
+    liquidationPoint: "100000000000000000000",
+    slippage: ethers.utils.parseUnits("3", 17),
+  },
+];
 
 const fetchAssets = async () => {
-  let assets: Asset[] = []
+  let assets: Asset[] = [];
   for (const protocol of protocols) {
     const data = await getAssets(
       protocol,
@@ -42,9 +37,9 @@ const fetchAssets = async () => {
       chainIds[process.env.CURRENTLY_FORKING!]
     );
     if (data) {
-      assets = assets.concat(data)
+      assets = assets.concat(data);
     } else {
-      console.error(`Unable to fetch data for ${protocol.name}`)
+      console.error(`Unable to fetch data for ${protocol.name}`);
     }
   }
   return assets;
@@ -73,57 +68,61 @@ const blackList = [
   "0x5b6ef3a4dd8d32b3c3be08371845687e0eb47c9e", // coin has tax for transferring tokens
   "0xc70163bae3e77e439c86fb91397c36df680f705d", // coin has tax for transferring tokens
   "0x4526c263571eb57110d161b41df8fd073df3c44a", // coin has tax for transferring tokens
-].map(address=>address.toLowerCase())
+].map((address) => address.toLowerCase());
 
 describe.skip("Slippage tests", function () {
   let manager: PositionsManager;
   let owners: any[];
   let networkTokenContract: IWETH;
   let universalSwap: UniversalSwap;
-  let depositedUsd: number
-  let stableContract: ERC20
-  let amountUsed="1"
+  let depositedUsd: number;
+  let stableContract: ERC20;
+  let amountUsed = "1";
   before(async function () {
     manager = await deployAndInitializeManager();
     owners = await ethers.getSigners();
     const universalSwapAddress = await manager.universalSwap();
     for (const owner of owners) {
-      const {wethContract} = await getNetworkToken(owner, "9990.0");
-      await wethContract
-        .connect(owner)
-        .approve(universalSwapAddress, ethers.utils.parseEther("10000000"));
+      const { wethContract } = await getNetworkToken(owner, "9990.0");
+      await wethContract.connect(owner).approve(universalSwapAddress, ethers.utils.parseEther("10000000"));
     }
-    networkTokenContract = await ethers.getContractAt(
-      "IWETH",
-      networkAddresses.networkToken
+    networkTokenContract = await ethers.getContractAt("IWETH", networkAddresses.networkToken);
+    universalSwap = await ethers.getContractAt("UniversalSwap", universalSwapAddress);
+    stableContract = await ethers.getContractAt("ERC20", networkAddresses.preferredStable);
+    const stableDecimals = await stableContract.decimals();
+    const networkTokenPrice = await universalSwap.estimateValueERC20(
+      networkAddresses.networkToken,
+      ethers.utils.parseEther(amountUsed),
+      networkAddresses.preferredStable
     );
-    universalSwap = await ethers.getContractAt(
-      "UniversalSwap",
-      universalSwapAddress
-    );
-    stableContract = await ethers.getContractAt("ERC20", networkAddresses.preferredStable)
-    const stableDecimals = await stableContract.decimals()
-    const networkTokenPrice = await universalSwap.estimateValueERC20(networkAddresses.networkToken, ethers.utils.parseEther(amountUsed), networkAddresses.preferredStable)
-    depositedUsd = +amountUsed*+ethers.utils.formatUnits(networkTokenPrice, stableDecimals)
+    depositedUsd = +amountUsed * +ethers.utils.formatUnits(networkTokenPrice, stableDecimals);
   });
   it("Doesn't have more than 2% slippage for any ERC20 swaps", async function () {
     const assets = await fetchAssets();
-    let index = 0
-    let errors = 0
-    let numBadSlippage = 0
-    let numNormalSlippage = 0
-    let totalSlippage = 0
-    const assetsToWhiteList:Asset[] = []
+    let index = 0;
+    let errors = 0;
+    let numBadSlippage = 0;
+    let numNormalSlippage = 0;
+    let totalSlippage = 0;
+    const assetsToWhiteList: Asset[] = [];
     for (const asset of assets) {
-      if (asset.contract_address===ethers.constants.AddressZero || asset.contract_address.toLowerCase()===networkAddresses.networkToken.toLowerCase()) {
-        assetsToWhiteList.push(asset)
-        continue
+      if (
+        asset.contract_address === ethers.constants.AddressZero ||
+        asset.contract_address.toLowerCase() === networkAddresses.networkToken.toLowerCase()
+      ) {
+        assetsToWhiteList.push(asset);
+        continue;
       }
-      if (blackList.includes(asset.contract_address)) continue
-      index+=1
+      if (blackList.includes(asset.contract_address)) continue;
+      index += 1;
       try {
-        const balanceBefore = await stableContract.balanceOf(owners[0].address)
-        const {lpBalance: lpBalance0, lpTokenContract} = await getLPToken(asset.contract_address, universalSwap, amountUsed, owners[0])
+        const balanceBefore = await stableContract.balanceOf(owners[0].address);
+        const { lpBalance: lpBalance0, lpTokenContract } = await getLPToken(
+          asset.contract_address,
+          universalSwap,
+          amountUsed,
+          owners[0]
+        );
 
         // Commenting out temporarily to save time
         // const {positionId} = await depositNew(manager, lpTokenContract.address, lpBalance0.div(2).toString(), liquidationPoints, owners[0])
@@ -131,36 +130,42 @@ describe.skip("Slippage tests", function () {
         // await manager.connect(owners[0]).depositInExisting(positionId, {tokens: [lpTokenContract.address], amounts: [lpBalance0.div(2)], nfts: []}, [], [], [])
         // await manager.connect(owners[0]).withdraw(positionId, lpBalance0.div(2))
         // await manager.connect(owners[0]).close(positionId)
-        await lpTokenContract.approve(universalSwap.address, lpBalance0)
-        await universalSwap.connect(owners[0]).swap(
-            {tokens: [asset.contract_address], amounts: [lpBalance0], nfts: []}, [], [],
-            {outputERC20s: [networkAddresses.preferredStable], outputERC721s: [], ratios: [1], minAmountsOut: [0]}, owners[0].address)
-        const balance = await stableContract.balanceOf(owners[0].address)
-        const fundsLost = depositedUsd-+ethers.utils.formatUnits(balance.sub(balanceBefore), (await stableContract.decimals()))
-        const slippage = 100*fundsLost/depositedUsd
-        await stableContract.transfer(owners[1].address, balance)
-        if (slippage>2) {
-          numBadSlippage+=1
-          console.error(`Slippage: ${slippage.toFixed(3)}% for token ${asset.contract_address}`)
-        }
-        else {
-          numNormalSlippage+=1
-          totalSlippage+=slippage
-          console.log(`Slippage: ${slippage.toFixed(3)}% for token ${asset.contract_address}`)
-          assetsToWhiteList.push(asset)
+        await lpTokenContract?.approve(universalSwap.address, lpBalance0);
+        await universalSwap
+          .connect(owners[0])
+          .swap(
+            { tokens: [asset.contract_address], amounts: [lpBalance0], nfts: [] },
+            [],
+            [],
+            { outputERC20s: [networkAddresses.preferredStable], outputERC721s: [], ratios: [1], minAmountsOut: [0] },
+            owners[0].address
+          );
+        const balance = await stableContract.balanceOf(owners[0].address);
+        const fundsLost =
+          depositedUsd - +ethers.utils.formatUnits(balance.sub(balanceBefore), await stableContract.decimals());
+        const slippage = (100 * fundsLost) / depositedUsd;
+        await stableContract.transfer(owners[1].address, balance);
+        if (slippage > 2) {
+          numBadSlippage += 1;
+          console.error(`Slippage: ${slippage.toFixed(3)}% for token ${asset.contract_address}`);
+        } else {
+          numNormalSlippage += 1;
+          totalSlippage += slippage;
+          console.log(`Slippage: ${slippage.toFixed(3)}% for token ${asset.contract_address}`);
+          assetsToWhiteList.push(asset);
         }
       } catch (error) {
-        errors+=1
-        console.error(`Failed conversion for token ${asset.contract_address} with error: ${error}`)
+        errors += 1;
+        console.error(`Failed conversion for token ${asset.contract_address} with error: ${error}`);
       }
     }
     let fileData = JSON.stringify(assetsToWhiteList);
     // @ts-ignore
     fs.writeFileSync(`./protocolData/${chainIds[process.env.CURRENTLY_FORKING!]}.json`, fileData);
-    console.log(`Attempted stress test with ${index} assets`)
-    console.log(`${errors} (${(errors*100/index).toFixed(2)}%) failed due to error`)
-    console.log(`${numBadSlippage} (${(numBadSlippage*100/index).toFixed(2)}%) had slippage higher than 2%`)
-    console.log(`Average slippage: ${totalSlippage/numNormalSlippage}`)
+    console.log(`Attempted stress test with ${index} assets`);
+    console.log(`${errors} (${((errors * 100) / index).toFixed(2)}%) failed due to error`);
+    console.log(`${numBadSlippage} (${((numBadSlippage * 100) / index).toFixed(2)}%) had slippage higher than 2%`);
+    console.log(`Average slippage: ${totalSlippage / numNormalSlippage}`);
   });
   // it.only("Check slippage for few ERC20 tokens", async function () {
   //   const assets = ["0x03f18135c44c64ebfdcbad8297fe5bdafdbbdd86", "0xd9bccbbbdfd9d67beb5d2273102ce0762421d1e3"]

@@ -1,5 +1,5 @@
 import { ethers } from "hardhat";
-require('dotenv').config();
+require("dotenv").config();
 
 async function main() {
   await ethers.provider.send("hardhat_mine", ["0x93A80", "0x3"]);

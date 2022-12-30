@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity >=0.7.5;
-import '@openzeppelin/contracts/token/ERC721/IERC721.sol';
+import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 /// @title Creates and initializes V3 Pools
 /// @notice Provides a method for creating and initializing a pool, if necessary, for bundling with other methods that
@@ -37,11 +37,7 @@ library PoolAddress {
     /// @param tokenB The second token of a pool, unsorted
     /// @param fee The fee level of the pool
     /// @return Poolkey The pool details with ordered token0 and token1 assignments
-    function getPoolKey(
-        address tokenA,
-        address tokenB,
-        uint24 fee
-    ) internal pure returns (PoolKey memory) {
+    function getPoolKey(address tokenA, address tokenB, uint24 fee) internal pure returns (PoolKey memory) {
         if (tokenA > tokenB) (tokenA, tokenB) = (tokenB, tokenA);
         return PoolKey({token0: tokenA, token1: tokenB, fee: fee});
     }
@@ -53,16 +49,18 @@ library PoolAddress {
     function computeAddress(address factory, PoolKey memory key) internal pure returns (address pool) {
         require(key.token0 < key.token1);
         pool = address(
-            uint160(uint256(
-                keccak256(
-                    abi.encodePacked(
-                        hex'ff',
-                        factory,
-                        keccak256(abi.encode(key.token0, key.token1, key.fee)),
-                        POOL_INIT_CODE_HASH
+            uint160(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(
+                            hex"ff",
+                            factory,
+                            keccak256(abi.encode(key.token0, key.token1, key.fee)),
+                            POOL_INIT_CODE_HASH
+                        )
                     )
                 )
-            ))
+            )
         );
     }
 }
@@ -95,14 +93,7 @@ interface IERC721Permit is IERC721 {
     /// @param v Must produce valid secp256k1 signature from the holder along with `r` and `s`
     /// @param r Must produce valid secp256k1 signature from the holder along with `v` and `s`
     /// @param s Must produce valid secp256k1 signature from the holder along with `r` and `v`
-    function permit(
-        address spender,
-        uint256 tokenId,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external payable;
+    function permit(address spender, uint256 tokenId, uint256 deadline, uint8 v, bytes32 r, bytes32 s) external payable;
 }
 
 /// @title Periphery Payments
@@ -124,9 +115,5 @@ interface IPeripheryPayments {
     /// @param token The contract address of the token which will be transferred to `recipient`
     /// @param amountMinimum The minimum amount of token required for a transfer
     /// @param recipient The destination address of the token
-    function sweepToken(
-        address token,
-        uint256 amountMinimum,
-        address recipient
-    ) external payable;
+    function sweepToken(address token, uint256 amountMinimum, address recipient) external payable;
 }

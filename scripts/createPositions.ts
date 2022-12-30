@@ -1,49 +1,62 @@
 import { ethers } from "hardhat";
-import {deployAndInitializeManager, addresses, getNetworkToken, getLPToken, depositNew, isRoughlyEqual, getNFT, depositNewNFT} from "../utils"
-import deployments from "../constants/deployments.json"
-import hre from 'hardhat'
-require('dotenv').config();
-
+import {
+  deployAndInitializeManager,
+  addresses,
+  getNetworkToken,
+  getLPToken,
+  depositNew,
+  isRoughlyEqual,
+  getNFT,
+  depositNewNFT,
+} from "../utils";
+import deployments from "../constants/deployments.json";
+import hre from "hardhat";
+require("dotenv").config();
 
 async function main() {
-  const [owner] = await ethers.getSigners()
+  const [owner] = await ethers.getSigners();
   // @ts-ignore
-  const networkAddresses = addresses[hre.network.name]
-  const liquidationPoints = [{
-    liquidateTo: networkAddresses.networkToken,
-    watchedToken: ethers.constants.AddressZero,
-    lessThan:true,
-    liquidationPoint: '100000000000000000000',
-    slippage: ethers.utils.parseUnits("1", 17)
-  }]
-  const {wethContract} = await getNetworkToken(owner, '10.0')
+  const networkAddresses = addresses[hre.network.name];
+  const liquidationPoints = [
+    {
+      liquidateTo: networkAddresses.networkToken,
+      watchedToken: ethers.constants.AddressZero,
+      lessThan: true,
+      liquidationPoint: "100000000000000000000",
+      slippage: ethers.utils.parseUnits("1", 17),
+    },
+  ];
+  const { wethContract } = await getNetworkToken(owner, "10.0");
   // @ts-ignore
-  const positionManager = await ethers.getContractAt("PositionsManager", deployments[hre.network.name].positionsManager)
-  const universalSwapAddress = await positionManager.universalSwap()
-  const universalSwap = await ethers.getContractAt("UniversalSwap", universalSwapAddress)
-  await wethContract.connect(owner).approve(universalSwapAddress, ethers.utils.parseEther("1000"))
+  const positionManager = await ethers.getContractAt(
+    "PositionsManager",
+    deployments[hre.network.name].positionsManager
+  );
+  const universalSwapAddress = await positionManager.universalSwap();
+  const universalSwap = await ethers.getContractAt("UniversalSwap", universalSwapAddress);
+  await wethContract.connect(owner).approve(universalSwapAddress, ethers.utils.parseEther("1000"));
 
-  console.log("Deploying ERC-20 bank positions")
-  const lpTokens = networkAddresses.erc20BankLps
+  console.log("Deploying ERC-20 bank positions");
+  const lpTokens = networkAddresses.erc20BankLps;
   for (const lpToken of lpTokens) {
-    const {lpBalance, lpTokenContract} = await getLPToken(lpToken, universalSwap, "1", owner)
-    await depositNew(positionManager, lpToken, lpBalance.toString(), liquidationPoints, owner)
+    const { lpBalance, lpTokenContract } = await getLPToken(lpToken, universalSwap, "1", owner);
+    await depositNew(positionManager, lpToken, lpBalance.toString(), liquidationPoints, owner);
   }
 
-  console.log("Deploying Uniswap-V3 positions")
-  const pools = networkAddresses.nftBasaedPairs
+  console.log("Deploying Uniswap-V3 positions");
+  const pools = networkAddresses.nftBasaedPairs;
   for (const pool of pools) {
-    const nftManagerAddress = networkAddresses.NFTManagers[0]
-    const id = await getNFT(universalSwap, "10", nftManagerAddress, pool, owner)
-    await depositNewNFT(positionManager, nftManagerAddress, id, liquidationPoints, owner)
+    const nftManagerAddress = networkAddresses.NFTManagers[0];
+    const id = await getNFT(universalSwap, "10", nftManagerAddress, pool, owner);
+    await depositNewNFT(positionManager, nftManagerAddress, id, liquidationPoints, owner);
   }
 
-  console.log("Deploying MasterChef bank positions")
-  const masterChefLpTokens = networkAddresses.masterChefLps
+  console.log("Deploying MasterChef bank positions");
+  const masterChefLpTokens = networkAddresses.masterChefLps;
   for (const lpToken of masterChefLpTokens) {
-    const {lpBalance, lpTokenContract} = await getLPToken(lpToken, universalSwap, "1", owner)
-    await lpTokenContract.connect(owner).approve(positionManager.address, lpBalance)
-    await depositNew(positionManager, lpToken, lpBalance.toString(), liquidationPoints, owner)
+    const { lpBalance, lpTokenContract } = await getLPToken(lpToken, universalSwap, "1", owner);
+    await lpTokenContract.connect(owner).approve(positionManager.address, lpBalance);
+    await depositNew(positionManager, lpToken, lpBalance.toString(), liquidationPoints, owner);
   }
   await ethers.provider.send("hardhat_mine", ["0x93A80", "0x3"]);
   // const fetchPositions = async () => {

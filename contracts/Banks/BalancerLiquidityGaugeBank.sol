@@ -1,5 +1,5 @@
-// // SPDX-License-Identifier: BUSL 1.1
-// pragma solidity ^0.8.9;
+// SPDX-License-Identifier: BUSL 1.1
+pragma solidity ^0.8.9;
 
 // import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 // import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -53,7 +53,7 @@
 //     function getLPToken(uint id) override public pure returns (address tokenAddress) {
 //         tokenAddress = decodeId(id);
 //     }
-    
+
 //     function getRewards(uint tokenId) override external pure returns (address[] memory rewardsArray) {
 //         return rewardsArray;
 //     }

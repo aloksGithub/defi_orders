@@ -1,13 +1,13 @@
 {
-    "1": "Unauthorized",
-    "2": "Unsupported token",
-    "3": "Slippage",
-    "4": "No input tokens",
-    "5": "No price source",
-    "6": "Invalid tokens supplied",
-    "7": "Withdrawing more funds than available",
-    "8": "Failed sanity check",
-    "9": "User doesn't own the asset",
-    "10": "Failed to burn LP tokens",
-    "11": "Failed to mint LP tokens"
+  "1": "Unauthorized",
+  "2": "Unsupported token",
+  "3": "Slippage",
+  "4": "No input tokens",
+  "5": "No price source",
+  "6": "Invalid tokens supplied",
+  "7": "Withdrawing more funds than available",
+  "8": "Failed sanity check",
+  "9": "User doesn't own the asset",
+  "10": "Failed to burn LP tokens",
+  "11": "Failed to mint LP tokens"
 }

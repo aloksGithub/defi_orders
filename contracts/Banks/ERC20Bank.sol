@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: BUSL 1.1
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./BankBase.sol";
 import "../interfaces/IPositionsManager.sol";
 import "hardhat/console.sol";
 
 contract ERC20Bank is ERC1155("ERC20Bank"), BankBase {
-    using SafeERC20 for IERC20;
+    using SaferERC20 for IERC20;
 
     struct PoolInfo {
         mapping(address => uint256) userShares;
@@ -24,38 +21,17 @@ contract ERC20Bank is ERC1155("ERC20Bank"), BankBase {
         return uint256(uint160(tokenAddress));
     }
 
-    function decodeId(uint256 id)
-        public
-        pure
-        override
-        returns (
-            address,
-            address,
-            uint256
-        )
-    {
+    function decodeId(uint256 id) public pure override returns (address, address, uint256) {
         return (address(uint160(id)), address(0), 0);
     }
 
-    function getLPToken(uint256 id)
-        public
-        pure
-        override
-        returns (address tokenAddress)
-    {
+    function getLPToken(uint256 id) public pure override returns (address tokenAddress) {
         (tokenAddress, , ) = decodeId(id);
     }
 
-    function getIdFromLpToken(address lpToken)
-        external
-        view
-        override
-        returns (bool, uint256)
-    {
-        if (
-            lpToken == address(0) ||
-            lpToken == IPositionsManager(positionsManager).networkToken()
-        ) return (true, encodeId(lpToken));
+    function getIdFromLpToken(address lpToken) external view override returns (bool, uint256) {
+        if (lpToken == address(0) || lpToken == IPositionsManager(positionsManager).networkToken())
+            return (true, encodeId(lpToken));
         try ERC20(lpToken).name() {} catch {
             return (false, 0);
         }
@@ -75,12 +51,10 @@ contract ERC20Bank is ERC1155("ERC20Bank"), BankBase {
         return "ERC20 Bank";
     }
 
-    function getPositionTokens(uint256 tokenId, address userAddress)
-        external
-        view
-        override
-        returns (address[] memory outTokens, uint256[] memory tokenAmounts)
-    {
+    function getPositionTokens(
+        uint256 tokenId,
+        address userAddress
+    ) external view override returns (address[] memory outTokens, uint256[] memory tokenAmounts) {
         (address lpToken, , ) = decodeId(tokenId);
         uint256 amount = balanceOf(userAddress, tokenId);
         outTokens = new address[](1);
@@ -102,16 +76,11 @@ contract ERC20Bank is ERC1155("ERC20Bank"), BankBase {
         // Sanity check
         if (suppliedTokens[0] != address(0)) {
             require(
-                balances[suppliedTokens[0]] + suppliedAmounts[0] <=
-                    IERC20(suppliedTokens[0]).balanceOf(address(this)),
+                balances[suppliedTokens[0]] + suppliedAmounts[0] <= IERC20(suppliedTokens[0]).balanceOf(address(this)),
                 "8"
             );
         } else {
-            require(
-                balances[suppliedTokens[0]] + suppliedAmounts[0] <=
-                    address(this).balance,
-                "8"
-            );
+            require(balances[suppliedTokens[0]] + suppliedAmounts[0] <= address(this).balance, "8");
         }
         balances[suppliedTokens[0]] += suppliedAmounts[0];
         return suppliedAmounts[0];
@@ -122,12 +91,7 @@ contract ERC20Bank is ERC1155("ERC20Bank"), BankBase {
         address userAddress,
         uint256 amount,
         address receiver
-    )
-        external
-        override
-        onlyAuthorized
-        returns (address[] memory outTokens, uint256[] memory tokenAmounts)
-    {
+    ) external override onlyAuthorized returns (address[] memory outTokens, uint256[] memory tokenAmounts) {
         (address lpToken, , ) = decodeId(tokenId);
         PoolInfo storage pool = poolInfo[tokenId];
         pool.userShares[userAddress] -= amount;
@@ -144,24 +108,10 @@ contract ERC20Bank is ERC1155("ERC20Bank"), BankBase {
 
         // Sanity check
         if (lpToken != address(0)) {
-            require(
-                balances[lpToken] - amount <=
-                    IERC20(lpToken).balanceOf(address(this)),
-                "8"
-            );
+            require(balances[lpToken] - amount <= IERC20(lpToken).balanceOf(address(this)), "8");
         } else {
-            require(
-                balances[lpToken] - amount <=
-                    address(this).balance,
-                "8"
-            );
+            require(balances[lpToken] - amount <= address(this).balance, "8");
         }
-        // Sanity check
-        require(
-            balances[lpToken] - amount <=
-                IERC20(lpToken).balanceOf(address(this)),
-            "8"
-        );
         balances[lpToken] -= amount;
     }
 }

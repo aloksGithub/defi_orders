@@ -33,34 +33,18 @@ interface IUniversalSwap {
     /// @param assets ERC20 or ERC721 assets for whom the value needs to be estimated
     /// @param inTermsOf Token whose value equivalent value to the provided tokens needs to be returned
     /// @return value The amount of inTermsOf that is equal in value to the provided tokens
-    function estimateValue(Provided memory assets, address inTermsOf)
-        external
-        view
-        returns (uint256 value);
+    function estimateValue(Provided memory assets, address inTermsOf) external view returns (uint256 value);
 
     /// @notice Estimates the value of a single ERC20 token in terms of another ERC20 token
-    function estimateValueERC20(
-        address token,
-        uint256 amount,
-        address inTermsOf
-    ) external view returns (uint256 value);
+    function estimateValueERC20(address token, uint256 amount, address inTermsOf) external view returns (uint256 value);
 
     /// @notice Estimates the value of an ECR721 token in terms of an ERC20 token
-    function estimateValueERC721(Asset memory nft, address inTermsOf)
-        external
-        view
-        returns (uint256 value);
+    function estimateValueERC721(Asset memory nft, address inTermsOf) external view returns (uint256 value);
 
     /// @notice Find the underlying tokens and amounts for some complex tokens
     function getUnderlying(
         Provided memory provided
-    )
-        external
-        view
-        returns (
-            address[] memory underlyingTokens,
-            uint256[] memory underlyingAmounts
-        );
+    ) external view returns (address[] memory underlyingTokens, uint256[] memory underlyingAmounts);
 
     /// @notice Calculate the underlying tokens, amount and values for provided assets in a swap, as well
     /// as the conversions needed to obtain desired assets along with the conversion underlying and the value that needs to be allocated to each underlying
@@ -72,17 +56,20 @@ interface IUniversalSwap {
     /// @return conversions Data structures representing the conversions that need to take place from simple assets to complex assets to obtain the desired assets
     /// @return conversionUnderlying The simplest tokens needed in order to perform the previously mentioned conversions
     /// @return conversionUnderlyingValues The values in terms of usd or network token that need to be allocated to each of the underlying tokens in order to perform the conversions
-    function preSwapCalculateUnderlying(Provided memory provided, Desired memory desired)
-    external
-    view
-    returns (
-        address[] memory tokens,
-        uint256[] memory amounts,
-        uint256[] memory values,
-        Conversion[] memory conversions,
-        address[] memory conversionUnderlying,
-        uint256[] memory conversionUnderlyingValues
-    );
+    function preSwapCalculateUnderlying(
+        Provided memory provided,
+        Desired memory desired
+    )
+        external
+        view
+        returns (
+            address[] memory tokens,
+            uint256[] memory amounts,
+            uint256[] memory values,
+            Conversion[] memory conversions,
+            address[] memory conversionUnderlying,
+            uint256[] memory conversionUnderlyingValues
+        );
 
     /// @notice Calculates the swaps and conversions that need to be performed prior to calling swap/swapAfterTransfer
     /// @notice It is recommended to use this function and provide the return values to swap/swapAfterTransfer as that greatly reduces gas consumption
@@ -91,10 +78,7 @@ interface IUniversalSwap {
     function preSwapCalculateSwaps(
         Provided memory provided,
         Desired memory desired
-    )
-        external
-        view
-        returns (SwapPoint[] memory swaps, Conversion[] memory conversions);
+    ) external view returns (SwapPoint[] memory swaps, Conversion[] memory conversions);
 
     /// @notice Swap provided assets into desired assets
     /// @dev Before calling, make sure UniversalSwap contract has approvals to transfer provided assets
@@ -135,7 +119,10 @@ interface IUniversalSwap {
     /// @return swaps Swaps that need to be performed with the provided assets
     /// @return conversions List of conversions from simple ERC20 tokens to complex assets such as LP tokens, Uniswap v3 positions, etc
     /// @return expectedUSDValues Expected usd values for the assets that can be expected from the swap
-    function getAmountsOut(Provided memory provided, Desired memory desired)
+    function getAmountsOut(
+        Provided memory provided,
+        Desired memory desired
+    )
         external
         view
         returns (

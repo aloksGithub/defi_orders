@@ -7,7 +7,7 @@ import "../interfaces/IWETH.sol";
 import "hardhat/console.sol";
 
 contract VenusPoolInteractor is IPoolInteractor {
-    using SafeERC20 for IERC20;
+    using SaferERC20 for IERC20;
 
     function burn(
         address lpTokenAddress,
@@ -20,9 +20,7 @@ contract VenusPoolInteractor is IPoolInteractor {
         uint256 balanceStart = IERC20(underlying[0]).balanceOf(address(this));
         lpTokenContract.redeem(amount);
         if (address(this).balance > 0) {
-            IWETH(payable(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c)).deposit{
-                value: address(this).balance
-            }();
+            IWETH(payable(0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c)).deposit{value: address(this).balance}();
         }
         uint256 balanceEnd = IERC20(underlying[0]).balanceOf(address(this));
         uint256[] memory receivedTokenAmounts = new uint256[](1);
@@ -51,8 +49,7 @@ contract VenusPoolInteractor is IPoolInteractor {
             }
             lpTokenContract.mint(underlyingAmounts[0]);
         }
-        uint256 minted = lpTokenContract.balanceOf(address(this)) -
-            balanceBefore;
+        uint256 minted = lpTokenContract.balanceOf(address(this)) - balanceBefore;
         if (receiver != address(this)) {
             lpTokenContract.transfer(receiver, minted);
         }
@@ -66,15 +63,10 @@ contract VenusPoolInteractor is IPoolInteractor {
     ) external view returns (uint256 minted) {
         IVToken lpToken = IVToken(toMint);
         uint256 exchangeRate = lpToken.exchangeRateStored();
-        minted = (underlyingAmounts[0] * uint256(10)**18) / exchangeRate;
+        minted = (underlyingAmounts[0] * uint256(10) ** 18) / exchangeRate;
     }
 
-    function testSupported(address token)
-        external
-        view
-        override
-        returns (bool)
-    {
+    function testSupported(address token) external view override returns (bool) {
         try IVToken(token).isVToken() returns (bool isVToken) {
             return isVToken;
         } catch {
@@ -85,23 +77,18 @@ contract VenusPoolInteractor is IPoolInteractor {
         // return true;
     }
 
-    function getUnderlyingAmount(address lpTokenAddress, uint256 amount)
-        external
-        view
-        returns (address[] memory underlying, uint256[] memory amounts)
-    {
+    function getUnderlyingAmount(
+        address lpTokenAddress,
+        uint256 amount
+    ) external view returns (address[] memory underlying, uint256[] memory amounts) {
         IVToken lpToken = IVToken(lpTokenAddress);
         uint256 exchangeRate = lpToken.exchangeRateStored();
         (underlying, ) = getUnderlyingTokens(lpTokenAddress);
         amounts = new uint256[](1);
-        amounts[0] = (exchangeRate * amount) / uint256(10)**18;
+        amounts[0] = (exchangeRate * amount) / uint256(10) ** 18;
     }
 
-    function getUnderlyingTokens(address lpTokenAddress)
-        public
-        view
-        returns (address[] memory, uint256[] memory)
-    {
+    function getUnderlyingTokens(address lpTokenAddress) public view returns (address[] memory, uint256[] memory) {
         uint256[] memory ratios = new uint256[](1);
         address[] memory receivedTokens = new address[](1);
         ratios[0] = 1;

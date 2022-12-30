@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.9;
 
-import './FullMath.sol';
-import './FixedPoint96.sol';
+import "./FullMath.sol";
+import "./FixedPoint96.sol";
 
 /// @title Liquidity amount functions
 /// @notice Provides functions for computing liquidity amounts from token amounts and prices
@@ -86,8 +86,10 @@ library LiquidityAmounts {
     ) internal pure returns (uint256 amount0) {
         if (sqrtRatioAX96 > sqrtRatioBX96) (sqrtRatioAX96, sqrtRatioBX96) = (sqrtRatioBX96, sqrtRatioAX96);
 
-        if (sqrtRatioBX96 - sqrtRatioAX96>(2**256-1)/(uint256(liquidity) << FixedPoint96.RESOLUTION)) {
-            return (((uint256(liquidity) << FixedPoint96.RESOLUTION)/sqrtRatioBX96)*(sqrtRatioBX96 - sqrtRatioAX96))/sqrtRatioAX96;
+        if (sqrtRatioBX96 - sqrtRatioAX96 > (2 ** 256 - 1) / (uint256(liquidity) << FixedPoint96.RESOLUTION)) {
+            return
+                (((uint256(liquidity) << FixedPoint96.RESOLUTION) / sqrtRatioBX96) * (sqrtRatioBX96 - sqrtRatioAX96)) /
+                sqrtRatioAX96;
         }
 
         return

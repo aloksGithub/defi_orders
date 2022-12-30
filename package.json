@@ -6,7 +6,8 @@
   "scripts": {
     "test": "yarn run hardhat test",
     "compile": "yarn run hardhat compile",
-    "size": "yarn run hardhat size-contracts"
+    "size": "yarn run hardhat size-contracts",
+    "prettier": "yarn prettier --write ."
   },
   "keywords": [],
   "author": "Alok",
@@ -28,6 +29,7 @@
     "hardhat": "^2.12.4",
     "hardhat-contract-sizer": "^2.6.1",
     "prettier": "2.8.1",
+    "prettier-plugin-solidity": "^1.1.1",
     "solidity-coverage": "^0.8.2",
     "ts-node": "^10.9.1",
     "typechain": "^8.1.1",

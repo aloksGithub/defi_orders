@@ -24,11 +24,7 @@ interface IAToken2 is IERC20, IScaledBalanceToken {
      * @param index The new liquidity index of the reserve
      * @return `true` if the the previous balance of the user was 0
      */
-    function mint(
-        address user,
-        uint256 amount,
-        uint256 index
-    ) external returns (bool);
+    function mint(address user, uint256 amount, uint256 index) external returns (bool);
 
     /**
      * @dev Emitted after aTokens are burned
@@ -37,12 +33,7 @@ interface IAToken2 is IERC20, IScaledBalanceToken {
      * @param value The amount being burned
      * @param index The new liquidity index of the reserve
      **/
-    event Burn(
-        address indexed from,
-        address indexed target,
-        uint256 value,
-        uint256 index
-    );
+    event Burn(address indexed from, address indexed target, uint256 value, uint256 index);
 
     /**
      * @dev Emitted during the transfer action
@@ -51,12 +42,7 @@ interface IAToken2 is IERC20, IScaledBalanceToken {
      * @param value The amount being transferred
      * @param index The new liquidity index of the reserve
      **/
-    event BalanceTransfer(
-        address indexed from,
-        address indexed to,
-        uint256 value,
-        uint256 index
-    );
+    event BalanceTransfer(address indexed from, address indexed to, uint256 value, uint256 index);
 
     /**
      * @dev Burns aTokens from `user` and sends the equivalent amount of underlying to `receiverOfUnderlying`
@@ -65,12 +51,7 @@ interface IAToken2 is IERC20, IScaledBalanceToken {
      * @param amount The amount being burned
      * @param index The new liquidity index of the reserve
      **/
-    function burn(
-        address user,
-        address receiverOfUnderlying,
-        uint256 amount,
-        uint256 index
-    ) external;
+    function burn(address user, address receiverOfUnderlying, uint256 amount, uint256 index) external;
 
     /**
      * @dev Mints aTokens to the reserve treasury
@@ -85,11 +66,7 @@ interface IAToken2 is IERC20, IScaledBalanceToken {
      * @param to The recipient
      * @param value The amount of tokens getting transferred
      **/
-    function transferOnLiquidation(
-        address from,
-        address to,
-        uint256 value
-    ) external;
+    function transferOnLiquidation(address from, address to, uint256 value) external;
 
     /**
      * @dev Transfers the underlying asset to `target`. Used by the LendingPool to transfer
@@ -98,10 +75,9 @@ interface IAToken2 is IERC20, IScaledBalanceToken {
      * @param amount The amount getting transferred
      * @return The amount transferred
      **/
-    function transferUnderlyingTo(address user, uint256 amount)
-        external
-        returns (uint256);
+    function transferUnderlyingTo(address user, uint256 amount) external returns (uint256);
 
     function UNDERLYING_ASSET_ADDRESS() external view returns (address);
+
     function underlyingAssetAddress() external view returns (address);
 }

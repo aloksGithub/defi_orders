@@ -1,1 +1,10 @@
-{"localhost":{"positionsManager":"0xEBE310c7F034270711cDB4A03f01536dB2A30A4d","universalSwap":"0xb90c6864A0a6327B08372f6E46ece3a428C9B771"},"bscTestnet":{"positionsManager":"0x14f231283fc2Bd7C18aF8282c39224EAD4562F7e","universalSwap":"0xEF1981894A9f032DA478239BBa0D392a427330E9"}}
+{
+  "localhost": {
+    "positionsManager": "0xEBE310c7F034270711cDB4A03f01536dB2A30A4d",
+    "universalSwap": "0xb90c6864A0a6327B08372f6E46ece3a428C9B771"
+  },
+  "bscTestnet": {
+    "positionsManager": "0x14f231283fc2Bd7C18aF8282c39224EAD4562F7e",
+    "universalSwap": "0xEF1981894A9f032DA478239BBa0D392a427330E9"
+  }
+}

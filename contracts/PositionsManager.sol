@@ -10,10 +10,11 @@ import "./interfaces/IUniversalSwap.sol";
 import "./libraries/AddressArray.sol";
 import "./libraries/UintArray.sol";
 import "./libraries/StringArray.sol";
+import "./libraries/SaferERC20.sol";
 import "./ManagerHelper.sol";
 
 contract PositionsManager is IPositionsManager, Ownable {
-    using SafeERC20 for IERC20;
+    using SaferERC20 for IERC20;
     using UintArray for uint256[];
     using StringArray for string[];
     using AddressArray for address[];
@@ -44,11 +45,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function getPositionInteractions(uint256 positionId)
-        external
-        view
-        returns (PositionInteraction[] memory)
-    {
+    function getPositionInteractions(uint256 positionId) external view returns (PositionInteraction[] memory) {
         return positionInteractions[positionId];
     }
 
@@ -58,108 +55,45 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function getPositions(address user)
-        external
-        view
-        returns (uint256[] memory)
-    {
+    function getPositions(address user) external view returns (uint256[] memory) {
         return userPositions[user];
     }
 
     /// @inheritdoc IPositionsManager
-    function checkLiquidate(uint256 positionId)
-        external
-        view
-        returns (uint256 index, bool liquidate)
-    {
-        return
-            helper.checkLiquidate(
-                positionId,
-                positions[positionId],
-                universalSwap,
-                stableToken
-            );
+    function checkLiquidate(uint256 positionId) external view returns (uint256 index, bool liquidate) {
+        return helper.checkLiquidate(positionId, positions[positionId], universalSwap, stableToken);
     }
 
     /// @inheritdoc IPositionsManager
-    function estimateValue(uint256 positionId, address inTermsOf)
-        public
-        view
-        returns (uint256)
-    {
-        return
-            helper.estimateValue(
-                positionId,
-                positions[positionId],
-                universalSwap,
-                inTermsOf
-            );
+    function estimateValue(uint256 positionId, address inTermsOf) public view returns (uint256) {
+        return helper.estimateValue(positionId, positions[positionId], universalSwap, inTermsOf);
     }
 
     /// @inheritdoc IPositionsManager
-    function getPositionTokens(uint256 positionId)
-        public
-        view
-        returns (
-            address[] memory tokens,
-            uint256[] memory amounts,
-            uint256[] memory values
-        )
-    {
-        return
-            helper.getPositionTokens(
-                positionId,
-                positions[positionId],
-                universalSwap,
-                stableToken
-            );
+    function getPositionTokens(
+        uint256 positionId
+    ) public view returns (address[] memory tokens, uint256[] memory amounts, uint256[] memory values) {
+        return helper.getPositionTokens(positionId, positions[positionId], universalSwap, stableToken);
     }
 
     /// @inheritdoc IPositionsManager
-    function getPositionRewards(uint256 positionId)
-        public
-        view
-        returns (
-            address[] memory rewards,
-            uint256[] memory rewardAmounts,
-            uint256[] memory rewardValues
-        )
-    {
-        return
-            helper.getPositionRewards(
-                positionId,
-                positions[positionId],
-                universalSwap,
-                stableToken
-            );
+    function getPositionRewards(
+        uint256 positionId
+    ) public view returns (address[] memory rewards, uint256[] memory rewardAmounts, uint256[] memory rewardValues) {
+        return helper.getPositionRewards(positionId, positions[positionId], universalSwap, stableToken);
     }
 
     /// @inheritdoc IPositionsManager
-    function getPosition(uint256 positionId)
-        external
-        view
-        returns (PositionData memory data)
-    {
-        return
-            helper.getPosition(
-                positionId,
-                positions[positionId],
-                universalSwap,
-                stableToken
-            );
+    function getPosition(uint256 positionId) external view returns (PositionData memory data) {
+        return helper.getPosition(positionId, positions[positionId], universalSwap, stableToken);
     }
 
     /// @inheritdoc IPositionsManager
-    function recommendBank(address lpToken)
-        external
-        view
-        returns (address[] memory, uint256[] memory)
-    {
+    function recommendBank(address lpToken) external view returns (address[] memory, uint256[] memory) {
         uint256[] memory tokenIds;
         address[] memory supportedBanks;
         for (uint256 i = 0; i < banks.length; i++) {
-            (bool success, uint256 tokenId) = BankBase(banks[i])
-                .getIdFromLpToken(lpToken);
+            (bool success, uint256 tokenId) = BankBase(banks[i]).getIdFromLpToken(lpToken);
             if (success) {
                 supportedBanks = supportedBanks.append(banks[i]);
                 tokenIds = tokenIds.append(tokenId);
@@ -170,10 +104,7 @@ contract PositionsManager is IPositionsManager, Ownable {
 
     ///-------------Core logic-------------
     /// @inheritdoc IPositionsManager
-    function adjustLiquidationPoints(
-        uint256 positionId,
-        LiquidationCondition[] memory _liquidationPoints
-    ) external {
+    function adjustLiquidationPoints(uint256 positionId, LiquidationCondition[] memory _liquidationPoints) external {
         require(msg.sender == positions[positionId].user, "1");
         Position storage position = positions[positionId];
         delete position.liquidationPoints;
@@ -193,26 +124,17 @@ contract PositionsManager is IPositionsManager, Ownable {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(payable(position.bank));
         uint256[] memory amountsUsed;
-        (address[] memory underlying, uint256[] memory ratios) = bank
-            .getUnderlyingForRecurringDeposit(position.bankToken);
+        (address[] memory underlying, uint256[] memory ratios) = bank.getUnderlyingForRecurringDeposit(
+            position.bankToken
+        );
         if (minAmounts.length > 0) {
             for (uint256 i = 0; i < provided.tokens.length; i++) {
-                IERC20(provided.tokens[i]).safeTransferFrom(
-                    msg.sender,
-                    universalSwap,
-                    provided.amounts[i]
-                );
+                IERC20(provided.tokens[i]).safeTransferFrom(msg.sender, universalSwap, provided.amounts[i]);
             }
             for (uint256 i = 0; i < provided.nfts.length; i++) {
-                IERC721(provided.nfts[i].manager).safeTransferFrom(
-                    msg.sender,
-                    universalSwap,
-                    provided.nfts[i].tokenId
-                );
+                IERC721(provided.nfts[i].manager).safeTransferFrom(msg.sender, universalSwap, provided.nfts[i].tokenId);
             }
-            amountsUsed = IUniversalSwap(universalSwap).swapAfterTransfer{
-                value: msg.value
-            }(
+            amountsUsed = IUniversalSwap(universalSwap).swapAfterTransfer{value: msg.value}(
                 provided,
                 swaps,
                 conversions,
@@ -225,11 +147,7 @@ contract PositionsManager is IPositionsManager, Ownable {
             }
         } else {
             for (uint256 i = 0; i < provided.tokens.length; i++) {
-                IERC20(provided.tokens[i]).safeTransferFrom(
-                    msg.sender,
-                    address(bank),
-                    provided.amounts[i]
-                );
+                IERC20(provided.tokens[i]).safeTransferFrom(msg.sender, address(bank), provided.amounts[i]);
             }
             if (msg.value > 0) {
                 provided.tokens = provided.tokens.append(address(0));
@@ -238,12 +156,7 @@ contract PositionsManager is IPositionsManager, Ownable {
             }
             amountsUsed = provided.amounts;
         }
-        uint256 minted = bank.mintRecurring(
-            position.bankToken,
-            address(uint160(positionId)),
-            underlying,
-            amountsUsed
-        );
+        uint256 minted = bank.mintRecurring(position.bankToken, address(uint160(positionId)), underlying, amountsUsed);
         position.amount += minted;
         PositionInteraction memory interaction = PositionInteraction(
             "deposit",
@@ -266,17 +179,9 @@ contract PositionsManager is IPositionsManager, Ownable {
         BankBase bank = BankBase(payable(position.bank));
         address lpToken = bank.getLPToken(position.bankToken);
         require(IUniversalSwap(universalSwap).isSupported(lpToken), "2"); // UnsupportedToken
-        require(
-            (msg.value > 0 && suppliedTokens.length == 0) ||
-                (msg.value == 0 && suppliedTokens.length > 0),
-            "6"
-        );
+        require((msg.value > 0 && suppliedTokens.length == 0) || (msg.value == 0 && suppliedTokens.length > 0), "6");
         for (uint256 i = 0; i < suppliedTokens.length; i++) {
-            IERC20(suppliedTokens[i]).safeTransferFrom(
-                msg.sender,
-                address(bank),
-                suppliedAmounts[i]
-            );
+            IERC20(suppliedTokens[i]).safeTransferFrom(msg.sender, address(bank), suppliedAmounts[i]);
         }
         if (msg.value > 0) {
             suppliedTokens = new address[](1);
@@ -303,22 +208,12 @@ contract PositionsManager is IPositionsManager, Ownable {
         userPositions[position.user].push(positions.length - 1);
         Provided memory provided;
         if (bank.isUnderlyingERC721()) {
-            Asset memory asset = Asset(
-                address(0),
-                suppliedTokens[0],
-                suppliedAmounts[0],
-                minted,
-                ""
-            );
+            Asset memory asset = Asset(address(0), suppliedTokens[0], suppliedAmounts[0], minted, "");
             Asset[] memory assets = new Asset[](1);
             assets[0] = asset;
             provided = Provided(new address[](0), new uint256[](0), assets);
         } else {
-            provided = Provided(
-                suppliedTokens,
-                suppliedAmounts,
-                new Asset[](0)
-            );
+            provided = Provided(suppliedTokens, suppliedAmounts, new Asset[](0));
         }
         PositionInteraction memory interaction = PositionInteraction(
             "deposit",
@@ -374,14 +269,8 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function harvestRewards(uint256 positionId)
-        external
-        returns (address[] memory, uint256[] memory)
-    {
-        Provided memory harvested = _harvest(
-            positionId,
-            positions[positionId].user
-        );
+    function harvestRewards(uint256 positionId) external returns (address[] memory, uint256[] memory) {
+        Provided memory harvested = _harvest(positionId, positions[positionId].user);
         PositionInteraction memory interaction = PositionInteraction(
             "harvest",
             block.timestamp,
@@ -405,12 +294,11 @@ contract PositionsManager is IPositionsManager, Ownable {
         require(positions[positionId].user == msg.sender, "1");
         Position storage position = positions[positionId];
         BankBase bank = BankBase(payable(position.bank));
-        address receiver = minAmounts.length > 0
-            ? universalSwap
-            : address(bank);
+        address receiver = minAmounts.length > 0 ? universalSwap : address(bank);
         Provided memory harvested = _harvest(positionId, receiver);
-        (address[] memory underlying, uint256[] memory ratios) = bank
-            .getUnderlyingForRecurringDeposit(position.bankToken);
+        (address[] memory underlying, uint256[] memory ratios) = bank.getUnderlyingForRecurringDeposit(
+            position.bankToken
+        );
         uint256[] memory amounts;
         if (minAmounts.length > 0) {
             if (harvested.amounts.sum() > 0) {
@@ -427,12 +315,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         }
         uint256 newLpTokens;
         if (amounts.sum() > 0) {
-            newLpTokens = bank.mintRecurring(
-                position.bankToken,
-                address(uint160(positionId)),
-                underlying,
-                amounts
-            );
+            newLpTokens = bank.mintRecurring(position.bankToken, address(uint160(positionId)), underlying, amounts);
             position.amount += newLpTokens;
         }
         PositionInteraction memory interaction = PositionInteraction(
@@ -462,29 +345,21 @@ contract PositionsManager is IPositionsManager, Ownable {
         {
             address[] memory wanted = new address[](1);
             uint256[] memory ratios = new uint256[](1);
-            wanted[0] = position
-                .liquidationPoints[liquidationIndex]
-                .liquidateTo;
+            wanted[0] = position.liquidationPoints[liquidationIndex].liquidateTo;
             ratios[0] = 1;
-            uint256[] memory valuesOut = IUniversalSwap(universalSwap)
-                .swapAfterTransfer(
-                    Provided(positionAssets.tokens, positionAssets.amounts, new Asset[](0)),
-                    swaps,
-                    conversions,
-                    Desired(wanted, new Asset[](0), ratios, new uint256[](1)),
-                    position.user
-                );
+            uint256[] memory valuesOut = IUniversalSwap(universalSwap).swapAfterTransfer(
+                Provided(positionAssets.tokens, positionAssets.amounts, new Asset[](0)),
+                swaps,
+                conversions,
+                Desired(wanted, new Asset[](0), ratios, new uint256[](1)),
+                position.user
+            );
             desiredTokenObtained = valuesOut[0];
         }
         {
-            positionValue = IUniversalSwap(universalSwap).estimateValue(
-                positionAssets,
-                stableToken
-            );
-            uint256 minUsdOut = (positionValue *
-                (10**18 -
-                    position.liquidationPoints[liquidationIndex].slippage)) /
-                10**18;
+            positionValue = IUniversalSwap(universalSwap).estimateValue(positionAssets, stableToken);
+            uint256 minUsdOut = (positionValue * (10 ** 18 - position.liquidationPoints[liquidationIndex].slippage)) /
+                10 ** 18;
             uint256 usdOut = IUniversalSwap(universalSwap).estimateValueERC20(
                 position.liquidationPoints[liquidationIndex].liquidateTo,
                 desiredTokenObtained,
@@ -526,41 +401,30 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     ///-------------Internal logic-------------
-    function _addPositionInteraction(
-        PositionInteraction memory interaction,
-        uint256 positionId
-    ) internal {
+    function _addPositionInteraction(PositionInteraction memory interaction, uint256 positionId) internal {
         positionInteractions[positionId].push();
         uint256 idx = positionInteractions[positionId].length - 1;
         positionInteractions[positionId][idx].action = interaction.action;
         positionInteractions[positionId][idx].timestamp = interaction.timestamp;
-        positionInteractions[positionId][idx].blockNumber = interaction
-            .blockNumber;
+        positionInteractions[positionId][idx].blockNumber = interaction.blockNumber;
         positionInteractions[positionId][idx].usdValue = interaction.usdValue;
-        positionInteractions[positionId][idx].positionSizeChange = interaction
-            .positionSizeChange;
-        positionInteractions[positionId][idx].assets.tokens = interaction
-            .assets
-            .tokens;
-        positionInteractions[positionId][idx].assets.amounts = interaction
-            .assets
-            .amounts;
+        positionInteractions[positionId][idx].positionSizeChange = interaction.positionSizeChange;
+        positionInteractions[positionId][idx].assets.tokens = interaction.assets.tokens;
+        positionInteractions[positionId][idx].assets.amounts = interaction.assets.amounts;
         for (uint256 i = 0; i < interaction.assets.nfts.length; i++) {
-            positionInteractions[positionId][idx].assets.nfts.push(
-                interaction.assets.nfts[i]
-            );
+            positionInteractions[positionId][idx].assets.nfts.push(interaction.assets.nfts[i]);
         }
     }
 
-    function _harvest(uint256 positionId, address receiver)
-        internal
-        returns (Provided memory harvested)
-    {
+    function _harvest(uint256 positionId, address receiver) internal returns (Provided memory harvested) {
         require(positions[positionId].user == msg.sender, "1");
         Position storage position = positions[positionId];
         BankBase bank = BankBase(payable(position.bank));
-        (address[] memory rewards, uint256[] memory rewardAmounts) = bank
-            .harvest(position.bankToken, address(uint160(positionId)), receiver);
+        (address[] memory rewards, uint256[] memory rewardAmounts) = bank.harvest(
+            position.bankToken,
+            address(uint160(positionId)),
+            receiver
+        );
         harvested = Provided(rewards, rewardAmounts, new Asset[](0));
     }
 
@@ -570,39 +434,28 @@ contract PositionsManager is IPositionsManager, Ownable {
         address[] memory tokens;
         uint256[] memory tokenAmounts;
         Provided memory positionAssets;
-        require(
-            keepers[msg.sender] || position.user==msg.sender || msg.sender == owner(),
-            "1"
+        require(keepers[msg.sender] || position.user == msg.sender || msg.sender == owner(), "1");
+        (address[] memory rewardAddresses, uint256[] memory rewardAmounts) = bank.harvest(
+            position.bankToken,
+            address(uint160(positionId)),
+            receiver
         );
-        (
-            address[] memory rewardAddresses,
-            uint256[] memory rewardAmounts
-        ) = bank.harvest(position.bankToken, address(uint160(positionId)), receiver);
-        (
-            address[] memory outTokens,
-            uint256[] memory outTokenAmounts
-        ) = bank.burn(
-                position.bankToken,
-                address(uint160(positionId)),
-                position.amount,
-                receiver
-            );
+        (address[] memory outTokens, uint256[] memory outTokenAmounts) = bank.burn(
+            position.bankToken,
+            address(uint160(positionId)),
+            position.amount,
+            receiver
+        );
         tokens = rewardAddresses.concat(outTokens);
         tokenAmounts = rewardAmounts.concat(outTokenAmounts);
         positionAssets = Provided(tokens, tokenAmounts, new Asset[](0));
         return positionAssets;
     }
 
-    function _withdraw(uint256 positionId, uint256 amount)
-        internal
-        returns (Provided memory withdrawn)
-    {
+    function _withdraw(uint256 positionId, uint256 amount) internal returns (Provided memory withdrawn) {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(payable(position.bank));
-        require(
-            position.amount >= amount,
-            "7"
-        );
+        require(position.amount >= amount, "7");
         require(position.user == msg.sender, "1");
         position.amount -= amount;
         (address[] memory tokens, uint256[] memory amounts) = bank.burn(

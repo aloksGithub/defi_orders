@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: BUSL 1.1
 pragma solidity ^0.8.9;
 
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./BankBase.sol";
 import "../interfaces/MasterChefInterfaces.sol";
 import "../libraries/AddressArray.sol";
@@ -23,12 +21,7 @@ abstract contract IMasterChefWrapper is Ownable {
     address public baseReward;
     string public pendingRewardGetter;
 
-    function getRewards(uint256 pid)
-        external
-        view
-        virtual
-        returns (address[] memory)
-    {
+    function getRewards(uint256 pid) external view virtual returns (address[] memory) {
         address[] memory rewards = new address[](1);
         rewards[0] = baseReward;
         return rewards;
@@ -47,22 +40,14 @@ abstract contract IMasterChefWrapper is Ownable {
         supportedLps[lpToken] = true;
     }
 
-    function getIdFromLpToken(address lpToken)
-        external
-        view
-        virtual
-        returns (bool, uint256)
-    {
+    function getIdFromLpToken(address lpToken) external view virtual returns (bool, uint256) {
         if (!supportedLps[lpToken] || lpToken == baseReward) return (false, 0);
         else return (true, supportedLpIndices[lpToken]);
     }
 
-    function getPendingRewards(uint256 pid)
-        external
-        view
-        virtual
-        returns (address[] memory rewards, uint256[] memory amounts)
-    {
+    function getPendingRewards(
+        uint256 pid
+    ) external view virtual returns (address[] memory rewards, uint256[] memory amounts) {
         bytes memory returnData = masterChef.functionStaticCall(
             abi.encodeWithSignature(pendingRewardGetter, pid, msg.sender)
         );
@@ -75,17 +60,9 @@ abstract contract IMasterChefWrapper is Ownable {
 
     function getLpToken(uint256 pid) public view virtual returns (address);
 
-    function deposit(
-        address masterChef,
-        uint256 pid,
-        uint256 amount
-    ) external virtual;
+    function deposit(address masterChef, uint256 pid, uint256 amount) external virtual;
 
-    function withdraw(
-        address masterChef,
-        uint256 pid,
-        uint256 amount
-    ) external virtual;
+    function withdraw(address masterChef, uint256 pid, uint256 amount) external virtual;
 
     function harvest(address masterChef, uint256 pid) external virtual;
 }
@@ -95,11 +72,7 @@ contract MasterChefV1Wrapper is IMasterChefWrapper {
     using UintArray for uint256[];
     using Address for address;
 
-    constructor(
-        address _masterChef,
-        address _baseReward,
-        string memory _pendingRewardGetter
-    ) {
+    constructor(address _masterChef, address _baseReward, string memory _pendingRewardGetter) {
         masterChef = _masterChef;
         baseReward = _baseReward;
         pendingRewardGetter = _pendingRewardGetter;
@@ -118,25 +91,15 @@ contract MasterChefV1Wrapper is IMasterChefWrapper {
     // }
 
     function getLpToken(uint256 pid) public view override returns (address) {
-        IMasterChefV1.PoolInfo memory pool = IMasterChefV1(masterChef).poolInfo(
-            pid
-        );
+        IMasterChefV1.PoolInfo memory pool = IMasterChefV1(masterChef).poolInfo(pid);
         return pool.lpToken;
     }
 
-    function deposit(
-        address masterChef,
-        uint256 pid,
-        uint256 amount
-    ) external override {
+    function deposit(address masterChef, uint256 pid, uint256 amount) external override {
         IMasterChefV1(masterChef).deposit(pid, amount);
     }
 
-    function withdraw(
-        address masterChef,
-        uint256 pid,
-        uint256 amount
-    ) external override {
+    function withdraw(address masterChef, uint256 pid, uint256 amount) external override {
         IMasterChefV1(masterChef).withdraw(pid, amount);
     }
 
@@ -152,11 +115,7 @@ contract MasterChefV2Wrapper is IMasterChefWrapper {
     using Address for address;
     mapping(uint256 => address) extraRewards;
 
-    constructor(
-        address _masterChef,
-        address _baseReward,
-        string memory _pendingRewardGetter
-    ) {
+    constructor(address _masterChef, address _baseReward, string memory _pendingRewardGetter) {
         masterChef = _masterChef;
         baseReward = _baseReward;
         pendingRewardGetter = _pendingRewardGetter;
@@ -177,32 +136,20 @@ contract MasterChefV2Wrapper is IMasterChefWrapper {
         return ISushiSwapMasterChefV2(masterChef).lpToken(pid);
     }
 
-    function getRewards(uint256 pid)
-        external
-        view
-        override
-        returns (address[] memory)
-    {
+    function getRewards(uint256 pid) external view override returns (address[] memory) {
         address[] memory rewards = new address[](1);
         rewards[0] = baseReward;
         address rewarder = ISushiSwapMasterChefV2(masterChef).rewarder(pid);
         if (rewarder != address(0)) {
-            (address[] memory tokens, ) = IRewarder(rewarder).pendingTokens(
-                0,
-                address(this),
-                0
-            );
+            (address[] memory tokens, ) = IRewarder(rewarder).pendingTokens(0, address(this), 0);
             rewards = rewards.concat(tokens);
         }
         return rewards;
     }
 
-    function getPendingRewards(uint256 pid)
-        external
-        view
-        override
-        returns (address[] memory rewards, uint256[] memory rewardAmounts)
-    {
+    function getPendingRewards(
+        uint256 pid
+    ) external view override returns (address[] memory rewards, uint256[] memory rewardAmounts) {
         bytes memory returnData = masterChef.functionStaticCall(
             abi.encodeWithSignature(pendingRewardGetter, pid, msg.sender)
         );
@@ -213,34 +160,22 @@ contract MasterChefV2Wrapper is IMasterChefWrapper {
         rewardAmounts[0] = pending;
         address rewarder = ISushiSwapMasterChefV2(masterChef).rewarder(pid);
         if (rewarder != address(0)) {
-            (address[] memory tokens, uint256[] memory amounts) = IRewarder(
-                rewarder
-            ).pendingTokens(pid, msg.sender, 0);
+            (address[] memory tokens, uint256[] memory amounts) = IRewarder(rewarder).pendingTokens(pid, msg.sender, 0);
             rewards = rewards.concat(tokens);
             rewardAmounts = rewardAmounts.concat(amounts);
         }
     }
 
-    function deposit(
-        address masterChef,
-        uint256 pid,
-        uint256 amount
-    ) external override {
+    function deposit(address masterChef, uint256 pid, uint256 amount) external override {
         ISushiSwapMasterChefV2(masterChef).deposit(pid, amount, address(this));
     }
 
-    function withdraw(
-        address masterChef,
-        uint256 pid,
-        uint256 amount
-    ) external override {
+    function withdraw(address masterChef, uint256 pid, uint256 amount) external override {
         ISushiSwapMasterChefV2(masterChef).withdraw(pid, amount, address(this));
     }
 
     function harvest(address masterChef, uint256 pid) external override {
-        try
-            ISushiSwapMasterChefV2(masterChef).pendingSushi(pid, address(this))
-        returns (uint256) {
+        try ISushiSwapMasterChefV2(masterChef).pendingSushi(pid, address(this)) returns (uint256) {
             ISushiSwapMasterChefV2(masterChef).harvest(pid, address(this));
         } catch {}
     }
@@ -251,11 +186,7 @@ contract PancakeSwapMasterChefV2Wrapper is IMasterChefWrapper {
     using UintArray for uint256[];
     using Address for address;
 
-    constructor(
-        address _masterChef,
-        address _baseReward,
-        string memory _pendingRewardGetter
-    ) {
+    constructor(address _masterChef, address _baseReward, string memory _pendingRewardGetter) {
         masterChef = _masterChef;
         baseReward = _baseReward;
         pendingRewardGetter = _pendingRewardGetter;
@@ -276,19 +207,11 @@ contract PancakeSwapMasterChefV2Wrapper is IMasterChefWrapper {
         return ISushiSwapMasterChefV2(masterChef).lpToken(pid);
     }
 
-    function deposit(
-        address masterChef,
-        uint256 pid,
-        uint256 amount
-    ) external override {
+    function deposit(address masterChef, uint256 pid, uint256 amount) external override {
         IMasterChefV1(masterChef).deposit(pid, amount);
     }
 
-    function withdraw(
-        address masterChef,
-        uint256 pid,
-        uint256 amount
-    ) external override {
+    function withdraw(address masterChef, uint256 pid, uint256 amount) external override {
         IMasterChefV1(masterChef).withdraw(pid, amount);
     }
 

@@ -1,18 +1,9 @@
-import {BigNumber, constants} from "ethers";
-import {ethers} from "hardhat";
-import {
-  UniversalSwap,
-  IERC20,
-  SwapHelper,
-  ISwapper,
-  IOracle,
-} from "../typechain-types";
-import {
-  ProvidedStruct,
-  SwapPointStruct,
-} from "../typechain-types/contracts/PositionsManager";
-import {DesiredStruct} from "../typechain-types/contracts/UniversalSwap";
-import {parseUnits} from "ethers/lib/utils";
+import { BigNumber, constants } from "ethers";
+import { ethers } from "hardhat";
+import { UniversalSwap, IERC20, SwapHelper, ISwapper, IOracle } from "../typechain-types";
+import { ProvidedStruct, SwapPointStruct } from "../typechain-types/contracts/PositionsManager";
+import { DesiredStruct } from "../typechain-types/contracts/UniversalSwap";
+import { parseUnits } from "ethers/lib/utils";
 
 const eighteen = ethers.BigNumber.from("1000000000000000000");
 
@@ -21,15 +12,15 @@ const logSwap = (swap: SwapPointStruct) => {
   console.log("Amount in: ", swap.amountIn.toString(), " Value in: ", swap.valueIn.toString());
   console.log("Amount out: ", swap.amountOut.toString(), " Value out: ", swap.valueOut.toString());
   console.log("Swappers used:");
-  for (let i = 0; i<swap.swappers.length; i++) {
-      console.log(swap.swappers[i]);
-      console.log("Path used:");
-      for (let j = 0; j<swap.paths[i].length; j++) {
-          console.log(swap.paths[i][j]);
-      }
-      console.log("___________________");
+  for (let i = 0; i < swap.swappers.length; i++) {
+    console.log(swap.swappers[i]);
+    console.log("Path used:");
+    for (let j = 0; j < swap.paths[i].length; j++) {
+      console.log(swap.paths[i][j]);
+    }
+    console.log("___________________");
   }
-}
+};
 
 export interface SwapContracts {
   universalSwap: UniversalSwap;
@@ -45,31 +36,20 @@ const findMultipleSwaps = async (
   inputAmounts: BigNumber[],
   inputValues: BigNumber[],
   outputTokens: string[],
-  outputValues: BigNumber[],
+  outputValues: BigNumber[]
 ) => {
   const routes: SwapPointStruct[] = [];
   const prices = outputTokens.map(
-    async (token) =>
-      await contracts.oracle.getPrice(
-        token,
-        contracts.networkTokenContract.address
-      )
+    async (token) => await contracts.oracle.getPrice(token, contracts.networkTokenContract.address)
   );
-  const decimals = outputTokens.map(
-    async (token) =>
-      await (await ethers.getContractAt("ERC20", token)).decimals()
-  );
+  const decimals = outputTokens.map(async (token) => await (await ethers.getContractAt("ERC20", token)).decimals());
   const tokenData = await Promise.all([...prices, ...decimals]);
-  const tokenPrices: {[token: string]: BigNumber} = tokenData
-    .slice(0, prices.length)
-    .reduce((acc, curr, index) => {
-      return {...acc, [outputTokens[index]]: curr};
-    }, {});
-  const tokenDecimals: {[token: string]: number} = tokenData
-    .slice(prices.length)
-    .reduce((acc, curr, index) => {
-      return {...acc, [outputTokens[index]]: curr};
-    }, {});
+  const tokenPrices: { [token: string]: BigNumber } = tokenData.slice(0, prices.length).reduce((acc, curr, index) => {
+    return { ...acc, [outputTokens[index]]: curr };
+  }, {});
+  const tokenDecimals: { [token: string]: number } = tokenData.slice(prices.length).reduce((acc, curr, index) => {
+    return { ...acc, [outputTokens[index]]: curr };
+  }, {});
   for (const [i, inToken] of inputTokens.entries()) {
     for (const [j, outToken] of outputTokens.entries()) {
       routes.push(
@@ -86,35 +66,41 @@ const findMultipleSwaps = async (
       );
     }
   }
-  const sortedSwaps = routes.sort((a, b)=>BigNumber.from(a.slippage).gt(BigNumber.from(b.slippage))?1:-1)
-  const bestSwaps: SwapPointStruct[] = []
-  const valuesUsed: BigNumber[] = Array(inputTokens.length).fill(BigNumber.from(0))
-  const valuesProvided: BigNumber[] = Array(outputTokens.length).fill(BigNumber.from(0))
+  const sortedSwaps = routes.sort((a, b) => (BigNumber.from(a.slippage).gt(BigNumber.from(b.slippage)) ? 1 : -1));
+  let bestSwaps: SwapPointStruct[] = [];
+  const valuesUsed: BigNumber[] = Array(inputTokens.length).fill(BigNumber.from(0));
+  const valuesProvided: BigNumber[] = Array(outputTokens.length).fill(BigNumber.from(0));
   for (const swap of sortedSwaps) {
-    const valueIn: BigNumber = BigNumber.from(swap.valueIn)
-    const tokenInIndex = inputTokens.findIndex(token=>token===swap.tokenIn)
-    const tokenOutIndex = outputTokens.findIndex(token=>token===swap.tokenOut)
-    if (swap.tokenIn===constants.AddressZero || swap.tokenOut===constants.AddressZero) continue
-    if (valuesUsed[tokenInIndex].lt(inputValues[tokenInIndex]) && valuesProvided[tokenOutIndex].lt(outputValues[tokenOutIndex])) {
-      const moreValueInAvailable = inputValues[tokenInIndex].sub(valuesUsed[tokenInIndex])
-      const moreValueOutNeeded = outputValues[tokenOutIndex].sub(valuesProvided[tokenOutIndex])
-      let valueInAdjusted = moreValueInAvailable.gte(valueIn)?valueIn:moreValueInAvailable
-      valueInAdjusted = valueInAdjusted.gt(moreValueOutNeeded)?moreValueOutNeeded:valueInAdjusted
+    const valueIn: BigNumber = BigNumber.from(swap.valueIn);
+    const tokenInIndex = inputTokens.findIndex((token) => token === swap.tokenIn);
+    const tokenOutIndex = outputTokens.findIndex((token) => token === swap.tokenOut);
+    if (swap.tokenIn === constants.AddressZero || swap.tokenOut === constants.AddressZero) continue;
+    if (
+      valuesUsed[tokenInIndex].lt(inputValues[tokenInIndex]) &&
+      valuesProvided[tokenOutIndex].lt(outputValues[tokenOutIndex])
+    ) {
+      const moreValueInAvailable = inputValues[tokenInIndex].sub(valuesUsed[tokenInIndex]);
+      const moreValueOutNeeded = outputValues[tokenOutIndex].sub(valuesProvided[tokenOutIndex]);
+      let valueInAdjusted = moreValueInAvailable.gte(valueIn) ? valueIn : moreValueInAvailable;
+      valueInAdjusted = valueInAdjusted.gt(moreValueOutNeeded) ? moreValueOutNeeded : valueInAdjusted;
       bestSwaps.push({
         ...swap,
         amountIn: valueInAdjusted.mul(inputAmounts[tokenInIndex]).div(inputValues[tokenInIndex]),
         valueIn: valueInAdjusted,
-        amountOut: valueInAdjusted.mul(BigNumber.from(swap.amountOut)).div(BigNumber.from(swap.valueIn))
-      })
-      valuesUsed[tokenInIndex] = valuesUsed[tokenInIndex].add(valueInAdjusted)
-      valuesProvided[tokenOutIndex] = valuesProvided[tokenOutIndex].add(valueInAdjusted)
+        amountOut: valueInAdjusted.mul(BigNumber.from(swap.amountOut)).div(BigNumber.from(swap.valueIn)),
+      });
+      valuesUsed[tokenInIndex] = valuesUsed[tokenInIndex].add(valueInAdjusted);
+      valuesProvided[tokenOutIndex] = valuesProvided[tokenOutIndex].add(valueInAdjusted);
       continue;
     }
   }
+  bestSwaps = bestSwaps.filter((swap) => swap.tokenIn != constants.AddressZero && swap.amountIn > 0);
   for (const swap of bestSwaps) {
-    swap.amountIn = eighteen.mul(BigNumber.from(swap.amountIn)).div(inputAmounts[inputTokens.findIndex(token=>token===swap.tokenIn)])
+    swap.amountIn = eighteen
+      .mul(BigNumber.from(swap.amountIn))
+      .div(inputAmounts[inputTokens.findIndex((token) => token === swap.tokenIn)]);
   }
-  return bestSwaps
+  return bestSwaps;
 };
 
 const recommendConnectors = async (
@@ -130,8 +116,7 @@ const recommendConnectors = async (
   } else {
     commonPoolTokens = connectorTokens;
   }
-  let scoresIn: Promise<{swapper: string; amount: BigNumber; token: string}>[] =
-    [];
+  let scoresIn: Promise<{ swapper: string; amount: BigNumber; token: string }>[] = [];
   let scoresOut: Promise<{
     swapper: string;
     amount: BigNumber;
@@ -143,11 +128,7 @@ const recommendConnectors = async (
       ...commonPoolTokens.map(async (token) => {
         return {
           swapper: swapper.address,
-          amount: await swapper.getAmountOut2(amount, [
-            tokenIn,
-            token,
-            tokenIn,
-          ]),
+          amount: await swapper.getAmountOut2(amount, [tokenIn, token, tokenIn]),
           token,
         };
       }),
@@ -159,11 +140,7 @@ const recommendConnectors = async (
       ...commonPoolTokens.map(async (token) => {
         return {
           swapper: swapper.address,
-          amount: await swapper.getAmountOut2(amount, [
-            tokenOut,
-            token,
-            tokenOut,
-          ]),
+          amount: await swapper.getAmountOut2(amount, [tokenOut, token, tokenOut]),
           token,
         };
       }),
@@ -171,37 +148,30 @@ const recommendConnectors = async (
   }
   const allScores = await Promise.all([...scoresIn, ...scoresOut]);
   let bestScoreIn = BigNumber.from(0);
-  let bestInToken = {swapper: "", amount: BigNumber.from(0), token: ""};
-  for (const score of allScores.slice(0, swappers.length*commonPoolTokens.length)) {
+  let bestInToken = { swapper: "", amount: BigNumber.from(0), token: "" };
+  for (const score of allScores.slice(0, swappers.length * commonPoolTokens.length)) {
     if (score.amount.gt(bestScoreIn)) {
       bestScoreIn = score.amount;
       bestInToken = score;
     }
   }
   let bestScoreOut = BigNumber.from(0);
-  let bestOutToken = {swapper: "", amount: BigNumber.from(0), token: ""};
-  for (const score of allScores.slice(swappers.length*commonPoolTokens.length)) {
+  let bestOutToken = { swapper: "", amount: BigNumber.from(0), token: "" };
+  for (const score of allScores.slice(swappers.length * commonPoolTokens.length)) {
     if (score.amount.gt(bestScoreOut)) {
       bestScoreOut = score.amount;
       bestOutToken = score;
     }
   }
-  return {bestInToken, bestOutToken};
+  return { bestInToken, bestOutToken };
 };
 
-const evaluateRoute = async (
-  swappers: string[],
-  paths: string[][],
-  amount: BigNumber
-) => {
+const evaluateRoute = async (swappers: string[], paths: string[][], amount: BigNumber) => {
   let currentAmount = amount;
   for (const [index, swapper] of swappers.entries()) {
     const path = paths[index];
     const swapperContract = await ethers.getContractAt("ISwapper", swapper);
-    currentAmount = await swapperContract.getAmountOut2(
-      currentAmount,
-      path
-    );
+    currentAmount = await swapperContract.getAmountOut2(currentAmount, path);
   }
   return currentAmount;
 };
@@ -222,18 +192,11 @@ const findBestRoute = async (
   const valueIn = amountIn.mul(valueInAvailable).div(amountInAvailable);
   const swapperAddresses = await contracts.helper.getSwappers();
   const swappers = await Promise.all(
-    swapperAddresses.map(
-      async (address) => await ethers.getContractAt("ISwapper", address)
-    )
+    swapperAddresses.map(async (address) => await ethers.getContractAt("ISwapper", address))
   );
-  const connectors = await recommendConnectors(
-    swappers,
-    tokenIn,
-    tokenOut,
-    amountIn
-  );
+  const connectors = await recommendConnectors(swappers, tokenIn, tokenOut, amountIn);
   const allRoutes = swappers.map((swapper) => {
-    return {paths: [[tokenIn, tokenOut]], swappers: [swapper.address]};
+    return { paths: [[tokenIn, tokenOut]], swappers: [swapper.address] };
   });
   allRoutes.push({
     paths: [[tokenIn, connectors.bestInToken.token, tokenOut]],
@@ -245,35 +208,23 @@ const findBestRoute = async (
   });
   if (connectors.bestInToken.swapper === connectors.bestOutToken.swapper) {
     allRoutes.push({
-      paths: [
-        [
-          tokenIn,
-          connectors.bestInToken.token,
-          connectors.bestOutToken.token,
-          tokenOut,
-        ],
-      ],
+      paths: [[tokenIn, connectors.bestInToken.token, connectors.bestOutToken.token, tokenOut]],
       swappers: [connectors.bestOutToken.swapper],
     });
   } else {
     allRoutes.push({
       paths: [
         [tokenIn, connectors.bestInToken.token],
-        [
-          connectors.bestInToken.token,
-          connectors.bestOutToken.token,
-          tokenOut,
-        ],
+        [connectors.bestInToken.token, connectors.bestOutToken.token, tokenOut],
       ],
-      swappers: [
-        connectors.bestInToken.swapper,
-        connectors.bestOutToken.swapper,
-      ],
+      swappers: [connectors.bestInToken.swapper, connectors.bestOutToken.swapper],
     });
   }
   let maxOut = BigNumber.from(0);
   let bestRoute = allRoutes[0];
-  const allScores = await Promise.all(allRoutes.map(async (route)=>evaluateRoute(route.swappers, route.paths, amountIn)))
+  const allScores = await Promise.all(
+    allRoutes.map(async (route) => evaluateRoute(route.swappers, route.paths, amountIn))
+  );
   for (const [index, score] of allScores.entries()) {
     if (score.gt(maxOut)) {
       maxOut = score;
@@ -296,19 +247,16 @@ const findBestRoute = async (
   return swapPoint;
 };
 
-export const calculateRoute = async (
-  contracts: SwapContracts,
-  provided: ProvidedStruct,
-  desired: DesiredStruct
-) => {
-  const [
+export const calculateRoute = async (contracts: SwapContracts, provided: ProvidedStruct, desired: DesiredStruct) => {
+  const [tokens, amounts, inputTokenValues, conversions, conversionUnderlying, conversionUnderlyingValues] =
+    await contracts.universalSwap.preSwapCalculateUnderlying(provided, desired);
+  const swaps = await findMultipleSwaps(
+    contracts,
     tokens,
     amounts,
     inputTokenValues,
-    conversions,
     conversionUnderlying,
-    conversionUnderlyingValues,
-  ] = await contracts.universalSwap.preSwapCalculateUnderlying(provided, desired);
-  const swaps = await findMultipleSwaps(contracts, tokens, amounts, inputTokenValues, conversionUnderlying, conversionUnderlyingValues)
-  return {swaps, conversions}
+    conversionUnderlyingValues
+  );
+  return { swaps, conversions };
 };

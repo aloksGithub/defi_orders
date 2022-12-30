@@ -58,9 +58,15 @@ struct PositionData {
 }
 
 interface IPositionsManager {
-
     event KeeperUpdate(address keeper, bool active);
-    event Deposit(uint positionId, address bank, uint bankToken, address user, uint amount, LiquidationCondition[] liquidationPoints);
+    event Deposit(
+        uint positionId,
+        address bank,
+        uint bankToken,
+        address user,
+        uint amount,
+        LiquidationCondition[] liquidationPoints
+    );
     event IncreasePosition(uint positionId, uint amount);
     event Withdraw(uint positionId, uint amount);
     event PositionClose(uint positionId);
@@ -73,7 +79,7 @@ interface IPositionsManager {
     /// @notice Returns number of positions that have been opened
     /// @return positions Number of positions that have been opened
     function numPositions() external view returns (uint positions);
-    
+
     /// @notice Returns a list of position interactions, each interaction is a two element array consisting of block number and interaction type
     /// @notice Interaction type 0 is deposit, 1 is withdraw, 2 is harvest, 3 is compound and 4 is bot liquidation
     /// @param positionId position ID
@@ -121,7 +127,13 @@ interface IPositionsManager {
     /// @param swaps Swaps to conduct if provided assets do not match underlying for position
     /// @param conversions Conversions to conduct if provided assets do not match underlying for position
     /// @param minAmounts Slippage control, used when provided assets don't match the positions underlying
-    function depositInExisting(uint positionId, Provided memory provided, SwapPoint[] memory swaps, Conversion[] memory conversions, uint[] memory minAmounts) payable external;
+    function depositInExisting(
+        uint positionId,
+        Provided memory provided,
+        SwapPoint[] memory swaps,
+        Conversion[] memory conversions,
+        uint[] memory minAmounts
+    ) external payable;
 
     /// @notice Create new position and deposit into it
     /// @dev Before calling, make sure PositionsManager contract has approvals according to suppliedAmounts
@@ -129,7 +141,11 @@ interface IPositionsManager {
     /// @param position position details
     /// @param suppliedTokens list of tokens supplied to increase the positions value
     /// @param suppliedAmounts amounts supplied for each of the supplied tokens
-    function deposit(Position memory position, address[] memory suppliedTokens, uint[] memory suppliedAmounts) payable external returns (uint);
+    function deposit(
+        Position memory position,
+        address[] memory suppliedTokens,
+        uint[] memory suppliedAmounts
+    ) external payable returns (uint);
 
     /// @notice Withdraw from a position
     /// @dev In case of ERC721Bank position, amount should be liquidity to withdraw like in UniswapV3PositionsManager
@@ -147,10 +163,14 @@ interface IPositionsManager {
     function estimateValue(uint positionId, address inTermsOf) external view returns (uint value);
 
     /// @notice Get the underlying tokens, amounts and corresponding usd values for a position
-    function getPositionTokens(uint positionId) external view returns (address[] memory tokens, uint[] memory amounts, uint256[] memory values);
+    function getPositionTokens(
+        uint positionId
+    ) external view returns (address[] memory tokens, uint[] memory amounts, uint256[] memory values);
 
     /// @notice Get the rewards, rewad amounts and corresponding usd values that have been generated for a position
-    function getPositionRewards(uint positionId) external view returns (address[] memory tokens, uint[] memory amounts, uint256[] memory rewardValues);
+    function getPositionRewards(
+        uint positionId
+    ) external view returns (address[] memory tokens, uint[] memory amounts, uint256[] memory rewardValues);
 
     /// @notice Harvest and receive the rewards for a position
     /// @param positionId Position ID
@@ -164,7 +184,12 @@ interface IPositionsManager {
     /// @param conversions Conversions to conduct if harvested assets do not match underlying for position
     /// @param minAmounts Slippage control, used when harvested assets don't match the positions underlying
     /// @return newLpTokens Amount of new tokens added/increase in liquidity for position
-    function harvestAndRecompound(uint positionId, SwapPoint[] memory swaps, Conversion[] memory conversions, uint[] memory minAmounts) external returns (uint newLpTokens);
+    function harvestAndRecompound(
+        uint positionId,
+        SwapPoint[] memory swaps,
+        Conversion[] memory conversions,
+        uint[] memory minAmounts
+    ) external returns (uint newLpTokens);
 
     /// @notice Liquidate a position that has violated some liquidation condition
     /// @notice Can only be called by a keeper
@@ -172,7 +197,12 @@ interface IPositionsManager {
     /// @param swaps Swaps to conduct to get desired asset from position
     /// @param conversions Conversions to conduct to get desired asset from position
     /// @param liquidationIndex Index of liquidation condition that is no longer satisfied
-    function botLiquidate(uint positionId, uint liquidationIndex, SwapPoint[] memory swaps, Conversion[] memory conversions) external;
+    function botLiquidate(
+        uint positionId,
+        uint liquidationIndex,
+        SwapPoint[] memory swaps,
+        Conversion[] memory conversions
+    ) external;
 
     /// @notice Check wether one of the liquidation conditions has become true
     /// @param positionId Position ID

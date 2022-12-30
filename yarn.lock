@@ -789,6 +789,13 @@
   dependencies:
     antlr4ts "^0.5.0-alpha.4"
 
+"@solidity-parser/parser@^0.14.5":
+  version "0.14.5"
+  resolved "https://registry.yarnpkg.com/@solidity-parser/parser/-/parser-0.14.5.tgz#87bc3cc7b068e08195c219c91cd8ddff5ef1a804"
+  integrity sha512-6dKnHZn7fg/iQATVEzqyUOyEidbn05q7YA2mQ9hC0MMXhhV3/JrsxmFSYZAcr7j1yUP700LLhTruvJ3MiQmjJg==
+  dependencies:
+    antlr4ts "^0.5.0-alpha.4"
+
 "@tsconfig/node10@^1.0.7":
   version "1.0.9"
   resolved "https://registry.npmjs.org/@tsconfig/node10/-/node10-1.0.9.tgz"
@@ -3692,6 +3699,15 @@ prelude-ls@~1.1.2:
   resolved "https://registry.npmjs.org/prelude-ls/-/prelude-ls-1.1.2.tgz"
   integrity sha512-ESF23V4SKG6lVSGZgYNpbsiaAkdab6ZgOxe52p7+Kid3W3u3bxR4Vfd/o21dmN7jSt0IwgZ4v5MUd26FEtXE9w==
 
+prettier-plugin-solidity@^1.1.1:
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/prettier-plugin-solidity/-/prettier-plugin-solidity-1.1.1.tgz#4d3375b85f97812ffcbe48d5a8b3fe914d69c91f"
+  integrity sha512-uD24KO26tAHF+zMN2nt1OUzfknzza5AgxjogQQrMLZc7j8xiQrDoNWNeOlfFC0YLTwo12CLD10b9niLyP6AqXg==
+  dependencies:
+    "@solidity-parser/parser" "^0.14.5"
+    semver "^7.3.8"
+    solidity-comments-extractor "^0.0.7"
+
 prettier@2.8.1:
   version "2.8.1"
   resolved "https://registry.yarnpkg.com/prettier/-/prettier-2.8.1.tgz#4e1fd11c34e2421bc1da9aea9bd8127cd0a35efc"
@@ -4041,6 +4057,13 @@ semver@^7.3.4:
   dependencies:
     lru-cache "^6.0.0"
 
+semver@^7.3.8:
+  version "7.3.8"
+  resolved "https://registry.yarnpkg.com/semver/-/semver-7.3.8.tgz#07a78feafb3f7b32347d725e33de7e2a2df67798"
+  integrity sha512-NB1ctGL5rlHrPJtFDVIVzTyQylMLu9N9VICA6HSFJo8MCGVTMW6gfpicwKmmK/dAjTOrqu5l63JJOpDSrAis3A==
+  dependencies:
+    lru-cache "^6.0.0"
+
 serialize-javascript@6.0.0:
   version "6.0.0"
   resolved "https://registry.npmjs.org/serialize-javascript/-/serialize-javascript-6.0.0.tgz"
@@ -4140,6 +4163,11 @@ solidity-ast@^0.4.15:
   version "0.4.35"
   resolved "https://registry.npmjs.org/solidity-ast/-/solidity-ast-0.4.35.tgz"
   integrity sha512-F5bTDLh3rmDxRmLSrs3qt3nvxJprWSEkS7h2KmuXDx7XTfJ6ZKVTV1rtPIYCqJAuPsU/qa8YUeFn7jdOAZcTPA==
+
+solidity-comments-extractor@^0.0.7:
+  version "0.0.7"
+  resolved "https://registry.yarnpkg.com/solidity-comments-extractor/-/solidity-comments-extractor-0.0.7.tgz#99d8f1361438f84019795d928b931f4e5c39ca19"
+  integrity sha512-wciNMLg/Irp8OKGrh3S2tfvZiZ0NEyILfcRCXCD4mp7SgK/i9gzLfhY2hY7VMCQJ3kH9UB9BzNdibIVMchzyYw==
 
 solidity-coverage@^0.8.2:
   version "0.8.2"

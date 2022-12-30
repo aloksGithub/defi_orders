@@ -6,9 +6,9 @@ import "../interfaces/UniswapV2/IUniswapV2Pair.sol";
 import "../libraries/Math.sol";
 
 contract UniswapV2PoolInteractor is IPoolInteractor {
-    using SafeERC20 for IERC20;
+    using SaferERC20 for IERC20;
 
-    uint256 public constant MINIMUM_LIQUIDITY = 10**3;
+    uint256 public constant MINIMUM_LIQUIDITY = 10 ** 3;
 
     function burn(
         address lpTokenAddress,
@@ -45,10 +45,7 @@ contract UniswapV2PoolInteractor is IPoolInteractor {
             return 0;
         }
         for (uint256 i = 0; i < underlyingTokens.length; i++) {
-            IERC20(underlyingTokens[i]).safeTransfer(
-                toMint,
-                underlyingAmounts[i]
-            );
+            IERC20(underlyingTokens[i]).safeTransfer(toMint, underlyingAmounts[i]);
         }
         uint256 minted = poolContract.mint(receiver);
         return minted;
@@ -74,30 +71,18 @@ contract UniswapV2PoolInteractor is IPoolInteractor {
         if (totalSupply == 0) {
             minted = Math.sqrt(amount0 * amount1) - MINIMUM_LIQUIDITY;
         } else {
-            minted = Math.min(
-                (amount0 * totalSupply) / r0,
-                (amount1 * totalSupply) / r1
-            );
+            minted = Math.min((amount0 * totalSupply) / r0, (amount1 * totalSupply) / r1);
         }
     }
 
-    function testSupported(address token)
-        external
-        view
-        override
-        returns (bool)
-    {
+    function testSupported(address token) external view override returns (bool) {
         try IUniswapV2Pair(token).token0() returns (address) {} catch {
             return false;
         }
         try IUniswapV2Pair(token).token1() returns (address) {} catch {
             return false;
         }
-        try IUniswapV2Pair(token).getReserves() returns (
-            uint112,
-            uint112,
-            uint32
-        ) {} catch {
+        try IUniswapV2Pair(token).getReserves() returns (uint112, uint112, uint32) {} catch {
             return false;
         }
         try IUniswapV2Pair(token).kLast() returns (uint256) {} catch {
@@ -106,11 +91,10 @@ contract UniswapV2PoolInteractor is IPoolInteractor {
         return true;
     }
 
-    function getUnderlyingAmount(address lpTokenAddress, uint256 amount)
-        external
-        view
-        returns (address[] memory underlying, uint256[] memory amounts)
-    {
+    function getUnderlyingAmount(
+        address lpTokenAddress,
+        uint256 amount
+    ) external view returns (address[] memory underlying, uint256[] memory amounts) {
         IUniswapV2Pair lpToken = IUniswapV2Pair(lpTokenAddress);
         (uint256 r0, uint256 r1, ) = lpToken.getReserves();
         uint256 supply = lpToken.totalSupply();
@@ -120,11 +104,7 @@ contract UniswapV2PoolInteractor is IPoolInteractor {
         amounts[1] = (amount * r1) / supply;
     }
 
-    function getUnderlyingTokens(address lpTokenAddress)
-        public
-        view
-        returns (address[] memory, uint256[] memory)
-    {
+    function getUnderlyingTokens(address lpTokenAddress) public view returns (address[] memory, uint256[] memory) {
         IUniswapV2Pair poolContract = IUniswapV2Pair(lpTokenAddress);
         address[] memory receivedTokens = new address[](2);
         receivedTokens[0] = poolContract.token0();

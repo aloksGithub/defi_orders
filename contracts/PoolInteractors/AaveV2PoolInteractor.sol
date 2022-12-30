@@ -12,43 +12,29 @@ interface IAToken {
 }
 
 contract AaveV2PoolInteractor is IPoolInteractor {
-    using SafeERC20 for IERC20;
+    using SaferERC20 for IERC20;
 
     address public lendingPool1;
     address public lendingPool2;
     address public lendingPool3;
 
-    constructor(
-        address _lendingPool1,
-        address _lendingPool2,
-        address _lendingPool3
-    ) {
+    constructor(address _lendingPool1, address _lendingPool2, address _lendingPool3) {
         lendingPool1 = _lendingPool1;
         lendingPool2 = _lendingPool2;
         lendingPool3 = _lendingPool3;
     }
 
-    function _getVersion(address lpTokenAddress, address self)
-        internal
-        view
-        returns (uint256)
-    {
+    function _getVersion(address lpTokenAddress, address self) internal view returns (uint256) {
         (address[] memory underlying, ) = getUnderlyingTokens(lpTokenAddress);
         address lendingPool2Address = AaveV2PoolInteractor(self).lendingPool2();
         address lendingPool3Address = AaveV2PoolInteractor(self).lendingPool3();
         if (lendingPool2Address != address(0)) {
-            if (
-                ILendingPool2(lendingPool2Address)
-                    .getReserveData(underlying[0])
-                    .aTokenAddress == lpTokenAddress
-            ) return 2;
+            if (ILendingPool2(lendingPool2Address).getReserveData(underlying[0]).aTokenAddress == lpTokenAddress)
+                return 2;
         }
         if (lendingPool3Address != address(0)) {
-            if (
-                ILendingPool3(lendingPool3Address)
-                    .getReserveData(underlying[0])
-                    .aTokenAddress == lpTokenAddress
-            ) return 3;
+            if (ILendingPool3(lendingPool3Address).getReserveData(underlying[0]).aTokenAddress == lpTokenAddress)
+                return 3;
         }
         // if (lendingPool1Address!=address(0)) {
         //     (,,,,,,,,,,,address aToken,) = ILendingPool1(lendingPool1Address).getReserveData(underlyingAddress);
@@ -75,23 +61,14 @@ contract AaveV2PoolInteractor is IPoolInteractor {
             // IERC20(underlying[0]).safeTransfer(msg.sender, ERC20(underlying[0]).balanceOf(address(this)));
             // ILendingPool1(lendingPool1Address).redeemUnderlying(underlyingAddress, payable(address(this)), amount, 0);
         } else if (version == 2) {
-            lpTokenContract.approve(lendingPool2Address, amount);
-            ILendingPool2(lendingPool2Address).withdraw(
-                underlying[0],
-                amount,
-                address(this)
-            );
+            lpTokenContract.safeIncreaseAllowance(lendingPool2Address, amount);
+            ILendingPool2(lendingPool2Address).withdraw(underlying[0], amount, address(this));
         } else if (version == 3) {
-            lpTokenContract.approve(lendingPool3Address, amount);
-            ILendingPool3(lendingPool3Address).withdraw(
-                underlying[0],
-                amount,
-                address(this)
-            );
+            lpTokenContract.safeIncreaseAllowance(lendingPool3Address, amount);
+            ILendingPool3(lendingPool3Address).withdraw(underlying[0], amount, address(this));
         }
 
-        uint256 tokensGained = ERC20(underlying[0]).balanceOf(address(this)) -
-            balanceBefore;
+        uint256 tokensGained = ERC20(underlying[0]).balanceOf(address(this)) - balanceBefore;
         require(tokensGained > 0, "10");
         address[] memory receivedTokens = new address[](1);
         receivedTokens[0] = underlying[0];
@@ -110,10 +87,7 @@ contract AaveV2PoolInteractor is IPoolInteractor {
         IERC20 lpTokenContract = IERC20(toMint);
         uint256 lpBalance = lpTokenContract.balanceOf(receiver);
         (address[] memory underlying, ) = getUnderlyingTokens(toMint);
-        require(
-            underlying[0] == underlyingTokens[0],
-            "6"
-        );
+        require(underlying[0] == underlyingTokens[0], "6");
         address lendingPool1Address = AaveV2PoolInteractor(self).lendingPool1();
         address lendingPool2Address = AaveV2PoolInteractor(self).lendingPool2();
         address lendingPool3Address = AaveV2PoolInteractor(self).lendingPool3();
@@ -124,37 +98,14 @@ contract AaveV2PoolInteractor is IPoolInteractor {
                 ILendingPool1(lendingPool1Address).core(),
                 underlyingAmounts[0]
             );
-            ILendingPool1(lendingPool1Address).deposit(
-                underlying[0],
-                underlyingAmounts[0],
-                0
-            );
-            lpTokenContract.transfer(
-                receiver,
-                lpTokenContract.balanceOf(address(this))
-            );
+            ILendingPool1(lendingPool1Address).deposit(underlying[0], underlyingAmounts[0], 0);
+            lpTokenContract.transfer(receiver, lpTokenContract.balanceOf(address(this)));
         } else if (version == 2) {
-            IERC20(underlyingTokens[0]).safeIncreaseAllowance(
-                lendingPool2Address,
-                underlyingAmounts[0]
-            );
-            ILendingPool2(lendingPool2Address).deposit(
-                underlying[0],
-                underlyingAmounts[0],
-                receiver,
-                0
-            );
+            IERC20(underlyingTokens[0]).safeIncreaseAllowance(lendingPool2Address, underlyingAmounts[0]);
+            ILendingPool2(lendingPool2Address).deposit(underlying[0], underlyingAmounts[0], receiver, 0);
         } else if (version == 3) {
-            IERC20(underlyingTokens[0]).safeIncreaseAllowance(
-                lendingPool3Address,
-                underlyingAmounts[0]
-            );
-            ILendingPool3(lendingPool3Address).supply(
-                underlying[0],
-                underlyingAmounts[0],
-                receiver,
-                0
-            );
+            IERC20(underlyingTokens[0]).safeIncreaseAllowance(lendingPool3Address, underlyingAmounts[0]);
+            ILendingPool3(lendingPool3Address).supply(underlying[0], underlyingAmounts[0], receiver, 0);
         }
 
         uint256 minted = lpTokenContract.balanceOf(receiver) - lpBalance;
@@ -170,12 +121,7 @@ contract AaveV2PoolInteractor is IPoolInteractor {
         return underlyingAmounts[0];
     }
 
-    function testSupported(address token)
-        external
-        view
-        override
-        returns (bool)
-    {
+    function testSupported(address token) external view override returns (bool) {
         try IAToken(token).UNDERLYING_ASSET_ADDRESS() returns (address) {
             return true;
         } catch {
@@ -187,30 +133,21 @@ contract AaveV2PoolInteractor is IPoolInteractor {
         }
     }
 
-    function getUnderlyingAmount(address aTokenAddress, uint256 amount)
-        external
-        view
-        returns (address[] memory underlying, uint256[] memory amounts)
-    {
+    function getUnderlyingAmount(
+        address aTokenAddress,
+        uint256 amount
+    ) external view returns (address[] memory underlying, uint256[] memory amounts) {
         (underlying, ) = getUnderlyingTokens(aTokenAddress);
         amounts = new uint256[](1);
         amounts[0] = amount;
     }
 
-    function getUnderlyingTokens(address lpTokenAddress)
-        public
-        view
-        returns (address[] memory, uint256[] memory)
-    {
+    function getUnderlyingTokens(address lpTokenAddress) public view returns (address[] memory, uint256[] memory) {
         address underlyingAddress;
-        try IAToken(lpTokenAddress).UNDERLYING_ASSET_ADDRESS() returns (
-            address underlying
-        ) {
+        try IAToken(lpTokenAddress).UNDERLYING_ASSET_ADDRESS() returns (address underlying) {
             underlyingAddress = underlying;
         } catch {
-            try IAToken(lpTokenAddress).underlyingAssetAddress() returns (
-                address underlying
-            ) {
+            try IAToken(lpTokenAddress).underlyingAssetAddress() returns (address underlying) {
                 underlyingAddress = underlying;
             } catch {
                 revert("Failed to get underlying");

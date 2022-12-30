@@ -6,13 +6,9 @@ import "../libraries/SwapFinder.sol";
 interface ISwapper {
     event Burn(address holderAddress, uint256 amount);
 
-    function getCommonPoolTokens() external view returns(address[] memory);
+    function getCommonPoolTokens() external view returns (address[] memory);
 
-    function swap(
-        uint256 amount,
-        address[] memory path,
-        address self
-    ) payable external returns (uint256);
+    function swap(uint256 amount, address[] memory path, address self) external payable returns (uint256);
 
     function getAmountOut(
         address inToken,
@@ -20,10 +16,7 @@ interface ISwapper {
         address outToken
     ) external view returns (uint256, address[] memory);
 
-    function getAmountOut2(
-        uint256 amount,
-        address[] memory path
-    ) external view returns (uint256);
+    function getAmountOut2(uint256 amount, address[] memory path) external view returns (uint256);
 
     function getAmountsOutWithPath(
         uint256 amount,
@@ -32,8 +25,5 @@ interface ISwapper {
         SwapPoint[] memory priorSwaps
     ) external view returns (uint256[] memory);
 
-    function checkSwappable(address token)
-        external
-        view
-        returns (bool);
+    function checkSwappable(address token) external view returns (bool);
 }

@@ -1,27 +1,27 @@
 import { HardhatUserConfig, task } from "hardhat/config";
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomiclabs/hardhat-ethers";
-require('dotenv').config();
+require("dotenv").config();
 require("@nomiclabs/hardhat-etherscan");
-import deployments from "./constants/deployments.json"
-import '@openzeppelin/hardhat-upgrades';
-require('hardhat-contract-sizer');
-require('solidity-coverage')
-require('@typechain/hardhat')
-require('@nomiclabs/hardhat-ethers')
-import "solidity-coverage"
+import deployments from "./constants/deployments.json";
+import "@openzeppelin/hardhat-upgrades";
+require("hardhat-contract-sizer");
+require("solidity-coverage");
+require("@typechain/hardhat");
+require("@nomiclabs/hardhat-ethers");
+import "solidity-coverage";
 import { ethers } from "ethers";
 
 const rpcs = {
   bsc: process.env.BSC_RPC!,
   bscTestnet: process.env.BSC_TESTNET_RPC!,
-  mainnet: process.env.ETHEREUM_RPC!
-}
+  mainnet: process.env.ETHEREUM_RPC!,
+};
 
 const approximateGasPrices = {
-  bsc: 7*10**9,
-  mainnet: 35*10**9
-}
+  bsc: 7 * 10 ** 9,
+  mainnet: 35 * 10 ** 9,
+};
 
 const config: HardhatUserConfig = {
   solidity: {
@@ -49,22 +49,22 @@ const config: HardhatUserConfig = {
         url: rpcs[process.env.CURRENTLY_FORKING!],
       },
       chainId: 1337,
-        // @ts-ignore
-      gasPrice: approximateGasPrices[process.env.CURRENTLY_FORKING!]
+      // @ts-ignore
+      gasPrice: approximateGasPrices[process.env.CURRENTLY_FORKING!],
     },
     localhost: {
       url: "http://127.0.0.1:8545/",
       timeout: 100000000,
       // @ts-ignore
-      gasPrice: approximateGasPrices[process.env.CURRENTLY_FORKING!]
+      gasPrice: approximateGasPrices[process.env.CURRENTLY_FORKING!],
     },
     bsc: {
       url: process.env.BSC_RPC!,
-      accounts: [process.env.BSC_ACCOUNT!]
+      accounts: [process.env.BSC_ACCOUNT!],
     },
     bscTestnet: {
       url: process.env.BSC_TESTNET_RPC,
-      accounts: [process.env.BSC_TESTNET_ACCOUNT!]
+      accounts: [process.env.BSC_TESTNET_ACCOUNT!],
     },
     mainnet: {
       url: process.env.ETHEREUM_RPC,
@@ -73,18 +73,18 @@ const config: HardhatUserConfig = {
     goerli: {
       url: process.env.ETHEREUM_TESTNET_RPC,
       // accounts: [process.env.ETHEREUM_TESTNET_ACCOUNT!]
-    }
+    },
   },
   etherscan: {
     apiKey: {
-        mainnet: process.env.ETHERSCAN_API_KEY!,
-        goerli: process.env.ETHERSCAN_API_KEY!,
-        bsc: process.env.BSCSCAN_API_KEY!,
-        bscTestnet: process.env.BSCSCAN_API_KEY!,
+      mainnet: process.env.ETHERSCAN_API_KEY!,
+      goerli: process.env.ETHERSCAN_API_KEY!,
+      bsc: process.env.BSCSCAN_API_KEY!,
+      bscTestnet: process.env.BSCSCAN_API_KEY!,
     },
   },
   mocha: {
-    timeout: 100000000
+    timeout: 100000000,
   },
 };
 

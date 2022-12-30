@@ -16,12 +16,32 @@ struct Asset {
 }
 
 interface INFTPoolInteractor {
-    function burn(Asset memory asset) payable external returns (address[] memory receivedTokens, uint256[] memory receivedTokenAmounts);
-    function mint(Asset memory toMint, address[] memory underlyingTokens, uint256[] memory underlyingAmounts, address receiver) payable external returns (uint256);
-    function simulateMint(Asset memory toMint, address[] memory underlyingTokens, uint[] memory underlyingAmounts) external view returns (uint);
+    function burn(
+        Asset memory asset
+    ) external payable returns (address[] memory receivedTokens, uint256[] memory receivedTokenAmounts);
+
+    function mint(
+        Asset memory toMint,
+        address[] memory underlyingTokens,
+        uint256[] memory underlyingAmounts,
+        address receiver
+    ) external payable returns (uint256);
+
+    function simulateMint(
+        Asset memory toMint,
+        address[] memory underlyingTokens,
+        uint[] memory underlyingAmounts
+    ) external view returns (uint);
+
     function getRatio(address poolAddress, int24 tick0, int24 tick1) external view returns (uint, uint);
+
     function testSupported(address token) external view returns (bool);
+
     function testSupportedPool(address token) external view returns (bool);
-    function getUnderlyingAmount(Asset memory nft) external view returns (address[] memory underlying, uint[] memory amounts);
+
+    function getUnderlyingAmount(
+        Asset memory nft
+    ) external view returns (address[] memory underlying, uint[] memory amounts);
+
     function getUnderlyingTokens(address lpTokenAddress) external view returns (address[] memory);
 }
