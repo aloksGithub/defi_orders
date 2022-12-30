@@ -313,11 +313,12 @@ export const getUniversalSwap = async (verify: boolean = false, log: boolean = f
   const poolInteractors = await getPoolInteractors(verify, log);
   const nftInteractors = await nftPoolInteractors(verify, log);
   const oracle = await deployOracle(verify, log);
-  // @ts-ignore
   const universalSwap = await universalSwapContract.deploy(
     poolInteractors,
     nftInteractors,
+  // @ts-ignore
     addresses[network].networkToken,
+  // @ts-ignore
     addresses[network].preferredStable,
     swappers2,
     oracle.address
@@ -331,7 +332,9 @@ export const getUniversalSwap = async (verify: boolean = false, log: boolean = f
         constructorArguments: [
           poolInteractors,
           nftInteractors,
+          // @ts-ignore
           addresses[network].networkToken,
+          // @ts-ignore
           addresses[network].preferredStable,
           swappers2,
           oracle.address,
@@ -348,7 +351,9 @@ export const getUniversalSwap = async (verify: boolean = false, log: boolean = f
         constructorArguments: [
           poolInteractors,
           nftInteractors,
+          // @ts-ignore
           addresses[network].networkToken,
+          // @ts-ignore
           addresses[network].preferredStable,
           swappers2,
           oracle.address,
@@ -621,6 +626,7 @@ export const getLPToken = async (
   await universalSwap
     .connect(owner)
     .swap(
+      // @ts-ignore
       { tokens: [addresses[network].networkToken], amounts: [ethers.utils.parseEther(etherAmount)], nfts: [] },
       [],
       [],
@@ -704,20 +710,18 @@ export const getNFT = async (
     ["int24", "int24", "uint256", "uint256"],
     [nearestTick - 2500 * tickSpacing, nearestTick + 20 * tickSpacing, 0, 0]
   );
-  const tx = await universalSwap
-    .connect(owner)
-    .swap(
-      { tokens: [networkToken], amounts: [ethers.utils.parseEther((+etherAmount).toString())], nfts: [] },
-      [],
-      [],
-      {
-        outputERC20s: [],
-        outputERC721s: [{ pool, manager, tokenId: 0, liquidity: 0, data }],
-        ratios: [1],
-        minAmountsOut: [],
-      },
-      owner.address
-    );
+  const tx = await universalSwap.connect(owner).swap(
+    { tokens: [networkToken], amounts: [ethers.utils.parseEther((+etherAmount).toString())], nfts: [] },
+    [],
+    [],
+    {
+      outputERC20s: [],
+      outputERC721s: [{ pool, manager, tokenId: 0, liquidity: 0, data }],
+      ratios: [1],
+      minAmountsOut: [],
+    },
+    owner.address
+  );
   const rc = await tx.wait();
   const event = rc.events?.find((event: any) => event.event === "NFTMinted");
   // @ts-ignore
