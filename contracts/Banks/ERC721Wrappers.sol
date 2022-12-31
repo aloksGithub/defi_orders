@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL 1.1
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.17;
 
 import "../interfaces/UniswapV3/INonfungiblePositionManager.sol";
 import "../interfaces/UniswapV3/IUniswapV3Pool.sol";
@@ -85,7 +85,6 @@ contract UniswapV3Wrapper is IERC721Wrapper {
         uint256[] memory suppliedAmounts
     ) external override returns (uint256) {
         for (uint256 i = 0; i < suppliedTokens.length; i++) {
-            uint256 allowance = IERC20(suppliedTokens[i]).allowance(address(this), manager);
             IERC20(suppliedTokens[i]).safeIncreaseAllowance(manager, suppliedAmounts[i]);
         }
         (, , address token0, address token1, , , , , , , , ) = INonfungiblePositionManager(manager).positions(id);

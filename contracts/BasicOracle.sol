@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL 1.1
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.17;
 
 import "./interfaces/IOracle.sol";
 import "./interfaces/UniswapV2/IUniswapV2Factory.sol";

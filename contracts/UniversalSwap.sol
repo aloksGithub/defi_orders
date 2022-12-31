@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL 1.1
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "./interfaces/IPoolInteractor.sol";
@@ -12,7 +12,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "./libraries/Conversions.sol";
 import "./libraries/SaferERC20.sol";
-import "./SwapHelper.sol";
+import "./SwapHelpers.sol";
 import "hardhat/console.sol";
 
 contract UniversalSwap is IUniversalSwap, Ownable {
@@ -29,7 +29,13 @@ contract UniversalSwap is IUniversalSwap, Ownable {
 
     address public networkToken;
     address public stableToken;
-    SwapHelper public helper;
+    address[] public swappers;
+    address[] public poolInteractors;
+    address[] public nftPoolInteractors;
+    address public oracle;
+    ProvidedHelper public providedHelper;
+    ConversionHelper public conversionHelper; 
+    SwapHelper public swapHelper;
 
     constructor(
         address[] memory _poolInteractors,
@@ -37,14 +43,262 @@ contract UniversalSwap is IUniversalSwap, Ownable {
         address _networkToken,
         address _stableToken,
         address[] memory _swappers,
-        IOracle _oracle
+        address _oracle
     ) {
+        poolInteractors = _poolInteractors;
+        nftPoolInteractors = _nftPoolInteractors;
+        swappers = _swappers;
         networkToken = _networkToken;
         stableToken = _stableToken;
-        helper = new SwapHelper(_poolInteractors, _nftPoolInteractors, _networkToken, _stableToken, _swappers, _oracle);
-        helper.transferOwnership(msg.sender);
+        oracle = _oracle;
+
+        providedHelper = new ProvidedHelper();
+        conversionHelper = new ConversionHelper();
+        swapHelper = new SwapHelper(conversionHelper);
+        swapHelper.transferOwnership(msg.sender);
     }
 
+    ///-------------Public view functions-------------
+
+    function getSwappers() external view returns (address[] memory) {
+        return swappers;
+    }
+
+    function getPoolInteractors() external view returns (address[] memory) {
+        return poolInteractors;
+    }
+
+    function getNFTPoolInteractors() external view returns (address[] memory) {
+        return nftPoolInteractors;
+    }
+
+    /// @inheritdoc IUniversalSwap
+    function isSimpleToken(address token) public view returns (bool) {
+        if (token == networkToken || token == address(0)) return true;
+        for (uint256 i = 0; i < swappers.length; i++) {
+            if (ISwapper(swappers[i]).checkSwappable(token)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// @inheritdoc IUniversalSwap
+    function getProtocol(address token) public view returns (address) {
+        if (isSimpleToken(token)) return address(0);
+        for (uint256 x = 0; x < poolInteractors.length; x++) {
+            if (IPoolInteractor(poolInteractors[x]).testSupported(token)) return poolInteractors[x];
+        }
+        for (uint256 i = 0; i < nftPoolInteractors.length; i++) {
+            if (INFTPoolInteractor(nftPoolInteractors[i]).testSupported(token)) return nftPoolInteractors[i];
+        }
+        return address(0);
+    }
+
+    /// @inheritdoc IUniversalSwap
+    function getTokenValues(
+        address[] memory tokens,
+        uint256[] memory tokenAmounts
+    ) public view returns (uint256[] memory values, uint256 total) {
+        values = new uint256[](tokens.length);
+        for (uint256 i = 0; i < tokens.length; i++) {
+            uint256 tokenWorth = IOracle(oracle).getPrice(tokens[i], networkToken);
+            values[i] = (tokenWorth * tokenAmounts[i]) / uint256(10) ** ERC20(tokens[i]).decimals();
+            total += values[i];
+        }
+    }
+
+    /// @inheritdoc IUniversalSwap
+    function estimateValue(Provided memory assets, address inTermsOf) public view returns (uint256) {
+        (address[] memory tokens, uint256[] memory amounts) = providedHelper.simplifyWithoutWrite(assets);
+        (, uint256 value) = getTokenValues(tokens, amounts);
+        uint256 tokenWorth = IOracle(oracle).getPrice(networkToken, inTermsOf);
+        value = (tokenWorth * value) / uint256(10) ** ERC20(networkToken).decimals();
+        return value;
+    }
+
+    /// @inheritdoc IUniversalSwap
+    function isSupported(address token) public view returns (bool) {
+        if (isSimpleToken(token)) return true;
+        if (getProtocol(token) != address(0)) return true;
+        return false;
+    }
+
+    /// @inheritdoc IUniversalSwap
+    function estimateValueERC20(address token, uint256 amount, address inTermsOf) public view returns (uint256) {
+        address[] memory tokens = new address[](1);
+        uint256[] memory amounts = new uint256[](1);
+        tokens[0] = token;
+        amounts[0] = amount;
+        Provided memory asset = Provided(tokens, amounts, new Asset[](0));
+        return estimateValue(asset, inTermsOf);
+    }
+
+    /// @inheritdoc IUniversalSwap
+    function estimateValueERC721(Asset memory nft, address inTermsOf) public view returns (uint256) {
+        Asset[] memory assets = new Asset[](1);
+        assets[0] = nft;
+        return estimateValue(Provided(new address[](0), new uint256[](0), assets), inTermsOf);
+    }
+
+    /// @inheritdoc IUniversalSwap
+    function getUnderlying(Provided memory provided) external view returns (address[] memory, uint256[] memory) {
+        return providedHelper.simplifyWithoutWrite(provided);
+    }
+
+    ///-------------Pre-swap calculations-------------
+    function getAmountsOut(
+        Provided memory provided,
+        Desired memory desired
+    )
+        external
+        view
+        returns (
+            uint256[] memory amounts,
+            SwapPoint[] memory swaps,
+            Conversion[] memory conversions,
+            uint256[] memory expectedUSDValues
+        )
+    {
+        (swaps, conversions) = preSwapCalculateSwaps(provided, desired);
+        (amounts, expectedUSDValues) = SwapHelper(swapHelper).getAmountsOut(provided, desired, swaps, conversions);
+    }
+
+    function getAmountsOutWithSwaps(
+        Provided memory provided,
+        Desired memory desired,
+        SwapPoint[] memory swaps,
+        Conversion[] memory conversions
+    ) external view returns (uint[] memory amounts, uint[] memory expectedUSDValues) {
+        for (uint256 i = 0; i < provided.tokens.length; i++) {
+            if (provided.tokens[i] == address(0)) {
+                provided.tokens[i] = networkToken;
+            }
+        }
+        (provided.tokens, provided.amounts) = providedHelper.simplifyWithoutWrite(provided);
+        (amounts, expectedUSDValues) = SwapHelper(swapHelper).getAmountsOut(provided, desired, swaps, conversions);
+    }
+
+    function preSwapCalculateUnderlying(
+        Provided memory provided,
+        Desired memory desired
+    )
+        public
+        view
+        returns (
+            address[] memory,
+            uint256[] memory,
+            uint256[] memory,
+            Conversion[] memory,
+            address[] memory,
+            uint256[] memory
+        )
+    {
+        for (uint256 i = 0; i < provided.tokens.length; i++) {
+            if (provided.tokens[i] == address(0)) {
+                provided.tokens[i] = networkToken;
+            }
+        }
+        (provided.tokens, provided.amounts) = providedHelper.simplifyWithoutWrite(provided);
+        uint256 totalValue;
+        uint256[] memory inputTokenValues;
+        (inputTokenValues, totalValue) = getTokenValues(provided.tokens, provided.amounts);
+        Conversion[] memory conversions = conversionHelper.prepareConversions(
+            desired.outputERC20s,
+            desired.outputERC721s,
+            desired.ratios,
+            totalValue
+        );
+        (address[] memory conversionUnderlying, uint256[] memory conversionUnderlyingValues) = conversions
+            .getUnderlying();
+        (conversionUnderlying, conversionUnderlyingValues) = conversionUnderlying.shrink(conversionUnderlyingValues);
+        conversions = conversions.normalizeRatios();
+        return (
+            provided.tokens,
+            provided.amounts,
+            inputTokenValues,
+            conversions,
+            conversionUnderlying,
+            conversionUnderlyingValues
+        );
+    }
+
+    /// @inheritdoc IUniversalSwap
+    function preSwapCalculateSwaps(
+        Provided memory provided,
+        Desired memory desired
+    ) public view returns (SwapPoint[] memory swaps, Conversion[] memory conversions) {
+        uint256[] memory inputTokenValues;
+        address[] memory conversionUnderlying;
+        uint256[] memory conversionUnderlyingValues;
+        (
+            provided.tokens,
+            provided.amounts,
+            inputTokenValues,
+            conversions,
+            conversionUnderlying,
+            conversionUnderlyingValues
+        ) = preSwapCalculateUnderlying(provided, desired);
+        swaps = swapHelper.findMultipleSwaps(
+            provided.tokens,
+            provided.amounts,
+            inputTokenValues,
+            conversionUnderlying,
+            conversionUnderlyingValues
+        );
+        return (swaps, conversions);
+    }
+
+    ///-------------Core logic-------------
+    /// @inheritdoc IUniversalSwap
+    function swapAfterTransfer(
+        Provided memory provided,
+        SwapPoint[] memory swaps,
+        Conversion[] memory conversions,
+        Desired memory desired,
+        address receiver
+    ) external payable returns (uint256[] memory) {
+        uint addressZeroIndex = provided.tokens.findFirst(address(0));
+        if (addressZeroIndex != provided.tokens.length) {
+            provided.tokens = provided.tokens.remove(addressZeroIndex);
+            provided.amounts = provided.amounts.remove(addressZeroIndex);
+        }
+        (provided.tokens, provided.amounts) = _break(provided.tokens, provided.amounts, provided.nfts);
+        provided.nfts = new Asset[](0);
+        return _swap(provided, swaps, conversions, desired, receiver);
+    }
+
+    /// @inheritdoc IUniversalSwap
+    function swap(
+        Provided memory provided,
+        SwapPoint[] memory swaps,
+        Conversion[] memory conversions,
+        Desired memory desired,
+        address receiver
+    ) external payable returns (uint256[] memory) {
+        (provided.tokens, provided.amounts) = _collectAndBreak(provided.tokens, provided.amounts, provided.nfts);
+        provided.nfts = new Asset[](0);
+        return _swap(provided, swaps, conversions, desired, receiver);
+    }
+
+    ///-------------Permissioned functions-------------
+    function setSwappers(address[] calldata _swappers) external onlyOwner {
+        swappers = _swappers;
+    }
+
+    function setOracle(address _oracle) external onlyOwner {
+        oracle = _oracle;
+    }
+
+    function setPoolInteractors(address[] calldata _poolInteractors) external onlyOwner {
+        poolInteractors = _poolInteractors;
+    }
+
+    function setNFTPoolInteractors(address[] calldata _nftPoolInteractors) external onlyOwner {
+        nftPoolInteractors = _nftPoolInteractors;
+    }
+
+    ///-------------Internal logic-------------
     function _getWETH() internal returns (uint256 networkTokenObtained) {
         uint256 startingBalance = IERC20(networkToken).balanceOf(address(this));
         if (msg.value > 0) {
@@ -77,7 +331,7 @@ contract UniversalSwap is IUniversalSwap, Ownable {
         address token,
         uint256 amount
     ) internal returns (address[] memory underlyingTokens, uint256[] memory underlyingTokenAmounts) {
-        address poolInteractor = helper.getProtocol(token);
+        address poolInteractor = getProtocol(token);
         bytes memory data = poolInteractor.functionDelegateCall(
             abi.encodeWithSelector(IPoolInteractor(poolInteractor).burn.selector, token, amount, poolInteractor)
         );
@@ -96,7 +350,7 @@ contract UniversalSwap is IUniversalSwap, Ownable {
             payable(receiver).transfer(underlyingAmounts[0]);
             return underlyingAmounts[0];
         }
-        address poolInteractor = helper.getProtocol(toMint);
+        address poolInteractor = getProtocol(toMint);
         bytes memory returnData = poolInteractor.functionDelegateCall(
             abi.encodeWithSelector(
                 IPoolInteractor(poolInteractor).mint.selector,
@@ -118,14 +372,12 @@ contract UniversalSwap is IUniversalSwap, Ownable {
         address[] memory updatedTokens = inputTokens;
         uint256[] memory updatedTokenAmounts = inputTokenAmounts;
         for (uint256 i = 0; i < inputTokens.length; i++) {
-            if (!helper.isSimpleToken(inputTokens[i])) {
+            if (!isSimpleToken(inputTokens[i])) {
                 allSimiplified = false;
                 (address[] memory newTokens, uint256[] memory newTokenAmounts) = _burn(
                     inputTokens[i],
                     inputTokenAmounts[i]
                 );
-                // updatedTokens = updatedTokens.remove(i).concat(newTokens);
-                // updatedTokenAmounts = updatedTokenAmounts.remove(i).concat(newTokenAmounts);
                 updatedTokens[i] = newTokens[0];
                 updatedTokenAmounts[i] = newTokenAmounts[0];
                 address[] memory tempTokens = new address[](updatedTokens.length + newTokens.length - 1);
@@ -161,10 +413,9 @@ contract UniversalSwap is IUniversalSwap, Ownable {
         Asset[] memory inputNFTs
     ) internal returns (address[] memory, uint256[] memory) {
         for (uint256 i = 0; i < inputTokenAmounts.length; i++) {
-            // uint balanceBefore = IERC20(inputTokens[i]).balanceOf(address(this));
             if (inputTokens[i] == address(0)) continue;
+            console.log(inputTokens[i], IERC20(inputTokens[i]).balanceOf(msg.sender), IERC20(inputTokens[i]).allowance(msg.sender, address(this)));
             IERC20(inputTokens[i]).safeTransferFrom(msg.sender, address(this), inputTokenAmounts[i]);
-            // inputTokenAmounts[i] = IERC20(inputTokens[i]).balanceOf(address(this))-balanceBefore;
         }
         for (uint256 i = 0; i < inputNFTs.length; i++) {
             IERC721(inputNFTs[i].manager).transferFrom(msg.sender, address(this), inputNFTs[i].tokenId);
@@ -179,7 +430,7 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     ) internal returns (address[] memory, uint256[] memory) {
         for (uint256 i = 0; i < inputNFTs.length; i++) {
             Asset memory nft = inputNFTs[i];
-            address nftPoolInteractor = helper.getProtocol(nft.manager);
+            address nftPoolInteractor = getProtocol(nft.manager);
             if (nftPoolInteractor == address(0)) revert("UT");
             bytes memory returnData = nftPoolInteractor.functionDelegateCall(
                 abi.encodeWithSelector(INFTPoolInteractor(nftPoolInteractor).burn.selector, nft)
@@ -233,7 +484,7 @@ contract UniversalSwap is IUniversalSwap, Ownable {
         uint256[] memory amountsAvailable
     ) internal returns (uint256) {
         Asset memory nft = conversion.desiredERC721;
-        address nftPoolInteractor = helper.getProtocol(nft.manager);
+        address nftPoolInteractor = getProtocol(nft.manager);
         if (nftPoolInteractor == address(0)) revert("UT");
         uint256[] memory inputTokenAmounts = new uint256[](conversion.underlying.length);
         for (uint256 j = 0; j < conversion.underlying.length; j++) {
@@ -348,178 +599,5 @@ contract UniversalSwap is IUniversalSwap, Ownable {
         }
         emit AssetsSent(msg.sender, desired.outputERC20s, managers, amountsAndIds);
         return amountsAndIds;
-    }
-
-    /// @inheritdoc IUniversalSwap
-    function isSupported(address token) public view returns (bool) {
-        if (helper.isSimpleToken(token)) return true;
-        if (helper.getProtocol(token) != address(0)) return true;
-        return false;
-    }
-
-    /// @inheritdoc IUniversalSwap
-    function estimateValue(Provided memory assets, address inTermsOf) public view returns (uint256) {
-        return helper.estimateValue(assets, inTermsOf);
-    }
-
-    function estimateValueERC20(address token, uint256 amount, address inTermsOf) public view returns (uint256) {
-        address[] memory tokens = new address[](1);
-        uint256[] memory amounts = new uint256[](1);
-        tokens[0] = token;
-        amounts[0] = amount;
-        Provided memory asset = Provided(tokens, amounts, new Asset[](0));
-        return helper.estimateValue(asset, inTermsOf);
-    }
-
-    function estimateValueERC721(Asset memory nft, address inTermsOf) public view returns (uint256) {
-        Asset[] memory assets = new Asset[](1);
-        assets[0] = nft;
-        return helper.estimateValue(Provided(new address[](0), new uint256[](0), assets), inTermsOf);
-    }
-
-    /// @inheritdoc IUniversalSwap
-    function getUnderlying(Provided memory provided) external view returns (address[] memory, uint256[] memory) {
-        return helper.simplifyWithoutWrite(provided.tokens, provided.amounts, provided.nfts);
-    }
-
-    function preSwapCalculateUnderlying(
-        Provided memory provided,
-        Desired memory desired
-    )
-        public
-        view
-        returns (
-            address[] memory,
-            uint256[] memory,
-            uint256[] memory,
-            Conversion[] memory,
-            address[] memory,
-            uint256[] memory
-        )
-    {
-        for (uint256 i = 0; i < provided.tokens.length; i++) {
-            if (provided.tokens[i] == address(0)) {
-                provided.tokens[i] = networkToken;
-            }
-        }
-        (provided.tokens, provided.amounts) = helper.simplifyWithoutWrite(
-            provided.tokens,
-            provided.amounts,
-            provided.nfts
-        );
-        uint256 totalValue;
-        uint256[] memory inputTokenValues;
-        (inputTokenValues, totalValue) = helper.getTokenValues(provided.tokens, provided.amounts);
-        Conversion[] memory conversions = helper.prepareConversions(
-            desired.outputERC20s,
-            desired.outputERC721s,
-            desired.ratios,
-            totalValue
-        );
-        (address[] memory conversionUnderlying, uint256[] memory conversionUnderlyingValues) = conversions
-            .getUnderlying();
-        (conversionUnderlying, conversionUnderlyingValues) = conversionUnderlying.shrink(conversionUnderlyingValues);
-        conversions = conversions.normalizeRatios();
-        return (
-            provided.tokens,
-            provided.amounts,
-            inputTokenValues,
-            conversions,
-            conversionUnderlying,
-            conversionUnderlyingValues
-        );
-    }
-
-    /// @inheritdoc IUniversalSwap
-    function preSwapCalculateSwaps(
-        Provided memory provided,
-        Desired memory desired
-    ) public view returns (SwapPoint[] memory swaps, Conversion[] memory conversions) {
-        uint256[] memory inputTokenValues;
-        address[] memory conversionUnderlying;
-        uint256[] memory conversionUnderlyingValues;
-        (
-            provided.tokens,
-            provided.amounts,
-            inputTokenValues,
-            conversions,
-            conversionUnderlying,
-            conversionUnderlyingValues
-        ) = preSwapCalculateUnderlying(provided, desired);
-        swaps = helper.findMultipleSwaps(
-            provided.tokens,
-            provided.amounts,
-            inputTokenValues,
-            conversionUnderlying,
-            conversionUnderlyingValues
-        );
-        return (swaps, conversions);
-    }
-
-    /// @inheritdoc IUniversalSwap
-    function swapAfterTransfer(
-        Provided memory provided,
-        SwapPoint[] memory swaps,
-        Conversion[] memory conversions,
-        Desired memory desired,
-        address receiver
-    ) external payable returns (uint256[] memory) {
-        uint addressZeroIndex = provided.tokens.findFirst(address(0));
-        if (addressZeroIndex != provided.tokens.length) {
-            provided.tokens = provided.tokens.remove(addressZeroIndex);
-            provided.amounts = provided.amounts.remove(addressZeroIndex);
-        }
-        (provided.tokens, provided.amounts) = _break(provided.tokens, provided.amounts, provided.nfts);
-        provided.nfts = new Asset[](0);
-        return _swap(provided, swaps, conversions, desired, receiver);
-    }
-
-    /// @inheritdoc IUniversalSwap
-    function swap(
-        Provided memory provided,
-        SwapPoint[] memory swaps,
-        Conversion[] memory conversions,
-        Desired memory desired,
-        address receiver
-    ) external payable returns (uint256[] memory) {
-        (provided.tokens, provided.amounts) = _collectAndBreak(provided.tokens, provided.amounts, provided.nfts);
-        provided.nfts = new Asset[](0);
-        return _swap(provided, swaps, conversions, desired, receiver);
-    }
-
-    function getAmountsOut(
-        Provided memory provided,
-        Desired memory desired
-    )
-        external
-        view
-        returns (
-            uint256[] memory amounts,
-            SwapPoint[] memory swaps,
-            Conversion[] memory conversions,
-            uint256[] memory expectedUSDValues
-        )
-    {
-        (swaps, conversions) = preSwapCalculateSwaps(provided, desired);
-        (amounts, expectedUSDValues) = SwapHelper(helper).getAmountsOut(provided, desired, swaps, conversions);
-    }
-
-    function getAmountsOutWithSwaps(
-        Provided memory provided,
-        Desired memory desired,
-        SwapPoint[] memory swaps,
-        Conversion[] memory conversions
-    ) external view returns (uint[] memory amounts, uint[] memory expectedUSDValues) {
-        for (uint256 i = 0; i < provided.tokens.length; i++) {
-            if (provided.tokens[i] == address(0)) {
-                provided.tokens[i] = networkToken;
-            }
-        }
-        (provided.tokens, provided.amounts) = helper.simplifyWithoutWrite(
-            provided.tokens,
-            provided.amounts,
-            provided.nfts
-        );
-        (amounts, expectedUSDValues) = SwapHelper(helper).getAmountsOut(provided, desired, swaps, conversions);
     }
 }

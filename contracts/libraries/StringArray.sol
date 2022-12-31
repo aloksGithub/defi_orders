@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.17;
 
 library StringArray {
     function concat(string[] memory self, string[] memory array) internal pure returns (string[] memory) {

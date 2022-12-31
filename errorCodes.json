@@ -9,5 +9,6 @@
   "8": "Failed sanity check",
   "9": "User doesn't own the asset",
   "10": "Failed to burn LP tokens",
-  "11": "Failed to mint LP tokens"
+  "11": "Failed to mint LP tokens",
+  "12": "Position closed"
 }

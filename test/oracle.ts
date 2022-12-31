@@ -5,7 +5,7 @@ import { addresses, deployOracle, isRoughlyEqual } from "../utils";
 // @ts-ignore
 const networkAddresses = addresses[hre.network.name];
 
-describe("Oracle tests", function () {
+describe.skip("Oracle tests", function () {
   let oracle: BasicOracle;
   before(async function () {
     oracle = await deployOracle(false, false);

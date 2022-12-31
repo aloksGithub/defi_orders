@@ -14,14 +14,14 @@ import {
   getNearestUsableTick,
   calculateRoute,
 } from "../utils";
-import { SwapContracts } from "../utils/routeCalculator";
+import { SwapContracts } from "../Types";
 
 // @ts-ignore
 const networkAddresses = addresses[hre.network.name];
 
 const compareComputedWithActual = async (computed: any[], actual: any[], manager: string, numERC20s: number) => {
   for (let i = 0; i < numERC20s; i++) {
-    isRoughlyEqual(computed[i], actual[i], 1);
+    isRoughlyEqual(computed[i], actual[i], 100);
   }
   if (!manager) return;
   const managerContract = await ethers.getContractAt("INonfungiblePositionManager", manager);
@@ -100,15 +100,13 @@ describe("Universal swap", async function () {
     const { wethContract } = await getNetworkToken(owners[0], "10.0");
     await wethContract.connect(owners[0]).approve(universalSwap.address, ethers.utils.parseEther("100"));
 
-    const helperAddress = await universalSwap.helper();
-    const helper = await ethers.getContractAt("SwapHelper", helperAddress);
-    const oracleAddress = await helper.oracle();
+    const oracleAddress = await universalSwap.oracle();
     const oracle = await ethers.getContractAt("IOracle", oracleAddress);
-    const swapperAddresses = await helper.getSwappers();
+    const swapperAddresses = await universalSwap.getSwappers();
     const swappers = await Promise.all(
       swapperAddresses.map(async (address) => await ethers.getContractAt("ISwapper", address))
     );
-    contracts = { universalSwap, helper, oracle, swappers, networkTokenContract };
+    contracts = { universalSwap, oracle, swappers, networkToken: networkTokenContract };
   });
   it("Swaps tokens correctly without losing too much equity", async function () {
     let currentToken = networkAddresses.networkToken;

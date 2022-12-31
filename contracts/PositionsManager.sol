@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL 1.1
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
@@ -36,6 +36,12 @@ contract PositionsManager is IPositionsManager, Ownable {
         networkToken = IUniversalSwap(_universalSwap).networkToken();
         helper = new ManagerHelper();
         positions.push();
+    }
+
+    ///-------------Modifiers-------------
+    modifier notClosed(uint positionId) {
+        require(positionClosed[positionId]!=true, "12");
+        _;
     }
 
     ///-------------Public view functions-------------
@@ -104,7 +110,7 @@ contract PositionsManager is IPositionsManager, Ownable {
 
     ///-------------Core logic-------------
     /// @inheritdoc IPositionsManager
-    function adjustLiquidationPoints(uint256 positionId, LiquidationCondition[] memory _liquidationPoints) external {
+    function adjustLiquidationPoints(uint256 positionId, LiquidationCondition[] memory _liquidationPoints) external notClosed(positionId) {
         require(msg.sender == positions[positionId].user, "1");
         Position storage position = positions[positionId];
         delete position.liquidationPoints;
@@ -120,7 +126,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         SwapPoint[] memory swaps,
         Conversion[] memory conversions,
         uint256[] memory minAmounts
-    ) external payable {
+    ) external payable notClosed(positionId) {
         Position storage position = positions[positionId];
         BankBase bank = BankBase(payable(position.bank));
         uint256[] memory amountsUsed;
@@ -236,7 +242,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function withdraw(uint256 positionId, uint256 amount) external {
+    function withdraw(uint256 positionId, uint256 amount) external notClosed(positionId) {
         Provided memory withdrawn = _withdraw(positionId, amount);
         PositionInteraction memory interaction = PositionInteraction(
             "withdraw",
@@ -251,7 +257,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function close(uint256 positionId) external {
+    function close(uint256 positionId) external notClosed(positionId) {
         Position storage position = positions[positionId];
         Provided memory withdrawn = _close(positionId, position.user);
         PositionInteraction memory interaction = PositionInteraction(
@@ -269,7 +275,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function harvestRewards(uint256 positionId) external returns (address[] memory, uint256[] memory) {
+    function harvestRewards(uint256 positionId) external notClosed(positionId) returns (address[] memory, uint256[] memory) {
         Provided memory harvested = _harvest(positionId, positions[positionId].user);
         PositionInteraction memory interaction = PositionInteraction(
             "harvest",
@@ -290,12 +296,11 @@ contract PositionsManager is IPositionsManager, Ownable {
         SwapPoint[] memory swaps,
         Conversion[] memory conversions,
         uint256[] memory minAmounts
-    ) external returns (uint256) {
+    ) external notClosed(positionId) returns (uint256) {
         require(positions[positionId].user == msg.sender, "1");
         Position storage position = positions[positionId];
         BankBase bank = BankBase(payable(position.bank));
-        address receiver = minAmounts.length > 0 ? universalSwap : address(bank);
-        Provided memory harvested = _harvest(positionId, receiver);
+        Provided memory harvested = _harvest(positionId, minAmounts.length > 0 ? universalSwap : address(bank));
         (address[] memory underlying, uint256[] memory ratios) = bank.getUnderlyingForRecurringDeposit(
             position.bankToken
         );
@@ -337,7 +342,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         uint256 liquidationIndex,
         SwapPoint[] memory swaps,
         Conversion[] memory conversions
-    ) external {
+    ) external notClosed(positionId) {
         Position storage position = positions[positionId];
         Provided memory positionAssets = _close(positionId, universalSwap);
         uint256 positionValue;
@@ -380,8 +385,6 @@ contract PositionsManager is IPositionsManager, Ownable {
         positionClosed[positionId] = true;
         emit PositionClose(positionId);
     }
-
-    receive() external payable {}
 
     ///-------------Permissioned functions-------------
     /// @inheritdoc IPositionsManager
@@ -467,4 +470,6 @@ contract PositionsManager is IPositionsManager, Ownable {
         withdrawn = Provided(tokens, amounts, new Asset[](0));
         return withdrawn;
     }
+
+    receive() external payable {}
 }

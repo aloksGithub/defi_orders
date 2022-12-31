@@ -10,6 +10,7 @@
       "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd"
     ],
     "uniswapV2Routers": ["0xD99D1c33F9fC3444f8101754aBC46c52416550D1"],
+    "uniswapV2RouterFees": [0],
     "uniswapV2Factories": ["0x6725F303b657a9451d8BA641348b6761A6CC7a17"],
     "uniswapV3Factories": [],
     "NFTManagers": [],

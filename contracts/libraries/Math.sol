@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.17;
 
 library Math {
     function min(uint x, uint y) internal pure returns (uint z) {

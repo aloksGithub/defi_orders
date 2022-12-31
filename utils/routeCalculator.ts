@@ -1,9 +1,10 @@
 import { BigNumber, constants } from "ethers";
 import { ethers } from "hardhat";
-import { UniversalSwap, IERC20, SwapHelper, ISwapper, IOracle } from "../typechain-types";
+import { ISwapper, ERC20__factory, ISwapper__factory } from "../typechain-types";
 import { ProvidedStruct, SwapPointStruct } from "../typechain-types/contracts/PositionsManager";
 import { DesiredStruct } from "../typechain-types/contracts/UniversalSwap";
 import { parseUnits } from "ethers/lib/utils";
+import { SwapContracts } from "../Types";
 
 const eighteen = ethers.BigNumber.from("1000000000000000000");
 
@@ -22,15 +23,7 @@ const logSwap = (swap: SwapPointStruct) => {
   }
 };
 
-export interface SwapContracts {
-  universalSwap: UniversalSwap;
-  helper: SwapHelper;
-  oracle: IOracle;
-  swappers: ISwapper[];
-  networkTokenContract: IERC20;
-}
-
-const findMultipleSwaps = async (
+export const findMultipleSwaps = async (
   contracts: SwapContracts,
   inputTokens: string[],
   inputAmounts: BigNumber[],
@@ -40,9 +33,9 @@ const findMultipleSwaps = async (
 ) => {
   const routes: SwapPointStruct[] = [];
   const prices = outputTokens.map(
-    async (token) => await contracts.oracle.getPrice(token, contracts.networkTokenContract.address)
+    async (token) => await contracts.oracle.getPrice(token, contracts.networkToken.address)
   );
-  const decimals = outputTokens.map(async (token) => await (await ethers.getContractAt("ERC20", token)).decimals());
+  const decimals = outputTokens.map(async (token) => await (ERC20__factory.connect(token, contracts.universalSwap.provider)).decimals());
   const tokenData = await Promise.all([...prices, ...decimals]);
   const tokenPrices: { [token: string]: BigNumber } = tokenData.slice(0, prices.length).reduce((acc, curr, index) => {
     return { ...acc, [outputTokens[index]]: curr };
@@ -128,7 +121,7 @@ const recommendConnectors = async (
       ...commonPoolTokens.map(async (token) => {
         return {
           swapper: swapper.address,
-          amount: await swapper.getAmountOut2(amount, [tokenIn, token, tokenIn]),
+          amount: await swapper.getAmountOut(amount, [tokenIn, token, tokenIn]),
           token,
         };
       }),
@@ -140,7 +133,7 @@ const recommendConnectors = async (
       ...commonPoolTokens.map(async (token) => {
         return {
           swapper: swapper.address,
-          amount: await swapper.getAmountOut2(amount, [tokenOut, token, tokenOut]),
+          amount: await swapper.getAmountOut(amount, [tokenOut, token, tokenOut]),
           token,
         };
       }),
@@ -166,12 +159,12 @@ const recommendConnectors = async (
   return { bestInToken, bestOutToken };
 };
 
-const evaluateRoute = async (swappers: string[], paths: string[][], amount: BigNumber) => {
+const evaluateRoute = async (contracts: SwapContracts, swappers: string[], paths: string[][], amount: BigNumber) => {
   let currentAmount = amount;
   for (const [index, swapper] of swappers.entries()) {
     const path = paths[index];
-    const swapperContract = await ethers.getContractAt("ISwapper", swapper);
-    currentAmount = await swapperContract.getAmountOut2(currentAmount, path);
+    const swapperContract = ISwapper__factory.connect(swapper, contracts.universalSwap.provider)
+    currentAmount = await swapperContract.getAmountOut(currentAmount, path);
   }
   return currentAmount;
 };
@@ -190,9 +183,9 @@ const findBestRoute = async (
     ? amountInAvailable
     : valueNeeded.mul(amountInAvailable).div(valueInAvailable);
   const valueIn = amountIn.mul(valueInAvailable).div(amountInAvailable);
-  const swapperAddresses = await contracts.helper.getSwappers();
+  const swapperAddresses = await contracts.universalSwap.getSwappers();
   const swappers = await Promise.all(
-    swapperAddresses.map(async (address) => await ethers.getContractAt("ISwapper", address))
+    swapperAddresses.map(async (address) => ISwapper__factory.connect(address, contracts.universalSwap.provider))
   );
   const connectors = await recommendConnectors(swappers, tokenIn, tokenOut, amountIn);
   const allRoutes = swappers.map((swapper) => {
@@ -223,7 +216,7 @@ const findBestRoute = async (
   let maxOut = BigNumber.from(0);
   let bestRoute = allRoutes[0];
   const allScores = await Promise.all(
-    allRoutes.map(async (route) => evaluateRoute(route.swappers, route.paths, amountIn))
+    allRoutes.map(async (route) => evaluateRoute(contracts, route.swappers, route.paths, amountIn))
   );
   for (const [index, score] of allScores.entries()) {
     if (score.gt(maxOut)) {
@@ -247,7 +240,7 @@ const findBestRoute = async (
   return swapPoint;
 };
 
-export const calculateRoute = async (contracts: SwapContracts, provided: ProvidedStruct, desired: DesiredStruct) => {
+export const getSwapsAndConversionsFromProvidedAndDesired = async (contracts: SwapContracts, provided: ProvidedStruct, desired: DesiredStruct) => {
   const [tokens, amounts, inputTokenValues, conversions, conversionUnderlying, conversionUnderlyingValues] =
     await contracts.universalSwap.preSwapCalculateUnderlying(provided, desired);
   const swaps = await findMultipleSwaps(

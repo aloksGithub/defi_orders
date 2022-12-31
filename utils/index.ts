@@ -8,7 +8,7 @@ import { addresses as ethereumAddresses } from "../constants/ethereum_addresses.
 import { addresses as bscAddresses } from "../constants/bsc_addresses.json";
 import { addresses as bscTestnetAddresses } from "../constants/bsc_testnet_addresses.json";
 import { getAssets } from "./protocolDataGetter";
-import { calculateRoute } from "./routeCalculator";
+import { getSwapsAndConversionsFromProvidedAndDesired } from "./routeCalculator";
 var fs = require("fs");
 
 const ENVIRONMENT = process.env.ENVIRONMENT!;
@@ -768,4 +768,4 @@ export const isRoughlyEqual = (a: BigNumber, b: BigNumber, percentage: number = 
 };
 
 export { getAssets };
-export { calculateRoute };
+export { getSwapsAndConversionsFromProvidedAndDesired as calculateRoute };

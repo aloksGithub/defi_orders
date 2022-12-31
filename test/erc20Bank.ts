@@ -139,7 +139,7 @@ describe("ERC20Bank tests", function () {
       await test(lpToken);
     }
   });
-  it.only("Reverts bot liquidate on slippage fail", async function () {
+  it("Reverts bot liquidate on slippage fail", async function () {
     const test = async (lpToken: string) => {
       const { lpBalance: lpBalance0 } = await getLPToken(lpToken, universalSwap, "1", owners[0]);
       const { lpBalance: lpBalance1 } = await getLPToken(lpToken, universalSwap, "1", owners[1]);

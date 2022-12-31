@@ -33,7 +33,7 @@ async function getTimestamp() {
   return Math.floor(now / 1000) + 1000;
 }
 
-describe("ERC721Bank tests", function () {
+describe.skip("ERC721Bank tests", function () {
   let manager: PositionsManager;
   let owners: any[];
   let networkTokenContract: IWETH;

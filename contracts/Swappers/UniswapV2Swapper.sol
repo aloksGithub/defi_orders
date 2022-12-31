@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL 1.1
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "../interfaces/UniswapV2/IUniswapV2Router02.sol";
@@ -58,81 +58,6 @@ contract UniswapV2Swapper is ISwapper, Ownable {
         return bestPairToken;
     }
 
-    function getAmountOut(
-        address inToken,
-        uint256 amount,
-        address outToken
-    ) external view returns (uint256, address[] memory) {
-        IUniswapV2Router02 routerContract = router;
-        address bestInTokenPair = _findBestPool(inToken, routerContract);
-        address bestOutTokenPair = _findBestPool(outToken, routerContract);
-        uint256 amountOutSingleSwap;
-        address[] memory pathSingle = new address[](2);
-        {
-            pathSingle[0] = inToken;
-            pathSingle[1] = outToken;
-            try routerContract.getAmountsOut(amount, pathSingle) returns (uint256[] memory amountsOut) {
-                amountOutSingleSwap = amountsOut[amountsOut.length - 1];
-            } catch {}
-        }
-        uint256 amountOutMultiHop;
-        address[] memory pathMultiHop;
-        {
-            pathMultiHop = new address[](4);
-            pathMultiHop[0] = inToken;
-            pathMultiHop[1] = bestInTokenPair;
-            pathMultiHop[2] = bestOutTokenPair;
-            pathMultiHop[3] = outToken;
-            try routerContract.getAmountsOut(amount, pathMultiHop) returns (uint256[] memory amountsOut) {
-                amountOutMultiHop = amountsOut[amountsOut.length - 1];
-            } catch {}
-            address[] memory tripplePath = new address[](3);
-            tripplePath[0] = inToken;
-            tripplePath[1] = bestInTokenPair;
-            tripplePath[2] = outToken;
-            try routerContract.getAmountsOut(amount, tripplePath) returns (uint256[] memory amountsOut) {
-                if (amountsOut[amountsOut.length - 1] > amountOutMultiHop) {
-                    amountOutMultiHop = amountsOut[amountsOut.length - 1];
-                    pathMultiHop = tripplePath;
-                }
-            } catch {}
-            tripplePath = new address[](3);
-            tripplePath[0] = inToken;
-            tripplePath[1] = bestOutTokenPair;
-            tripplePath[2] = outToken;
-            try routerContract.getAmountsOut(amount, tripplePath) returns (uint256[] memory amountsOut) {
-                if (amountsOut[amountsOut.length - 1] > amountOutMultiHop) {
-                    amountOutMultiHop = amountsOut[amountsOut.length - 1];
-                    pathMultiHop = tripplePath;
-                }
-            } catch {}
-        }
-        // uint amountOutNetworkToken;
-        // address[] memory pathNetworkToken;
-        // {
-        //     pathNetworkToken = new address[](3);
-        //     pathNetworkToken[0] = inToken;
-        //     pathNetworkToken[1] = commonPoolTokens[0];
-        //     pathNetworkToken[2] = outToken;
-        //     try routerContract.getAmountsOut(amount, pathNetworkToken) returns (uint256[] memory amountsOut) {
-        //         amountOutNetworkToken = amountsOut[amountsOut.length - 1];
-        //     } catch{}
-
-        // }
-        if (amountOutMultiHop > amountOutSingleSwap) {
-            return (amountOutMultiHop, pathMultiHop);
-        } else {
-            return (amountOutSingleSwap, pathSingle);
-        }
-        // if (amountOutNetworkToken>=amountOutMultiHop && amountOutNetworkToken>=amountOutSingleSwap) {
-        //     return (amountOutNetworkToken, pathNetworkToken);
-        // } else if (amountOutMultiHop>=amountOutNetworkToken && amountOutMultiHop>=amountOutSingleSwap) {
-        //     return (amountOutMultiHop, pathMultiHop);
-        // } else {
-        //     return (amountOutSingleSwap, pathSingle);
-        // }
-    }
-
     function _calculateAmountsUsed(
         address tokenIn,
         address pathAddress,
@@ -171,7 +96,7 @@ contract UniswapV2Swapper is ISwapper, Ownable {
         uint amountIn,
         uint tokenInAmount,
         uint tokenOutAmount
-    ) internal view returns (uint amountOut) {
+    ) internal view returns (uint) {
         IUniswapV2Factory factory = IUniswapV2Factory(router.factory());
         IUniswapV2Pair pair = IUniswapV2Pair(factory.getPair(tokenIn, tokenOut));
         uint rIn;
@@ -181,18 +106,36 @@ contract UniswapV2Swapper is ISwapper, Ownable {
         } else {
             (rOut, rIn, ) = pair.getReserves();
         }
-        try router.getAmountOut(tokenInAmount, rIn, rOut) returns (uint256 amount) {
-            rIn += tokenInAmount;
-            rOut -= amount;
-        } catch {}
-        try router.getAmountOut(tokenOutAmount, rOut, rIn) returns (uint256 amount) {
-            rOut += tokenOutAmount;
-            rIn -= amount;
-        } catch {}
-        try router.getAmountOut(amountIn, rIn, rOut) returns (uint256 amount) {
-            return amount;
-        } catch {
-            return 0;
+        (bool success, bytes memory returnData) = address(pair).staticcall(abi.encodeWithSignature("swapFee()"));
+        if (!success) {
+            try router.getAmountOut(tokenInAmount, rIn, rOut) returns (uint256 amount) {
+                rIn += tokenInAmount;
+                rOut -= amount;
+            } catch {}
+            try router.getAmountOut(tokenOutAmount, rOut, rIn) returns (uint256 amount) {
+                rOut += tokenOutAmount;
+                rIn -= amount;
+            } catch {}
+            try router.getAmountOut(amountIn, rIn, rOut) returns (uint256 amount) {
+                return amount;
+            } catch {
+                return 0;
+            }
+        } else {
+            uint32 fee = abi.decode(returnData, (uint32));
+            try router.getAmountOut(tokenInAmount, rIn, rOut, fee) returns (uint256 amount) {
+                rIn += tokenInAmount;
+                rOut -= amount;
+            } catch {}
+            try router.getAmountOut(tokenOutAmount, rOut, rIn, fee) returns (uint256 amount) {
+                rOut += tokenOutAmount;
+                rIn -= amount;
+            } catch {}
+            try router.getAmountOut(amountIn, rIn, rOut, fee) returns (uint256 amount) {
+                return amount;
+            } catch {
+                return 0;
+            }
         }
     }
 
@@ -222,19 +165,9 @@ contract UniswapV2Swapper is ISwapper, Ownable {
             tempPath[0] = path[i - 1];
             tempPath[1] = path[i];
         }
-        // try router.getAmountsOut(amount, path) returns (
-        //     uint256[] memory amountsOut
-        // ) {
-        //     amounts = amountsOut;
-        //     return amounts;
-        // } catch {
-        //     amounts = new uint[](1);
-        //     amounts[0] = 0;
-        //     return amounts;
-        // }
     }
 
-    function getAmountOut2(uint256 amount, address[] memory path) public view returns (uint256) {
+    function getAmountOut(uint256 amount, address[] memory path) public view returns (uint256) {
         try router.getAmountsOut(amount, path) returns (uint256[] memory amountsOut) {
             return amountsOut[amountsOut.length - 1];
         } catch {
@@ -273,15 +206,6 @@ contract UniswapV2Swapper is ISwapper, Ownable {
                 return true;
             }
         }
-        // if (inToken == commonPoolTokens[0]) return true;
-        // address pair = factory.getPair(inToken, commonPoolTokens[0]);
-        // if (pair!=address(0)) {
-        //     (uint r0, uint r1,) = IUniswapV2Pair(pair).getReserves();
-        //     if (IUniswapV2Pair(pair).token0()==commonPoolTokens[0]) {
-
-        //     }
-        //     return true;
-        // }
         return false;
     }
 }

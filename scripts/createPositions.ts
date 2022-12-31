@@ -1,11 +1,9 @@
 import { ethers } from "hardhat";
 import {
-  deployAndInitializeManager,
   addresses,
   getNetworkToken,
   getLPToken,
   depositNew,
-  isRoughlyEqual,
   getNFT,
   depositNewNFT,
 } from "../utils";
@@ -27,9 +25,9 @@ async function main() {
     },
   ];
   const { wethContract } = await getNetworkToken(owner, "10.0");
-  // @ts-ignore
   const positionManager = await ethers.getContractAt(
     "PositionsManager",
+  // @ts-ignore
     deployments[hre.network.name].positionsManager
   );
   const universalSwapAddress = await positionManager.universalSwap();
@@ -55,7 +53,7 @@ async function main() {
   const masterChefLpTokens = networkAddresses.masterChefLps;
   for (const lpToken of masterChefLpTokens) {
     const { lpBalance, lpTokenContract } = await getLPToken(lpToken, universalSwap, "1", owner);
-    await lpTokenContract.connect(owner).approve(positionManager.address, lpBalance);
+    await lpTokenContract?.connect(owner).approve(positionManager.address, lpBalance);
     await depositNew(positionManager, lpToken, lpBalance.toString(), liquidationPoints, owner);
   }
   await ethers.provider.send("hardhat_mine", ["0x93A80", "0x3"]);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: BUSL 1.1
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.17;
 
 import "../interfaces/IPoolInteractor.sol";
 import "../interfaces/AAVE/ILendingPool.sol";
@@ -117,7 +117,7 @@ contract AaveV2PoolInteractor is IPoolInteractor {
         address toMint,
         address[] memory underlyingTokens,
         uint256[] memory underlyingAmounts
-    ) external view returns (uint256 minted) {
+    ) external pure returns (uint256 minted) {
         return underlyingAmounts[0];
     }
 
