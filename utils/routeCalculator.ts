@@ -45,17 +45,18 @@ export const findMultipleSwaps = async (
   }, {});
   for (const [i, inToken] of inputTokens.entries()) {
     for (const [j, outToken] of outputTokens.entries()) {
+      const route = await findBestRoute(
+        contracts,
+        tokenPrices[outToken],
+        tokenDecimals[outToken],
+        inToken,
+        outToken,
+        outputValues[j],
+        inputAmounts[i],
+        inputValues[i]
+      )
       routes.push(
-        await findBestRoute(
-          contracts,
-          tokenPrices[outToken],
-          tokenDecimals[outToken],
-          inToken,
-          outToken,
-          outputValues[j],
-          inputAmounts[i],
-          inputValues[i]
-        )
+        route
       );
     }
   }

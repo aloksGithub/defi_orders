@@ -3,6 +3,7 @@ pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./Banks/BankBase.sol";
 import "./interfaces/IPositionsManager.sol";
@@ -18,6 +19,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     using UintArray for uint256[];
     using StringArray for string[];
     using AddressArray for address[];
+    using Strings for string;
 
     Position[] public positions;
     mapping(uint256 => bool) public positionClosed; // Is position open
@@ -165,7 +167,7 @@ contract PositionsManager is IPositionsManager, Ownable {
         uint256 minted = bank.mintRecurring(position.bankToken, address(uint160(positionId)), underlying, amountsUsed);
         position.amount += minted;
         PositionInteraction memory interaction = PositionInteraction(
-            "deposit",
+            "Deposit",
             block.timestamp,
             block.number,
             provided,
@@ -222,7 +224,7 @@ contract PositionsManager is IPositionsManager, Ownable {
             provided = Provided(suppliedTokens, suppliedAmounts, new Asset[](0));
         }
         PositionInteraction memory interaction = PositionInteraction(
-            "deposit",
+            "Deposit",
             block.timestamp,
             block.number,
             provided,
@@ -245,7 +247,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     function withdraw(uint256 positionId, uint256 amount) external notClosed(positionId) {
         Provided memory withdrawn = _withdraw(positionId, amount);
         PositionInteraction memory interaction = PositionInteraction(
-            "withdraw",
+            "Withdraw",
             block.timestamp,
             block.number,
             withdrawn,
@@ -260,8 +262,9 @@ contract PositionsManager is IPositionsManager, Ownable {
     function close(uint256 positionId) external notClosed(positionId) {
         Position storage position = positions[positionId];
         Provided memory withdrawn = _close(positionId, position.user);
+        string memory message = msg.sender==position.user?"Close":"Order Failed";
         PositionInteraction memory interaction = PositionInteraction(
-            "close",
+            message,
             block.timestamp,
             block.number,
             withdrawn,
@@ -278,7 +281,7 @@ contract PositionsManager is IPositionsManager, Ownable {
     function harvestRewards(uint256 positionId) external notClosed(positionId) returns (address[] memory, uint256[] memory) {
         Provided memory harvested = _harvest(positionId, positions[positionId].user);
         PositionInteraction memory interaction = PositionInteraction(
-            "harvest",
+            "Harvest",
             block.timestamp,
             block.number,
             harvested,
@@ -324,7 +327,7 @@ contract PositionsManager is IPositionsManager, Ownable {
             position.amount += newLpTokens;
         }
         PositionInteraction memory interaction = PositionInteraction(
-            "reinvest",
+            "Reinvest",
             block.timestamp,
             block.number,
             harvested,
@@ -373,7 +376,7 @@ contract PositionsManager is IPositionsManager, Ownable {
             require(usdOut > minUsdOut, "3");
         }
         PositionInteraction memory interaction = PositionInteraction(
-            "liquidate",
+            string.concat("Exectue order", Strings.toString(liquidationIndex+1)),
             block.timestamp,
             block.number,
             positionAssets,
