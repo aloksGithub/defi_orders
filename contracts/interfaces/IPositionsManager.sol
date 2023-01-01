@@ -58,7 +58,6 @@ struct PositionData {
 }
 
 interface IPositionsManager {
-    event KeeperUpdate(address keeper, bool active);
     event Deposit(
         uint positionId,
         address bank,
@@ -72,9 +71,15 @@ interface IPositionsManager {
     event PositionClose(uint positionId);
     event Harvest(uint positionId, address[] rewards, uint[] rewardAmounts);
     event HarvestRecompound(uint positionId, uint lpTokens);
+    
+    /// @notice Returns the address of universal swap
+    function universalSwap() external view returns (address networkToken);
 
     /// @notice Returns the address of the wrapped network token
     function networkToken() external view returns (address networkToken);
+
+    /// @notice Returns the address of the preferred stable token for the network
+    function stableToken() external view returns (address stableToken);
 
     /// @notice Returns number of positions that have been opened
     /// @return positions Number of positions that have been opened

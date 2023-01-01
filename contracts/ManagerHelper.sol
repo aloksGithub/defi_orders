@@ -12,10 +12,15 @@ contract ManagerHelper {
     using AddressArray for address[];
     using UintArray for uint256[];
 
+    IPositionsManager parent;
+
+    constructor() {
+        parent = IPositionsManager(msg.sender);
+    }
+
     function estimateValue(
         uint positionId,
         Position memory position,
-        address universalSwap,
         address inTermsOf
     ) public view returns (uint256) {
         BankBase bank = BankBase(payable(position.bank));
@@ -32,24 +37,23 @@ contract ManagerHelper {
             underlyingAmounts.concat(rewardAmounts),
             new Asset[](0)
         );
-        return IUniversalSwap(universalSwap).estimateValue(assets, inTermsOf);
+        return IUniversalSwap(parent.universalSwap()).estimateValue(assets, inTermsOf);
     }
 
     function checkLiquidate(
         uint positionId,
-        Position memory position,
-        address universalSwap,
-        address stableToken
+        Position memory position
     ) public view returns (uint256 index, bool liquidate) {
+        address stableToken = parent.stableToken();
         for (uint256 i = 0; i < position.liquidationPoints.length; i++) {
             LiquidationCondition memory condition = position.liquidationPoints[i];
             address token = condition.watchedToken;
             uint256 currentPrice;
             if (token == address(0)) {
-                currentPrice = estimateValue(positionId, position, universalSwap, stableToken);
+                currentPrice = estimateValue(positionId, position, stableToken);
                 currentPrice = (currentPrice * 10 ** 18) / 10 ** ERC20(stableToken).decimals();
             } else {
-                currentPrice = IUniversalSwap(universalSwap).estimateValueERC20(
+                currentPrice = IUniversalSwap(parent.universalSwap()).estimateValueERC20(
                     token,
                     10 ** ERC20(token).decimals(),
                     stableToken
@@ -71,10 +75,10 @@ contract ManagerHelper {
 
     function getPositionTokens(
         uint positionId,
-        Position memory position,
-        address universalSwap,
-        address stableToken
+        Position memory position
     ) public view returns (address[] memory tokens, uint256[] memory amounts, uint256[] memory values) {
+        address universalSwap = parent.universalSwap();
+        address stableToken = parent.stableToken();
         BankBase bank = BankBase(payable(position.bank));
         (tokens, amounts) = bank.getPositionTokens(position.bankToken, address(uint160(positionId)));
         (tokens, amounts) = IUniversalSwap(universalSwap).getUnderlying(Provided(tokens, amounts, new Asset[](0)));
@@ -92,10 +96,10 @@ contract ManagerHelper {
 
     function getPositionRewards(
         uint positionId,
-        Position memory position,
-        address universalSwap,
-        address stableToken
+        Position memory position
     ) public view returns (address[] memory rewards, uint256[] memory rewardAmounts, uint256[] memory rewardValues) {
+        address universalSwap = parent.universalSwap();
+        address stableToken = parent.stableToken();
         BankBase bank = BankBase(payable(position.bank));
         (rewards, rewardAmounts) = bank.getPendingRewardsForUser(position.bankToken, address(uint160(positionId)));
         rewardValues = new uint256[](rewards.length);
@@ -107,22 +111,16 @@ contract ManagerHelper {
 
     function getPosition(
         uint positionId,
-        Position memory position,
-        address universalSwap,
-        address stableToken
+        Position memory position
     ) external view returns (PositionData memory) {
         (address lpToken, address manager, uint256 id) = BankBase(payable(position.bank)).decodeId(position.bankToken);
         (address[] memory tokens, uint256[] memory amounts, uint256[] memory underlyingValues) = getPositionTokens(
             positionId,
-            position,
-            universalSwap,
-            stableToken
+            position
         );
         (address[] memory rewards, uint256[] memory rewardAmounts, uint256[] memory rewardValues) = getPositionRewards(
             positionId,
-            position,
-            universalSwap,
-            stableToken
+            position
         );
         return
             PositionData(
@@ -136,5 +134,19 @@ contract ManagerHelper {
                 rewardValues,
                 underlyingValues.sum() + rewardValues.sum()
             );
+    }
+
+    function recommendBank(address lpToken) external view returns (address[] memory, uint256[] memory) {
+        address payable[] memory banks = parent.getBanks();
+        uint256[] memory tokenIds;
+        address[] memory supportedBanks;
+        for (uint256 i = 0; i < banks.length; i++) {
+            (bool success, uint256 tokenId) = BankBase(banks[i]).getIdFromLpToken(lpToken);
+            if (success) {
+                supportedBanks = supportedBanks.append(banks[i]);
+                tokenIds = tokenIds.append(tokenId);
+            }
+        }
+        return (supportedBanks, tokenIds);
     }
 }

@@ -346,18 +346,26 @@ export const getUniversalSwap = async (verify: boolean = false, log: boolean = f
     }
     try {
       await hre.run("verify:verify", {
-        address: await universalSwap.helper(),
-        // @ts-ignore
-        constructorArguments: [
-          poolInteractors,
-          nftInteractors,
-          // @ts-ignore
-          addresses[network].networkToken,
-          // @ts-ignore
-          addresses[network].preferredStable,
-          swappers2,
-          oracle.address,
-        ],
+        address: await universalSwap.swapHelper(),
+        constructorArguments: [await universalSwap.conversionHelper()],
+        network,
+      });
+    } catch (e) {
+      console.log(e);
+    }
+    try {
+      await hre.run("verify:verify", {
+        address: await universalSwap.conversionHelper(),
+        constructorArguments: [],
+        network,
+      });
+    } catch (e) {
+      console.log(e);
+    }
+    try {
+      await hre.run("verify:verify", {
+        address: await universalSwap.providedHelper(),
+        constructorArguments: [],
         network,
       });
     } catch (e) {

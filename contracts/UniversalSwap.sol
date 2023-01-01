@@ -22,7 +22,6 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     using SaferERC20 for IERC20;
     using Conversions for Conversion[];
     using SwapFinder for SwapPoint;
-    using SwapFinder for SwapPoint[];
 
     event NFTMinted(address manager, uint256 tokenId, address pool);
     event AssetsSent(address receiver, address[] tokens, address[] managers, uint256[] amountsAndIds);
@@ -102,8 +101,7 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     ) public view returns (uint256[] memory values, uint256 total) {
         values = new uint256[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
-            uint256 tokenWorth = IOracle(oracle).getPrice(tokens[i], networkToken);
-            values[i] = (tokenWorth * tokenAmounts[i]) / uint256(10) ** ERC20(tokens[i]).decimals();
+            values[i] = (IOracle(oracle).getPrice(tokens[i], networkToken) * tokenAmounts[i]) / uint256(10) ** ERC20(tokens[i]).decimals();
             total += values[i];
         }
     }
@@ -112,8 +110,7 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     function estimateValue(Provided memory assets, address inTermsOf) public view returns (uint256) {
         (address[] memory tokens, uint256[] memory amounts) = providedHelper.simplifyWithoutWrite(assets);
         (, uint256 value) = getTokenValues(tokens, amounts);
-        uint256 tokenWorth = IOracle(oracle).getPrice(networkToken, inTermsOf);
-        value = (tokenWorth * value) / uint256(10) ** ERC20(networkToken).decimals();
+        value = (IOracle(oracle).getPrice(networkToken, inTermsOf) * value) / uint256(10) ** ERC20(networkToken).decimals();
         return value;
     }
 
@@ -299,7 +296,10 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     }
 
     ///-------------Internal logic-------------
-    function _getWETH() internal returns (uint256 networkTokenObtained) {
+    function _addWETH(
+        address[] memory tokens,
+        uint256[] memory amounts
+    ) internal returns (address[] memory, uint256[] memory) {
         uint256 startingBalance = IERC20(networkToken).balanceOf(address(this));
         if (msg.value > 0) {
             IWETH(payable(networkToken)).deposit{value: msg.value}();
@@ -307,14 +307,7 @@ contract UniversalSwap is IUniversalSwap, Ownable {
         if (address(this).balance > 0) {
             IWETH(payable(networkToken)).deposit{value: address(this).balance}();
         }
-        networkTokenObtained = IERC20(networkToken).balanceOf(address(this)) - startingBalance;
-    }
-
-    function _addWETH(
-        address[] memory tokens,
-        uint256[] memory amounts
-    ) internal returns (address[] memory, uint256[] memory) {
-        uint256 ethSupplied = _getWETH();
+        uint256 ethSupplied = IERC20(networkToken).balanceOf(address(this)) - startingBalance;
         if (ethSupplied > 0) {
             tokens = tokens.append(networkToken);
             amounts = amounts.append(ethSupplied);

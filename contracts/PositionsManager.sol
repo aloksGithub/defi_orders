@@ -69,45 +69,36 @@ contract PositionsManager is IPositionsManager, Ownable {
 
     /// @inheritdoc IPositionsManager
     function checkLiquidate(uint256 positionId) external view returns (uint256 index, bool liquidate) {
-        return helper.checkLiquidate(positionId, positions[positionId], universalSwap, stableToken);
+        return helper.checkLiquidate(positionId, positions[positionId]);
     }
 
     /// @inheritdoc IPositionsManager
     function estimateValue(uint256 positionId, address inTermsOf) public view returns (uint256) {
-        return helper.estimateValue(positionId, positions[positionId], universalSwap, inTermsOf);
+        return helper.estimateValue(positionId, positions[positionId], inTermsOf);
     }
 
     /// @inheritdoc IPositionsManager
     function getPositionTokens(
         uint256 positionId
     ) public view returns (address[] memory tokens, uint256[] memory amounts, uint256[] memory values) {
-        return helper.getPositionTokens(positionId, positions[positionId], universalSwap, stableToken);
+        return helper.getPositionTokens(positionId, positions[positionId]);
     }
 
     /// @inheritdoc IPositionsManager
     function getPositionRewards(
         uint256 positionId
     ) public view returns (address[] memory rewards, uint256[] memory rewardAmounts, uint256[] memory rewardValues) {
-        return helper.getPositionRewards(positionId, positions[positionId], universalSwap, stableToken);
+        return helper.getPositionRewards(positionId, positions[positionId]);
     }
 
     /// @inheritdoc IPositionsManager
     function getPosition(uint256 positionId) external view returns (PositionData memory data) {
-        return helper.getPosition(positionId, positions[positionId], universalSwap, stableToken);
+        return helper.getPosition(positionId, positions[positionId]);
     }
 
     /// @inheritdoc IPositionsManager
     function recommendBank(address lpToken) external view returns (address[] memory, uint256[] memory) {
-        uint256[] memory tokenIds;
-        address[] memory supportedBanks;
-        for (uint256 i = 0; i < banks.length; i++) {
-            (bool success, uint256 tokenId) = BankBase(banks[i]).getIdFromLpToken(lpToken);
-            if (success) {
-                supportedBanks = supportedBanks.append(banks[i]);
-                tokenIds = tokenIds.append(tokenId);
-            }
-        }
-        return (supportedBanks, tokenIds);
+        return helper.recommendBank(lpToken);
     }
 
     ///-------------Core logic-------------
@@ -393,7 +384,6 @@ contract PositionsManager is IPositionsManager, Ownable {
     /// @inheritdoc IPositionsManager
     function setKeeper(address keeperAddress, bool active) external onlyOwner {
         keepers[keeperAddress] = active;
-        emit KeeperUpdate(keeperAddress, active);
     }
 
     /// @inheritdoc IPositionsManager
