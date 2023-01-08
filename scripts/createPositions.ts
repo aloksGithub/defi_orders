@@ -7,8 +7,8 @@ import {
   getNFT,
   depositNewNFT,
 } from "../utils";
-import deployments from "../constants/deployments.json";
 import hre from "hardhat";
+import { PositionsManager, UniversalSwap } from "../typechain-types";
 require("dotenv").config();
 
 async function main() {
@@ -25,13 +25,10 @@ async function main() {
     },
   ];
   const { wethContract } = await getNetworkToken(owner, "10.0");
-  const positionManager = await ethers.getContractAt(
-    "PositionsManager",
-  // @ts-ignore
-    deployments[hre.network.name].positionsManager
-  );
+  const managerAddress = (await hre.deployments.get("PositionsManager")).address
+  const positionManager: PositionsManager = await ethers.getContractAt("PositionsManager", managerAddress);
   const universalSwapAddress = await positionManager.universalSwap();
-  const universalSwap = await ethers.getContractAt("UniversalSwap", universalSwapAddress);
+  const universalSwap: UniversalSwap = await ethers.getContractAt("UniversalSwap", universalSwapAddress);
   await wethContract.connect(owner).approve(universalSwapAddress, ethers.utils.parseEther("1000"));
 
   console.log("Deploying ERC-20 bank positions");

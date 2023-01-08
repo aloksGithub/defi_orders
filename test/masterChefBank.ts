@@ -1,5 +1,5 @@
 import { assert, expect } from "chai";
-import { ethers } from "hardhat";
+import { deployments, ethers } from "hardhat";
 import hre from "hardhat";
 import { IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
 import {
@@ -33,7 +33,8 @@ describe("MasterChefBank tests", function () {
   let universalSwap: UniversalSwap;
   before(async function () {
     owners = await ethers.getSigners();
-    manager = await deployAndInitializeManager();
+    const managerAddress = (await deployments.get('PositionsManager')).address;
+    manager = await ethers.getContractAt("PositionsManager", managerAddress)
     const universalSwapAddress = await manager.universalSwap();
     for (const owner of owners) {
       const { wethContract } = await getNetworkToken(owner, "1000.0");

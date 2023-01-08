@@ -1,8 +1,8 @@
 import { expect } from "chai";
 import { constants } from "ethers";
 import { parseEther } from "ethers/lib/utils";
-import { ethers } from "hardhat";
-import { UniversalSwap, IERC20 } from "../typechain-types";
+import { deployments, ethers } from "hardhat";
+import { UniversalSwap, IERC20, IOracle, ISwapper } from "../typechain-types";
 import { ProvidedStruct } from "../typechain-types/contracts/PositionsManager";
 import { DesiredStruct } from "../typechain-types/contracts/UniversalSwap";
 import {
@@ -93,7 +93,8 @@ describe("Universal swap", async function () {
   };
 
   before(async function () {
-    universalSwap = await getUniversalSwap();
+    const universalSwapAddress = (await deployments.get('UniversalSwap')).address;
+    universalSwap = await ethers.getContractAt("UniversalSwap", universalSwapAddress)
     owners = await ethers.getSigners();
     networkTokenContract = await ethers.getContractAt("IERC20", networkAddresses.networkToken);
     await networkTokenContract.transfer(owners[1].address, networkTokenContract.balanceOf(owners[0].address));
@@ -101,9 +102,9 @@ describe("Universal swap", async function () {
     await wethContract.connect(owners[0]).approve(universalSwap.address, ethers.utils.parseEther("100"));
 
     const oracleAddress = await universalSwap.oracle();
-    const oracle = await ethers.getContractAt("IOracle", oracleAddress);
+    const oracle: IOracle = await ethers.getContractAt("IOracle", oracleAddress);
     const swapperAddresses = await universalSwap.getSwappers();
-    const swappers = await Promise.all(
+    const swappers: ISwapper[] = await Promise.all(
       swapperAddresses.map(async (address) => await ethers.getContractAt("ISwapper", address))
     );
     contracts = { universalSwap, oracle, swappers, networkToken: networkTokenContract };

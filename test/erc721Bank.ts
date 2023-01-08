@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { deployments, ethers } from "hardhat";
 import hre from "hardhat";
 import { IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
 import {
@@ -33,13 +33,14 @@ async function getTimestamp() {
   return Math.floor(now / 1000) + 1000;
 }
 
-describe.skip("ERC721Bank tests", function () {
+describe("ERC721Bank tests", function () {
   let manager: PositionsManager;
   let owners: any[];
   let networkTokenContract: IWETH;
   let universalSwap: UniversalSwap;
   before(async function () {
-    manager = await deployAndInitializeManager();
+    const managerAddress = (await deployments.get('PositionsManager')).address;
+    manager = await ethers.getContractAt("PositionsManager", managerAddress)
     owners = await ethers.getSigners();
     const universalSwapAddress = await manager.universalSwap();
     for (const owner of owners) {

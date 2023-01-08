@@ -179,4 +179,13 @@ contract BasicOracle is IOracle, Ownable {
         }
         return _calculateMean(prices);
     }
+
+    function getPrice2(address token, address inTermsOf) external returns (uint256) {
+        if (token == inTermsOf) return (10 ** ERC20(token).decimals());
+        uint256[] memory prices = new uint256[](sources.length);
+        for (uint256 i = 0; i < sources.length; i++) {
+            prices[i] = sources[i].getPrice(token, inTermsOf);
+        }
+        return _calculateMean(prices);
+    }
 }

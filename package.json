@@ -4,10 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "yarn run hardhat test",
+    "test": "yarn run hardhat test --deploy-fixture",
     "compile": "yarn run hardhat compile",
     "size": "yarn run hardhat size-contracts",
-    "pretty": "yarn prettier --write ."
+    "pretty": "yarn prettier --write .",
+    "verify": "yarn run hardhat etherscan-verify"
   },
   "keywords": [],
   "author": "Alok",
@@ -15,7 +16,7 @@
   "devDependencies": {
     "@nomicfoundation/hardhat-network-helpers": "^1.0.6",
     "@nomicfoundation/hardhat-toolbox": "^1.0.2",
-    "@nomiclabs/hardhat-ethers": "^2.1.1",
+    "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers",
     "@nomiclabs/hardhat-etherscan": "^3.1.0",
     "@openzeppelin/contracts": "^4.7.1",
     "@openzeppelin/hardhat-upgrades": "^1.21.0",
@@ -25,9 +26,10 @@
     "@types/mocha": "^9.1.1",
     "@types/node": "^18.0.6",
     "chai": "^4.3.6",
-    "ethers": "^5.7.1",
+    "ethers": "^5.7.2",
     "hardhat": "^2.12.4",
     "hardhat-contract-sizer": "^2.6.1",
+    "hardhat-deploy": "^0.11.22",
     "prettier": "^2.8.1",
     "prettier-plugin-solidity": "^1.1.1",
     "solidity-coverage": "^0.8.2",

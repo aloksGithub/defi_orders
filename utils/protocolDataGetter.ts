@@ -12,6 +12,7 @@ type SupportedProcols =
   | "Uniswap V3"
   | "Venus"
   | "AAVE";
+export type SupportedNetworks = 'bsc' | 'mainnet' | 'bscTestnet' | 'localhost' | 'hardhat'
 
 interface AssetUnderlying {
   contract_name: string;

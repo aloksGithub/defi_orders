@@ -8,9 +8,8 @@ import "@openzeppelin/hardhat-upgrades";
 require("hardhat-contract-sizer");
 require("solidity-coverage");
 require("@typechain/hardhat");
-require("@nomiclabs/hardhat-ethers");
+import 'hardhat-deploy'
 import "solidity-coverage";
-import { ethers } from "ethers";
 
 const rpcs = {
   bsc: process.env.BSC_RPC!,
@@ -57,17 +56,41 @@ const config: HardhatUserConfig = {
     bsc: {
       url: process.env.BSC_RPC!,
       accounts: [process.env.BSC_ACCOUNT!],
+      verify: {
+        etherscan: {
+          apiUrl: 'https://api.bscscan.com',
+          apiKey: process.env.BSCSCAN_API_KEY!,
+        }
+      }
     },
     bscTestnet: {
       url: process.env.BSC_TESTNET_RPC,
       accounts: [process.env.BSC_TESTNET_ACCOUNT!],
+      verify: {
+        etherscan: {
+          apiUrl: 'https://api-testnet.bscscan.com',
+          apiKey: process.env.BSCSCAN_API_KEY!,
+        }
+      }
     },
     mainnet: {
       url: process.env.ETHEREUM_RPC,
+      verify: {
+        etherscan: {
+          apiUrl: 'https://api.etherscan.io',
+          apiKey: process.env.ETHERSCAN_API_KEY!,
+        }
+      }
       // accounts: [process.env.ETHEREUM_ACCOUNT!]
     },
     goerli: {
       url: process.env.ETHEREUM_TESTNET_RPC,
+      verify: {
+        etherscan: {
+          apiUrl: '',
+          apiKey: process.env.ETHERSCAN_API_KEY!,
+        }
+      }
       // accounts: [process.env.ETHEREUM_TESTNET_ACCOUNT!]
     },
   },
@@ -79,9 +102,22 @@ const config: HardhatUserConfig = {
       bscTestnet: process.env.BSCSCAN_API_KEY!,
     },
   },
+  verify: {
+    etherscan: {
+      apiKey: process.env.ETHERSCAN_API_KEY!
+    }
+  },
   mocha: {
     timeout: 100000000,
   },
+  namedAccounts: {
+    deployer: {
+      default: 0, // here this will by default take the first account as deployer
+      1: '0x0a66E0c3c5fE88d08a2346A1D276575E172AD2D2', 
+      56: '0x0a66E0c3c5fE88d08a2346A1D276575E172AD2D2', // but for rinkeby it will be a specific address
+      97: '0x0a66E0c3c5fE88d08a2346A1D276575E172AD2D2', //it can also specify a specific netwotk name (specified in hardhat.config.js)
+    }
+  }
 };
 
 // task("estimate_value_ERC20", "Estimates the value of an ERC20 asset")

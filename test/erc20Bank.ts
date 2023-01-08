@@ -1,7 +1,7 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { ethers, deployments } from "hardhat";
 import hre from "hardhat";
-import { IWETH, IPositionsManager, PositionsManager, UniversalSwap } from "../typechain-types";
+import { IWETH, IPositionsManager, PositionsManager, UniversalSwap, PositionsManager__factory } from "../typechain-types";
 import {
   deployAndInitializeManager,
   addresses,
@@ -12,6 +12,7 @@ import {
 } from "../utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { constants } from "ethers";
+
 require("dotenv").config();
 
 const NETWORK = hre.network.name;
@@ -33,7 +34,8 @@ describe("ERC20Bank tests", function () {
   let networkTokenContract: IWETH;
   let universalSwap: UniversalSwap;
   before(async function () {
-    manager = await deployAndInitializeManager();
+    const managerAddress = (await deployments.get('PositionsManager')).address;
+    manager = await ethers.getContractAt("PositionsManager", managerAddress)
     owners = await ethers.getSigners();
     const universalSwapAddress = await manager.universalSwap();
     for (const owner of owners) {

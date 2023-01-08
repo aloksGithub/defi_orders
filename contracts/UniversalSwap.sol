@@ -407,7 +407,6 @@ contract UniversalSwap is IUniversalSwap, Ownable {
     ) internal returns (address[] memory, uint256[] memory) {
         for (uint256 i = 0; i < inputTokenAmounts.length; i++) {
             if (inputTokens[i] == address(0)) continue;
-            console.log(inputTokens[i], IERC20(inputTokens[i]).balanceOf(msg.sender), IERC20(inputTokens[i]).allowance(msg.sender, address(this)));
             IERC20(inputTokens[i]).safeTransferFrom(msg.sender, address(this), inputTokenAmounts[i]);
         }
         for (uint256 i = 0; i < inputNFTs.length; i++) {

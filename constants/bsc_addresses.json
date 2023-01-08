@@ -1,7 +1,5 @@
 {
   "addresses": {
-    "usdc": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
-    "usdt": "0x55d398326f99059fF775485246999027B3197955",
     "preferredStable": "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
     "networkToken": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
     "commonPoolTokens": [
@@ -15,6 +13,7 @@
     "uniswapV2RouterFees": [1, 0],
     "uniswapV2Factories": ["0xcA143Ce32Fe78f1f7019d7d551a6402fC5350c73", "0x858E3312ed3A876947EA49d572A7C42DE08af7EE"],
     "uniswapV3Factories": [],
+    "uniswapV3Routers": [],
     "NFTManagers": [],
     "v1MasterChefs": [
       {

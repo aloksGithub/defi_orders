@@ -7,25 +7,53 @@ import { expect } from "chai";
 import { addresses as ethereumAddresses } from "../constants/ethereum_addresses.json";
 import { addresses as bscAddresses } from "../constants/bsc_addresses.json";
 import { addresses as bscTestnetAddresses } from "../constants/bsc_testnet_addresses.json";
-import { getAssets } from "./protocolDataGetter";
+import { getAssets, SupportedNetworks } from "./protocolDataGetter";
 import { getSwapsAndConversionsFromProvidedAndDesired } from "./routeCalculator";
+import { Network } from "hardhat/types";
 var fs = require("fs");
 
 const ENVIRONMENT = process.env.ENVIRONMENT!;
-const CURRENTLY_FORKING = process.env.CURRENTLY_FORKING!;
+// @ts-ignore
+const CURRENTLY_FORKING: SupportedNetworks = process.env.CURRENTLY_FORKING!;
 
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
-export const addresses = {
+export interface MasterChef {
+  address: string
+  rewardGetter: string
+  reward: string
+  pendingRewardsGetter: string
+  hasExtraRewards: boolean
+}
+
+interface Addresses {
+  preferredStable: string
+  networkToken: string
+  commonPoolTokens: string[]
+  uniswapV2Routers: string[]
+  uniswapV2RouterFees: number[]
+  uniswapV2Factories: string[]
+  uniswapV3Factories: string[]
+  uniswapV3Routers: string[]
+  NFTManagers: string[]
+  v1MasterChefs: MasterChef[]
+  v2MasterChefs: MasterChef[]
+  masterChefLps: string[]
+  erc20BankLps: string[]
+  universwalSwapTestingTokens: string[]
+  nftBasaedPairs: string[]
+  pancakeV2MasterChef?: MasterChef
+  aaveV1LendingPool?: string
+  aaveV2LendingPool?: string
+  aaveV3LendingPool?: string
+}
+
+export const addresses: {[network: string]:Addresses} = {
   mainnet: ethereumAddresses,
   bsc: bscAddresses,
-  bscTestnet: bscTestnetAddresses,
-  localhost: undefined,
-  hardhat: undefined,
+  bscTestnet: bscTestnetAddresses
 };
-// @ts-ignore
 addresses.localhost = addresses[CURRENTLY_FORKING];
-// @ts-ignore
 addresses.hardhat = addresses[CURRENTLY_FORKING];
 
 export async function getNetworkToken(signer: any, ether: string) {
@@ -55,9 +83,9 @@ const ethereumPoolInteractors = async (verify: boolean = false, log: boolean = f
   const uniswapPoolInteractor = await uniswapPoolInteractorContract.deploy();
   const aaveV2PoolInteractorFactory = await ethers.getContractFactory("AaveV2PoolInteractor");
   const aaveV2PoolInteractor = await aaveV2PoolInteractorFactory.deploy(
-    addresses["mainnet"].aaveV1LendingPool,
-    addresses["mainnet"].aaveV2LendingPool,
-    addresses["mainnet"].aaveV3LendingPool
+    addresses["mainnet"].aaveV1LendingPool!,
+    addresses["mainnet"].aaveV2LendingPool!,
+    addresses["mainnet"].aaveV3LendingPool!
   );
   if (verify) {
     await delay(10000);
@@ -383,14 +411,14 @@ const deployPositionsManager = async (verify: boolean = false, log: boolean = fa
   const positionsManagerFactory = await ethers.getContractFactory("PositionsManager");
   const universalSwap = await getUniversalSwap(verify, log);
   // @ts-ignore
-  const positionsManager = await positionsManagerFactory.deploy(universalSwap.address, addresses[network].usdc);
+  const positionsManager = await positionsManagerFactory.deploy(universalSwap.address, addresses[network].preferredStable);
   if (verify) {
     await delay(10000);
     try {
       await hre.run("verify:verify", {
         address: positionsManager.address,
         // @ts-ignore
-        constructorArguments: [universalSwap.address, addresses[network].usdc],
+        constructorArguments: [universalSwap.address, addresses[network].preferredStable],
         network,
       });
     } catch (e) {
@@ -486,7 +514,6 @@ const masterChefV1Wrapper = async (verify: boolean = false, log: boolean = false
       masterChef.pendingRewardsGetter
     );
     wrappers.push(wrapperV1.address);
-    const masterChefContract = await ethers.getContractAt("IMasterChefV1", masterChef.address);
     if (verify) {
       await delay(10000);
       try {
@@ -518,7 +545,6 @@ const masterChefV2Wrapper = async (verify: boolean = false, log: boolean = false
       masterChef.pendingRewardsGetter
     );
     wrappers.push(wrapperV2.address);
-    const masterChefContract = await ethers.getContractAt("ISushiSwapMasterChefV2", masterChef.address);
     if (verify) {
       await delay(10000);
       try {
@@ -541,7 +567,10 @@ const masterChefV2Wrapper = async (verify: boolean = false, log: boolean = false
 const pancakeMasterChefWrapper = async (verify: boolean = false, log: boolean = false) => {
   const factory = await ethers.getContractFactory("PancakeSwapMasterChefV2Wrapper");
   const masterChef = addresses["bsc"].pancakeV2MasterChef;
-  const wrapper = await factory.deploy(masterChef.address, masterChef.reward, masterChef.pendingRewardsGetter);
+  if (!masterChef) {
+    throw new Error("Wrong network");
+  }
+  const wrapper = await factory.deploy(masterChef!.address, masterChef.reward, masterChef.pendingRewardsGetter);
   const masterChefContract = await ethers.getContractAt("IPancakeSwapMasterChefV2", masterChef.address);
   if (verify) {
     await delay(10000);
@@ -578,7 +607,7 @@ const deployMasterChefBank = async (positionsManager: string, verify: boolean = 
   if (network == "bsc" || ((network == "localhost" || network == "hardhat") && CURRENTLY_FORKING == "bsc")) {
     const pancakeWrapper = await pancakeMasterChefWrapper(verify, log);
     const masterChef = addresses["bsc"].pancakeV2MasterChef;
-    await masterChefBank.setMasterChefWrapper(masterChef.address, pancakeWrapper.address);
+    await masterChefBank.setMasterChefWrapper(masterChef!.address, pancakeWrapper.address);
   }
   if (verify) {
     await delay(10000);

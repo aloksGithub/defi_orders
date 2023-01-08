@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { deployments, ethers } from "hardhat";
 import hre from "hardhat";
 import { ERC20, IERC20, IUniswapV2Pair, IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
 import { deployAndInitializeManager, addresses, getNetworkToken, getLPToken, depositNew, getAssets } from "../utils";
@@ -79,7 +79,8 @@ describe.skip("Slippage tests", function () {
   let stableContract: ERC20;
   let amountUsed = "1";
   before(async function () {
-    manager = await deployAndInitializeManager();
+    const managerAddress = (await deployments.get('PositionsManager')).address;
+    manager = await ethers.getContractAt("PositionsManager", managerAddress)
     owners = await ethers.getSigners();
     const universalSwapAddress = await manager.universalSwap();
     for (const owner of owners) {
