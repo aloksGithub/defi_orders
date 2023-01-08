@@ -6,14 +6,12 @@ const deployBank: DeployFunction = async function ({getNamedAccounts, deployment
   const namedAccounts = await getNamedAccounts();
   const {deployer} = namedAccounts;
   const positionsManager = await deployments.get('PositionsManager')
-  const bank = await deploy('ERC20Bank', {
+  await deploy('ERC20Bank', {
     from: deployer,
     contract: 'ERC20Bank',
     args: [positionsManager.address],
     log: true
   });
-  const positionsManagerContract = await ethers.getContractAt("PositionsManager", positionsManager.address)
-  await positionsManagerContract.addBank(bank.address)
 };
 
 module.exports = deployBank

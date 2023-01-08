@@ -1,8 +1,7 @@
-import { expect } from "chai";
 import { deployments, ethers } from "hardhat";
 import hre from "hardhat";
-import { ERC20, IERC20, IUniswapV2Pair, IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
-import { deployAndInitializeManager, addresses, getNetworkToken, getLPToken, depositNew, getAssets } from "../utils";
+import { ERC20, IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
+import { addresses, getNetworkToken, getLPToken, getAssets } from "../utils";
 import supportedProtocols from "../constants/supported_protocols.json";
 require("dotenv").config();
 import { Asset } from "../utils/protocolDataGetter";

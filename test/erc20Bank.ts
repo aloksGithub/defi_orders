@@ -1,9 +1,8 @@
 import { expect } from "chai";
 import { ethers, deployments } from "hardhat";
 import hre from "hardhat";
-import { IWETH, IPositionsManager, PositionsManager, UniversalSwap, PositionsManager__factory } from "../typechain-types";
+import { IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
 import {
-  deployAndInitializeManager,
   addresses,
   getNetworkToken,
   getLPToken,

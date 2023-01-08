@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL 1.1
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -392,8 +392,8 @@ contract PositionsManager is IPositionsManager, Ownable {
     }
 
     /// @inheritdoc IPositionsManager
-    function addBank(address bank) external onlyOwner {
-        banks.push(payable(bank));
+    function setBanks(address payable[] memory _banks) external onlyOwner {
+        banks = _banks;
     }
 
     ///-------------Internal logic-------------

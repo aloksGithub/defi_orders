@@ -4,11 +4,13 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "node": "yarn run hardhat node",
     "test": "yarn run hardhat test --deploy-fixture",
     "compile": "yarn run hardhat compile",
     "size": "yarn run hardhat size-contracts",
     "pretty": "yarn prettier --write .",
-    "verify": "yarn run hardhat etherscan-verify"
+    "verify": "yarn run hardhat etherscan-verify",
+    "deploy": "yarn run hardhat deploy"
   },
   "keywords": [],
   "author": "Alok",

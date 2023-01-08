@@ -6,7 +6,6 @@ import { UniversalSwap, IERC20, IOracle, ISwapper } from "../typechain-types";
 import { ProvidedStruct } from "../typechain-types/contracts/PositionsManager";
 import { DesiredStruct } from "../typechain-types/contracts/UniversalSwap";
 import {
-  getUniversalSwap,
   addresses,
   getNetworkToken,
   getNFT,

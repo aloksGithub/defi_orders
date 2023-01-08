@@ -1,6 +1,6 @@
 import { deployments, ethers } from "hardhat";
 import { BasicOracle } from "../typechain-types";
-import { addresses, deployOracle, isRoughlyEqual } from "../utils";
+import { addresses, isRoughlyEqual } from "../utils";
 import hre from "hardhat";
 
 const networkAddresses = addresses[hre.network.name];

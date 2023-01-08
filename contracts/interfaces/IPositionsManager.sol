@@ -104,9 +104,8 @@ interface IPositionsManager {
     /// @notice Function to change the swap utility
     function setUniversalSwap(address _universalSwap) external;
 
-    /// @notice Add a new bank
-    /// @param bank Address of new bank
-    function addBank(address bank) external;
+    /// @notice Updates bank addresses
+    function setBanks(address payable[] memory _banks) external;
 
     /// @notice Get a position
     /// @param positionId position ID

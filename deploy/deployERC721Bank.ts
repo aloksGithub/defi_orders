@@ -19,13 +19,13 @@ const deployBank: DeployFunction = async function ({getNamedAccounts, deployment
     args: [],
     log: true
   });
-  const bankContract = await ethers.getContractAt("ERC721Bank", bank.address)
-  for (const manager of addresses[network.name].NFTManagers) {
-    await bankContract.addManager(manager);
-    await bankContract.setWrapper(manager, wrapper.address);
+  if (bank.newlyDeployed) {
+    const bankContract = await ethers.getContractAt("ERC721Bank", bank.address)
+    for (const manager of addresses[network.name].NFTManagers) {
+      await bankContract.addManager(manager);
+      await bankContract.setWrapper(manager, wrapper.address);
+    }
   }
-  const positionsManagerContract = await ethers.getContractAt("PositionsManager", positionsManager.address)
-  await positionsManagerContract.addBank(bank.address)
 };
 
 module.exports = deployBank

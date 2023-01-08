@@ -59,7 +59,6 @@ const config: HardhatUserConfig = {
       verify: {
         etherscan: {
           apiUrl: 'https://api.bscscan.com',
-          apiKey: process.env.BSCSCAN_API_KEY!,
         }
       }
     },
@@ -69,7 +68,6 @@ const config: HardhatUserConfig = {
       verify: {
         etherscan: {
           apiUrl: 'https://api-testnet.bscscan.com',
-          apiKey: process.env.BSCSCAN_API_KEY!,
         }
       }
     },
@@ -78,7 +76,6 @@ const config: HardhatUserConfig = {
       verify: {
         etherscan: {
           apiUrl: 'https://api.etherscan.io',
-          apiKey: process.env.ETHERSCAN_API_KEY!,
         }
       }
       // accounts: [process.env.ETHEREUM_ACCOUNT!]
@@ -88,7 +85,6 @@ const config: HardhatUserConfig = {
       verify: {
         etherscan: {
           apiUrl: '',
-          apiKey: process.env.ETHERSCAN_API_KEY!,
         }
       }
       // accounts: [process.env.ETHEREUM_TESTNET_ACCOUNT!]
@@ -101,11 +97,6 @@ const config: HardhatUserConfig = {
       bsc: process.env.BSCSCAN_API_KEY!,
       bscTestnet: process.env.BSCSCAN_API_KEY!,
     },
-  },
-  verify: {
-    etherscan: {
-      apiKey: process.env.ETHERSCAN_API_KEY!
-    }
   },
   mocha: {
     timeout: 100000000,

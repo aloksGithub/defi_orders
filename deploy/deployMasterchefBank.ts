@@ -53,12 +53,12 @@ const deployBank: DeployFunction = async function ({getNamedAccounts, deployment
     args: [positionsManager.address],
     log: true
   });
-  const bankContract = await ethers.getContractAt("MasterChefBank", bank.address)
-  for (const [index, wrapper] of wrappers.entries()) {
-    bankContract.setMasterChefWrapper(chefs[index].address, wrapper)
+  if (bank.newlyDeployed) {
+    const bankContract = await ethers.getContractAt("MasterChefBank", bank.address)
+    for (const [index, wrapper] of wrappers.entries()) {
+      await bankContract.setMasterChefWrapper(chefs[index].address, wrapper)
+    }
   }
-  const positionsManagerContract = await ethers.getContractAt("PositionsManager", positionsManager.address)
-  await positionsManagerContract.addBank(bank.address)
 };
 
 module.exports = deployBank

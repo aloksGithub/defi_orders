@@ -3,16 +3,13 @@ import { deployments, ethers } from "hardhat";
 import hre from "hardhat";
 import { IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
 import {
-  deployAndInitializeManager,
   addresses,
   getNetworkToken,
   checkNFTLiquidity,
-  depositNew,
   isRoughlyEqual,
   getNFT,
   depositNewNFT,
 } from "../utils";
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 require("dotenv").config();
 
 const NETWORK = hre.network.name;

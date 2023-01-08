@@ -1,9 +1,8 @@
-import { assert, expect } from "chai";
+import { expect } from "chai";
 import { deployments, ethers } from "hardhat";
 import hre from "hardhat";
 import { IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
 import {
-  deployAndInitializeManager,
   addresses,
   getNetworkToken,
   getLPToken,
