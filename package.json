@@ -9,7 +9,9 @@
     "compile": "yarn run hardhat compile",
     "size": "yarn run hardhat size-contracts",
     "pretty": "yarn prettier --write .",
-    "verify": "yarn run hardhat etherscan-verify",
+    "verify:bsc": "yarn run hardhat etherscan-verify --api-key YourApiKeyToken --network bsc && yarn run hardhat run scripts/verifyHidden.ts --network bsc",
+    "verify:bscTestnet": "yarn run hardhat etherscan-verify --api-key YourApiKeyToken --network bscTestnet && yarn run hardhat run scripts/verifyHidden.ts --network bscTestnet",
+    "verify:mainnet": "yarn run hardhat etherscan-verify --api-key YourApiKeyToken --network mainnet && yarn run hardhat run scripts/verifyHidden.ts --network mainnet",
     "deploy": "yarn run hardhat deploy"
   },
   "keywords": [],
