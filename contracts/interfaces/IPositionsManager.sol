@@ -36,14 +36,14 @@ struct BankTokenInfo {
     uint idInManager;
 }
 
-struct PositionInteraction {
-    string action;
-    uint timestamp;
-    uint blockNumber;
-    Provided assets;
-    uint usdValue;
-    uint positionSizeChange;
-}
+// struct PositionInteraction {
+//     string action;
+//     uint timestamp;
+//     uint blockNumber;
+//     Provided assets;
+//     uint usdValue;
+//     uint positionSizeChange;
+// }
 
 struct PositionData {
     Position position; // Position data such as bankId, bankToken, positionSize, etc.
@@ -58,19 +58,14 @@ struct PositionData {
 }
 
 interface IPositionsManager {
-    event Deposit(
-        uint positionId,
-        address bank,
-        uint bankToken,
-        address user,
-        uint amount,
-        LiquidationCondition[] liquidationPoints
-    );
-    event IncreasePosition(uint positionId, uint amount);
-    event Withdraw(uint positionId, uint amount);
-    event PositionClose(uint positionId);
-    event Harvest(uint positionId, address[] rewards, uint[] rewardAmounts);
-    event HarvestRecompound(uint positionId, uint lpTokens);
+    event Deposit(uint indexed positionId, uint amount, uint usdValue);
+    event IncreasePosition(uint indexed positionId, uint amount, uint usdValue);
+    event Withdraw(uint indexed positionId, uint amount, uint usdValue);
+    event PositionClose(uint indexed positionId, uint amount, uint usdValue);
+    event BotLiquidate(uint indexed positionId, uint amount, uint usdValue, uint liquidationIndex);
+    event Refund(uint indexed positionId, uint amount, uint usdValue, string reason);
+    event Harvest(uint indexed positionId, uint amount, uint usdValue);
+    event HarvestRecompound(uint indexed positionId, uint amount, uint usdValue);
     
     /// @notice Returns the address of universal swap
     function universalSwap() external view returns (address networkToken);
@@ -85,11 +80,11 @@ interface IPositionsManager {
     /// @return positions Number of positions that have been opened
     function numPositions() external view returns (uint positions);
 
-    /// @notice Returns a list of position interactions, each interaction is a two element array consisting of block number and interaction type
-    /// @notice Interaction type 0 is deposit, 1 is withdraw, 2 is harvest, 3 is compound and 4 is bot liquidation
-    /// @param positionId position ID
-    /// @return interactions List of position interactions
-    function getPositionInteractions(uint positionId) external view returns (PositionInteraction[] memory interactions);
+    // /// @notice Returns a list of position interactions, each interaction is a two element array consisting of block number and interaction type
+    // /// @notice Interaction type 0 is deposit, 1 is withdraw, 2 is harvest, 3 is compound and 4 is bot liquidation
+    // /// @param positionId position ID
+    // /// @return interactions List of position interactions
+    // function getPositionInteractions(uint positionId) external view returns (PositionInteraction[] memory interactions);
 
     /// @notice Returns number of banks
     /// @return banks Addresses of banks
@@ -98,19 +93,19 @@ interface IPositionsManager {
     /// @notice Returns a list of position ids for the user
     function getPositions(address user) external view returns (uint[] memory userPositions);
 
+    /// @notice Get position data for position id
+    function getPosition(uint positionId) external view returns (Position memory position);
+
     /// @notice Set the address for the EOA that can be used to trigger liquidations
     function setKeeper(address keeperAddress, bool active) external;
-
-    /// @notice Function to change the swap utility
-    function setUniversalSwap(address _universalSwap) external;
 
     /// @notice Updates bank addresses
     function setBanks(address payable[] memory _banks) external;
 
-    /// @notice Get a position
-    /// @param positionId position ID
-    /// @return data Position details
-    function getPosition(uint positionId) external returns (PositionData memory data);
+    // /// @notice Get a position
+    // /// @param positionId position ID
+    // /// @return data Position details
+    // function getPosition(uint positionId) external returns (PositionData memory data);
 
     /// @notice Get a list of banks and bank tokens that support the provided token
     /// @dev bankToken for ERC721 banks is not supported and will always be 0
@@ -158,23 +153,25 @@ interface IPositionsManager {
     function withdraw(uint positionId, uint amount) external;
 
     /// @notice Withdraws all funds from a position
+    /// @dev Called by position owner or keepers or admin
     /// @param positionId Position ID
-    function close(uint positionId) external;
+    /// @param reason In case admin is calling close to refund user, reason needs to be specified
+    function close(uint positionId, string memory reason) external;
 
-    /// @notice Estimates the net worth of the position in terms of another token
-    /// @param positionId Position ID
-    /// @return value Value of the position in terms of inTermsOf
-    function estimateValue(uint positionId, address inTermsOf) external view returns (uint value);
+    // /// @notice Estimates the net worth of the position in terms of another token
+    // /// @param positionId Position ID
+    // /// @return value Value of the position in terms of inTermsOf
+    // function estimateValue(uint positionId, address inTermsOf) external view returns (uint value);
 
-    /// @notice Get the underlying tokens, amounts and corresponding usd values for a position
-    function getPositionTokens(
-        uint positionId
-    ) external view returns (address[] memory tokens, uint[] memory amounts, uint256[] memory values);
+    // /// @notice Get the underlying tokens, amounts and corresponding usd values for a position
+    // function getPositionTokens(
+    //     uint positionId
+    // ) external view returns (address[] memory tokens, uint[] memory amounts, uint256[] memory values);
 
-    /// @notice Get the rewards, rewad amounts and corresponding usd values that have been generated for a position
-    function getPositionRewards(
-        uint positionId
-    ) external view returns (address[] memory tokens, uint[] memory amounts, uint256[] memory rewardValues);
+    // /// @notice Get the rewards, rewad amounts and corresponding usd values that have been generated for a position
+    // function getPositionRewards(
+    //     uint positionId
+    // ) external view returns (address[] memory tokens, uint[] memory amounts, uint256[] memory rewardValues);
 
     /// @notice Harvest and receive the rewards for a position
     /// @param positionId Position ID
@@ -198,19 +195,22 @@ interface IPositionsManager {
     /// @notice Liquidate a position that has violated some liquidation condition
     /// @notice Can only be called by a keeper
     /// @param positionId Position ID
+    /// @param liquidationIndex index of liquidation condition being triggered
+    /// @param liquidationFee ETH to be refunded to bot that triggered the liquidation
     /// @param swaps Swaps to conduct to get desired asset from position
     /// @param conversions Conversions to conduct to get desired asset from position
     /// @param liquidationIndex Index of liquidation condition that is no longer satisfied
     function botLiquidate(
         uint positionId,
         uint liquidationIndex,
+        uint liquidationFee,
         SwapPoint[] memory swaps,
         Conversion[] memory conversions
     ) external;
 
-    /// @notice Check wether one of the liquidation conditions has become true
-    /// @param positionId Position ID
-    /// @return index Index of the liquidation condition that has become true
-    /// @return liquidate Flag used to tell wether liquidation should be performed
-    function checkLiquidate(uint positionId) external view returns (uint index, bool liquidate);
+    // /// @notice Check wether one of the liquidation conditions has become true
+    // /// @param positionId Position ID
+    // /// @return index Index of the liquidation condition that has become true
+    // /// @return liquidate Flag used to tell wether liquidation should be performed
+    // function checkLiquidate(uint positionId) external view returns (uint index, bool liquidate);
 }

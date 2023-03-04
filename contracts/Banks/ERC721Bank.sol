@@ -4,7 +4,7 @@ pragma solidity ^0.8.17;
 import "./ERC721Wrappers.sol";
 import "./BankBase.sol";
 
-contract ERC721Bank is BankBase {
+contract ERC721Bank is Initializable, BankBase {
     using Address for address;
 
     struct PoolInfo {
@@ -18,7 +18,9 @@ contract ERC721Bank is BankBase {
 
     mapping(uint256 => PoolInfo) poolInfo;
 
-    constructor(address _positionsManager) BankBase(_positionsManager) {}
+    function initialize(address _positionsManager) public initializer {
+        __BankBase_init(_positionsManager);
+    }
 
     function addManager(address nftManager) external onlyOwner {
         nftManagers.push(nftManager);

@@ -5,7 +5,7 @@ import "./BankBase.sol";
 import "../interfaces/IPositionsManager.sol";
 import "hardhat/console.sol";
 
-contract ERC20Bank is ERC1155("ERC20Bank"), BankBase {
+contract ERC20Bank is Initializable, ERC1155Upgradeable, BankBase {
     using SaferERC20 for IERC20;
 
     struct PoolInfo {
@@ -15,7 +15,10 @@ contract ERC20Bank is ERC1155("ERC20Bank"), BankBase {
     mapping(uint256 => PoolInfo) poolInfo;
     mapping(address => uint256) balances;
 
-    constructor(address _positionsManager) BankBase(_positionsManager) {}
+    function initialize(address _positionsManager) public initializer {
+        __BankBase_init(_positionsManager);
+        __ERC1155_init("ERC20Bank");
+    }
 
     function encodeId(address tokenAddress) public pure returns (uint256) {
         return uint256(uint160(tokenAddress));
@@ -98,7 +101,8 @@ contract ERC20Bank is ERC1155("ERC20Bank"), BankBase {
         if (lpToken != address(0)) {
             IERC20(lpToken).safeTransfer(receiver, amount);
         } else {
-            payable(receiver).transfer(amount);
+            (bool success,) = payable(receiver).call{ value: amount }("");
+            require(success, "Transfer Failed");
         }
         _burn(userAddress, tokenId, amount);
         outTokens = new address[](1);

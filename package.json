@@ -9,9 +9,9 @@
     "compile": "yarn run hardhat compile",
     "size": "yarn run hardhat size-contracts",
     "pretty": "yarn prettier --write .",
-    "verify:bsc": "yarn run hardhat etherscan-verify --api-key YourApiKeyToken --network bsc && yarn run hardhat run scripts/verifyHidden.ts --network bsc",
-    "verify:bscTestnet": "yarn run hardhat etherscan-verify --api-key YourApiKeyToken --network bscTestnet && yarn run hardhat run scripts/verifyHidden.ts --network bscTestnet",
-    "verify:mainnet": "yarn run hardhat etherscan-verify --api-key YourApiKeyToken --network mainnet && yarn run hardhat run scripts/verifyHidden.ts --network mainnet",
+    "verify:bsc": "yarn run hardhat etherscan-verify --solc-input --api-key YourApiKeyToken --network bsc",
+    "verify:bscTestnet": "yarn run hardhat etherscan-verify --solc-input --api-key YourApiKeyToken --network bscTestnet",
+    "verify:mainnet": "yarn run hardhat etherscan-verify --solc-input --api-key YourApiKeyToken --network mainnet",
     "deploy": "yarn run hardhat deploy"
   },
   "keywords": [],
@@ -43,6 +43,7 @@
   },
   "dependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.4",
+    "@openzeppelin/contracts-upgradeable": "^4.8.1",
     "@uniswap/v3-core": "^1.0.1",
     "@uniswap/v3-periphery": "^1.4.2",
     "dotenv": "^16.0.1",

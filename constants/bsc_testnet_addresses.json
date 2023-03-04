@@ -17,9 +17,9 @@
     "v1MasterChefs": [],
     "masterChefLps": [],
     "erc20BankLps": [
+      "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd",
       "0xeD24FC36d5Ee211Ea25A80239Fb8C4Cfd80f12Ee",
-      "0x64544969ed7EBf5f083679233325356EbE738930",
-      "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd"
+      "0x64544969ed7EBf5f083679233325356EbE738930"
     ],
     "universwalSwapTestingTokens": [],
     "nftBasaedPairs": [],

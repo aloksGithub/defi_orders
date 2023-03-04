@@ -4,6 +4,9 @@ pragma solidity ^0.8.17;
 import "./INFTPoolInteractor.sol";
 import "../libraries/SwapFinder.sol";
 import "../libraries/Conversions.sol";
+// import "../UniversalSwap/ProvidedHelper.sol";
+// import "../UniversalSwap/ConversionHelper.sol";
+// import "../UniversalSwap/SwapHelper.sol";
 
 struct Desired {
     address[] outputERC20s;
@@ -25,6 +28,9 @@ interface IUniversalSwap {
     function networkToken() external view returns (address tokenAddress);
     function oracle() external view returns (address oracle);
     function stableToken() external view returns (address stableToken);
+    function devFee() external view returns (uint devFee);
+    function treasury() external view returns (address treasury);
+    function ethWithdrawer() external view returns (address payable ethWithdrawer);
     function getSwappers() external view returns (address[] memory swappers);
     function getPoolInteractors() external view returns (address[] memory poolInteractors);
     function getNFTPoolInteractors() external view returns (address[] memory nftPoolInteractors);
@@ -158,9 +164,33 @@ interface IUniversalSwap {
         address receiver
     ) external payable returns (uint256[] memory amountsAndIds);
 
-    /// Setters
+    /// @notice Set swappers to allow interaction with different dexes
     function setSwappers(address[] calldata _swappers) external;
+
+    /// @notice Set oracle
     function setOracle(address _oracle) external;
+
+    /// @notice Set interactors for protocols
     function setPoolInteractors(address[] calldata _poolInteractors) external;
+
+    /// @notice Set helpers for different tasks
+    /// @dev _coreLogic contains all the logic to receive burn, mint and swap assets
+    /// @dev _providedHelper contains logic for dealing with Provided structs
+    /// @dev _conversionHelper contains logic for dealing with Conversion structs
+    /// @dev _swapHelper contains pre swap logic for estimating return values from swaps and calculating optimal routes
+    function setHelpers(
+        address _coreLogic,
+        address _providedHelper,
+        address _conversionHelper,
+        address _swapHelper
+    ) external;
+
+    /// @notice Set interactors for uniswap v3 like protocols
     function setNFTPoolInteractors(address[] calldata _nftPoolInteractors) external;
+
+    /// @notice Set dev fee for transactions
+    function setDevFee(uint _fee) external;
+
+    /// @notice Set treasury to receive fee from transactions
+    function setTreasury(address _treasury) external;
 }

@@ -2,7 +2,7 @@ import { BigNumber, constants } from "ethers";
 import { ethers } from "hardhat";
 import { ISwapper, ERC20__factory, ISwapper__factory } from "../typechain-types";
 import { ProvidedStruct, SwapPointStruct } from "../typechain-types/contracts/PositionsManager";
-import { DesiredStruct } from "../typechain-types/contracts/UniversalSwap";
+import { DesiredStruct, ProvidedStructOutput } from "../typechain-types/contracts/UniversalSwap";
 import { parseUnits } from "ethers/lib/utils";
 import { SwapContracts } from "../Types";
 
@@ -242,8 +242,14 @@ const findBestRoute = async (
 };
 
 export const getSwapsAndConversionsFromProvidedAndDesired = async (contracts: SwapContracts, provided: ProvidedStruct, desired: DesiredStruct) => {
+  const providedModified: ProvidedStructOutput = JSON.parse(JSON.stringify(provided))
+  providedModified.tokens = providedModified.tokens.map(token=>token===ethers.constants.AddressZero?contracts.networkToken.address:token)
+  const {simplifiedTokens, simplifiedAmounts} = await contracts.providedHelper.simplifyWithoutWrite(providedModified)
+  providedModified.amounts = simplifiedAmounts.map(amount=>amount.sub(amount.mul(100).div(100000)))
+  providedModified.tokens = simplifiedTokens
+  providedModified.nfts = []
   const [tokens, amounts, inputTokenValues, conversions, conversionUnderlying, conversionUnderlyingValues] =
-    await contracts.universalSwap.preSwapCalculateUnderlying(provided, desired);
+    await contracts.universalSwap.preSwapCalculateUnderlying(providedModified, desired);
   const swaps = await findMultipleSwaps(
     contracts,
     tokens,

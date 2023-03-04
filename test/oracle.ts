@@ -8,6 +8,7 @@ const networkAddresses = addresses[hre.network.name];
 describe("Oracle tests", function () {
   let oracle: BasicOracle;
   before(async function () {
+    await deployments.fixture()
     const oracleAddress = (await deployments.get('BasicOracle')).address;
     oracle = await ethers.getContractAt("BasicOracle", oracleAddress);
   });

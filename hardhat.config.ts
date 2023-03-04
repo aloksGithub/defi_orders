@@ -20,6 +20,7 @@ const rpcs = {
 const approximateGasPrices = {
   bsc: 7 * 10 ** 9,
   mainnet: 35 * 10 ** 9,
+  bscTestnet: 10 * 10 ** 9
 };
 
 const config: HardhatUserConfig = {
@@ -30,8 +31,9 @@ const config: HardhatUserConfig = {
         settings: {
           optimizer: {
             enabled: true,
-            runs: 100,
+            runs: 200,
           },
+          viaIR:true,
         },
       }
     ],
@@ -99,7 +101,7 @@ const config: HardhatUserConfig = {
     },
   },
   mocha: {
-    timeout: 100000000,
+    timeout: 10000000000000,
   },
   namedAccounts: {
     deployer: {

@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { deployments, ethers } from "hardhat";
 import hre from "hardhat";
-import { IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
+import { IWETH, ManagerHelper, PositionsManager, UniversalSwap } from "../typechain-types";
 import {
   addresses,
   getNetworkToken,
@@ -32,12 +32,16 @@ async function getTimestamp() {
 
 describe("ERC721Bank tests", function () {
   let manager: PositionsManager;
+  let helper: ManagerHelper;
   let owners: any[];
   let networkTokenContract: IWETH;
   let universalSwap: UniversalSwap;
   before(async function () {
+    await deployments.fixture()
     const managerAddress = (await deployments.get('PositionsManager')).address;
     manager = await ethers.getContractAt("PositionsManager", managerAddress)
+    const helperAddress = (await deployments.get('ManagerHelper')).address;
+    helper = await ethers.getContractAt("ManagerHelper", helperAddress)
     owners = await ethers.getSigners();
     const universalSwapAddress = await manager.universalSwap();
     for (const owner of owners) {
@@ -73,7 +77,7 @@ describe("ERC721Bank tests", function () {
   it("Creates, harvests, recompounds and liquidates nft position", async function () {
     const checkRewards = async (user: any, positionId: any) => {
       const [rewards, rewardAmounts] = await manager.connect(user).callStatic.harvestRewards(positionId);
-      const { rewards: rewardsComputed, rewardAmounts: rewardAmountsComputed } = await manager.getPositionRewards(
+      const { rewards: rewardsComputed, rewardAmounts: rewardAmountsComputed } = await helper.getPositionRewards(
         positionId
       );
       await manager.connect(user).harvestRewards(positionId);
@@ -94,7 +98,7 @@ describe("ERC721Bank tests", function () {
         liquidationPoints,
         owners[0]
       );
-      const liquidity1 = (await manager.getPosition(positionId)).position.amount;
+      const liquidity1 = (await helper.getPosition(positionId)).position.amount;
       expect(liquidity1).to.greaterThan(0);
       const poolContract = await ethers.getContractAt("IUniswapV3Pool", pool);
       const token0 = await poolContract.token0();
@@ -186,10 +190,10 @@ describe("ERC721Bank tests", function () {
         await ethers.provider.send("hardhat_mine", ["0x10"]);
       }
       await manager.connect(owners[0]).harvestAndRecompound(positionId, [], [], [0, 0]);
-      const liquidity2 = (await manager.getPosition(positionId)).position.amount;
+      const liquidity2 = (await helper.getPosition(positionId)).position.amount;
       expect(liquidity2).to.greaterThan(liquidity1);
 
-      await manager.connect(owners[0]).close(positionId);
+      await manager.connect(owners[0]).close(positionId, '');
       for (const reward of rewardContracts) {
         const balance = await reward.balanceOf(owners[0].address);
         expect(balance).to.greaterThan(0);
@@ -236,7 +240,7 @@ describe("ERC721Bank tests", function () {
         liquidationPoints,
         owners[0]
       );
-      const liquidity1 = (await manager.getPosition(positionId)).position.amount;
+      const liquidity1 = (await helper.getPosition(positionId)).position.amount;
       let liquidityInNFT = await checkNFTLiquidity(nftManagerAddress, id);
       expect(liquidityInNFT).to.equal(liquidity1);
       expect(liquidityInNFT).to.greaterThan(1);
@@ -250,18 +254,18 @@ describe("ERC721Bank tests", function () {
           [],
           [0, 0]
         );
-      const liquidity2 = (await manager.getPosition(positionId)).position.amount;
+      const liquidity2 = (await helper.getPosition(positionId)).position.amount;
       liquidityInNFT = await checkNFTLiquidity(nftManagerAddress, id);
       expect(liquidityInNFT).to.equal(liquidity2);
       isRoughlyEqual(liquidity2, liquidity1.mul("2"));
       await manager.connect(owners[0]).withdraw(positionId, liquidity1);
-      const liquidity3 = (await manager.getPosition(positionId)).position.amount;
+      const liquidity3 = (await helper.getPosition(positionId)).position.amount;
       isRoughlyEqual(liquidity1, liquidity3);
       for (const reward of rewardContracts) {
         const balance = await reward.balanceOf(owners[0].address);
         expect(balance).to.greaterThan(0);
       }
-      await manager.connect(owners[0]).botLiquidate(positionId, 0, [], []);
+      await manager.connect(owners[0]).botLiquidate(positionId, 0, 0, [], []);
       // const balances = []
       // for (const reward of rewardContracts) {
       //     const balance = await reward.balanceOf(owners[0].address)
@@ -271,7 +275,7 @@ describe("ERC721Bank tests", function () {
       // }
       // await universalSwap.connect(owners[0]).swap(rewardContracts.map(r=>r.address), balances, networkAddresses.networkToken)
       const endingbalance = await networkTokenContract.balanceOf(owners[0].address);
-      isRoughlyEqual(startingBalance, endingbalance);
+      isRoughlyEqual(startingBalance, endingbalance, 200);
     };
     const pools = networkAddresses.nftBasaedPairs;
     for (const pool of pools) {

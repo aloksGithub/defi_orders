@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { deployments, ethers } from "hardhat";
 import hre from "hardhat";
-import { IWETH, PositionsManager, UniversalSwap } from "../typechain-types";
+import { IWETH, ManagerHelper, PositionsManager, UniversalSwap } from "../typechain-types";
 import {
   addresses,
   getNetworkToken,
@@ -27,13 +27,17 @@ const ethUsed = "1";
 
 describe("MasterChefBank tests", function () {
   let manager: PositionsManager;
+  let helper: ManagerHelper;
   let owners: any[];
   let networkTokenContract: IWETH;
   let universalSwap: UniversalSwap;
   before(async function () {
+    await deployments.fixture()
     owners = await ethers.getSigners();
     const managerAddress = (await deployments.get('PositionsManager')).address;
     manager = await ethers.getContractAt("PositionsManager", managerAddress)
+    const helperAddress = (await deployments.get('ManagerHelper')).address;
+    helper = await ethers.getContractAt("ManagerHelper", helperAddress)
     const universalSwapAddress = await manager.universalSwap();
     for (const owner of owners) {
       const { wethContract } = await getNetworkToken(owner, "1000.0");
@@ -55,19 +59,19 @@ describe("MasterChefBank tests", function () {
         liquidationPoints,
         owners[0]
       );
-      const positionInfo1 = await manager.getPosition(positionId);
+      const positionInfo1 = await helper.getPosition(positionId);
       await ethers.provider.send("hardhat_mine", ["0x100"]);
       await manager
         .connect(owners[0])
         .harvestAndRecompound(positionId, [], [], new Array(rewardContracts.length).fill(0));
-      const positionValue = await manager.estimateValue(positionId, networkTokenContract.address);
+      const positionValue = await helper.estimateValue(positionId, networkTokenContract.address);
       expect(positionValue).to.greaterThan(ethers.utils.parseEther(ethUsed).mul("95").div("100"));
-      const positionInfo2 = await manager.getPosition(positionId);
+      const positionInfo2 = await helper.getPosition(positionId);
       expect(positionInfo2.position.amount).to.greaterThanOrEqual(positionInfo1.position.amount);
-      await manager.connect(owners[0]).close(positionId);
-      const positionInfo3 = await manager.getPosition(positionId);
+      await manager.connect(owners[0]).close(positionId, '');
+      const positionInfo3 = await helper.getPosition(positionId);
       expect(positionInfo3.position.amount).to.equal(0);
-      const finalValue = await manager.estimateValue(positionId, networkTokenContract.address);
+      const finalValue = await helper.estimateValue(positionId, networkTokenContract.address);
       expect(finalValue).to.equal("0");
       const finalLpBalance = await lpTokenContract?.balanceOf(owners[0].address);
       expect(finalLpBalance).to.greaterThanOrEqual(lpBalance0);
@@ -80,7 +84,7 @@ describe("MasterChefBank tests", function () {
   it("Handles multiple actions", async function () {
     const checkRewards = async (user: any, positionId: any) => {
       const [rewards, rewardAmounts] = await manager.connect(user).callStatic.harvestRewards(positionId);
-      const { rewards: rewardsComputed, rewardAmounts: rewardAmountsComputed } = await manager.getPositionRewards(
+      const { rewards: rewardsComputed, rewardAmounts: rewardAmountsComputed } = await helper.getPositionRewards(
         positionId
       );
       await manager.connect(user).harvestRewards(positionId);
@@ -231,12 +235,14 @@ describe("MasterChefBank tests", function () {
         liquidationPoints,
         owner
       );
-      const positionInfo1 = await manager.getPosition(positionId);
+      const positionInfo1 = await helper.getPosition(positionId);
       await ethers.provider.send("hardhat_mine", ["0x10000"]);
       await manager.connect(owner).harvestAndRecompound(positionId, [], [], new Array(rewardContracts.length).fill(0));
-      const positionInfo2 = await manager.getPosition(positionId);
+      const positionInfo2 = await helper.getPosition(positionId);
       expect(positionInfo2.position.amount).to.greaterThanOrEqual(positionInfo1.position.amount);
-      await manager.connect(owners[0]).botLiquidate(positionId, 0, [], []);
+      await manager.connect(owners[0]).botLiquidate(positionId, 0, 0, [], []);
+      const {underlyingTokens} = await helper.getPosition(positionId);
+      expect(underlyingTokens.length).to.equal(2)
       const finalBalance = await networkTokenContract.balanceOf(owner.address);
       expect(finalBalance).to.greaterThan(ethers.utils.parseEther("1"));
     };

@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.17;
 
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import "../libraries/SaferERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC1155/ERC1155Upgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import "../libraries/SaferERC20.sol";
+import "../utils/OwnableUpgradeable.sol";
 
-abstract contract BankBase is Ownable {
+abstract contract BankBase is Initializable, OwnableUpgradeable {
     using SaferERC20 for IERC20;
 
     event Mint(uint256 tokenId, address userAddress, uint256 amount);
@@ -13,13 +15,15 @@ abstract contract BankBase is Ownable {
     event Harvest(uint256 tokenId, address userAddress, address receiver);
 
     address positionsManager;
+    uint256[49] __gap;
 
-    constructor(address _positionsManager) {
+    function __BankBase_init(address _positionsManager) public onlyInitializing {
         positionsManager = _positionsManager;
+        __Ownable_init();
     }
 
     modifier onlyAuthorized() {
-        require(msg.sender == positionsManager || msg.sender == owner(), "1");
+        require(msg.sender == positionsManager || msg.sender == currentOwner(), "1");
         _;
     }
 

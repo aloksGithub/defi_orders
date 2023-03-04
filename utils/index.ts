@@ -1,7 +1,7 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { ethers, upgrades } from "hardhat";
 import hre from "hardhat";
-import { PositionsManager, UniversalSwap } from "../typechain-types";
+import { ManagerHelper, PositionsManager, UniversalSwap } from "../typechain-types";
 import { BigNumber, constants, Contract } from "ethers";
 import { expect } from "chai";
 import { addresses as ethereumAddresses } from "../constants/ethereum_addresses.json";
@@ -9,6 +9,7 @@ import { addresses as bscAddresses } from "../constants/bsc_addresses.json";
 import { addresses as bscTestnetAddresses } from "../constants/bsc_testnet_addresses.json";
 import { getAssets, SupportedNetworks } from "./protocolDataGetter";
 import { getSwapsAndConversionsFromProvidedAndDesired } from "./routeCalculator";
+import { parseEther } from "ethers/lib/utils";
 
 // @ts-ignore
 const CURRENTLY_FORKING: SupportedNetworks = process.env.CURRENTLY_FORKING!;
@@ -91,14 +92,23 @@ export const getLPToken = async (
   return { lpBalance: balanceAfter.sub(balanceBefore), lpTokenContract };
 };
 
+export const getBalance = async (token: string, user: SignerWithAddress) => {
+  if (token===ethers.constants.AddressZero) {
+    return await user.getBalance()
+  }
+  const contract = await ethers.getContractAt("ERC20", token)
+  return await contract.balanceOf(user.address)
+}
+
 export const depositNew = async (
   manager: PositionsManager,
   lpToken: string,
-  amount: string,
+  amount: BigNumber,
   liquidationPoints: any[],
   owner: any
 ) => {
   const lpTokenContract = lpToken != constants.AddressZero ? await ethers.getContractAt("ERC20", lpToken) : undefined;
+  const balanceStart = await getBalance(lpToken, owner)
   const [banks, tokenIds] = await manager.recommendBank(lpToken);
   const bankAddress = banks.slice(-1)[0];
   const tokenId = tokenIds.slice(-1)[0];
@@ -119,6 +129,10 @@ export const depositNew = async (
   await manager
     .connect(owner)
     .deposit(position, tokens, amounts, { value: lpToken === constants.AddressZero ? amount : "0" });
+  const balanceAfter = await getBalance(lpToken, owner)
+  if (lpToken!=ethers.constants.AddressZero) {
+    expect(balanceStart.sub(balanceAfter)).to.equal(amount)
+  }
   return { positionId: numPositions, rewards, rewardContracts };
 };
 
@@ -176,10 +190,10 @@ export const getNFT = async (
     owner.address
   );
   const rc = await tx.wait();
-  const event = rc.events?.find((event: any) => event.event === "NFTMinted");
+  const event = rc.events?.find((event: any) => event.event === "Trade");
   // @ts-ignore
-  const [managerAddress, id] = event?.args;
-  return id;
+  const [receiver, usdValue, tokens, managers, amountsAndIds] = event?.args;
+  return amountsAndIds[0];
 };
 
 export const depositNewNFT = async (
@@ -219,6 +233,46 @@ export const isRoughlyEqual = (a: BigNumber, b: BigNumber, percentage: number = 
   expect(a).to.lessThanOrEqual(b.mul(10000 + percentage).div("10000"));
   expect(a).to.greaterThanOrEqual(b.mul(10000 - percentage).div("10000"));
 };
+
+export const botliquidate = async (manager: PositionsManager, helper: ManagerHelper, positionId: number, liquidationIndex: number) => {
+  let fee = parseEther("0.0000005")
+  const universalSwap: UniversalSwap = await ethers.getContractAt("UniversalSwap", await manager.universalSwap())
+  const {position: {liquidationPoints}, usdValue, underlyingTokens, rewardTokens, underlyingAmounts, rewardAmounts} = await helper.getPosition(positionId)  
+  const {watchedToken, liquidateTo} = liquidationPoints[liquidationIndex]
+  const ethValue = await helper.estimateValue(positionId, ethers.constants.AddressZero)
+  const { swaps, conversions } = await universalSwap.preSwapCalculateSwaps(
+    {
+      tokens: underlyingTokens.concat(rewardTokens),
+      amounts: underlyingAmounts.concat(rewardAmounts),
+      nfts: [],
+    },
+    {
+      outputERC20s: [liquidateTo, ethers.constants.AddressZero],
+      outputERC721s: [],
+      minAmountsOut: [0, 0],
+      ratios: [ethValue, fee],
+    }
+  );
+  const gas = (await manager.estimateGas.botLiquidate(positionId, liquidationIndex, fee, swaps, conversions))
+  const actualFee = gas.mul(await manager.provider.getGasPrice()).mul(2)
+  {
+    const { swaps, conversions } = await universalSwap.preSwapCalculateSwaps(
+      {
+        tokens: underlyingTokens.concat(rewardTokens),
+        amounts: underlyingAmounts.concat(rewardAmounts),
+        nfts: [],
+      },
+      {
+        outputERC20s: [liquidateTo, ethers.constants.AddressZero],
+        outputERC721s: [],
+        minAmountsOut: [0, 0],
+        ratios: [ethValue, actualFee],
+      }
+    );
+    await manager.botLiquidate(positionId, liquidationIndex, actualFee, swaps, conversions, {gasPrice: await manager.provider.getGasPrice()})
+    return
+  }
+}
 
 export { getAssets };
 export { getSwapsAndConversionsFromProvidedAndDesired as calculateRoute };

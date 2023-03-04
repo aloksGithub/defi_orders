@@ -8,7 +8,8 @@ async function main() {
   const universalSwapAddress = (await deployments.get("UniversalSwap")).address
   const positionsManager: PositionsManager = await ethers.getContractAt("PositionsManager", positionsManagerAddress)
   const universalSwap: UniversalSwap = await ethers.getContractAt("UniversalSwap", universalSwapAddress)
-  const managerHelper = await positionsManager.helper()
+  const helperAddress = (await deployments.get('ManagerHelper')).address;
+  const managerHelper = await ethers.getContractAt("ManagerHelper", helperAddress)
   const swapHelper = await universalSwap.swapHelper()
   const providedHelper = await universalSwap.providedHelper()
   const conversionHelper = await universalSwap.conversionHelper()

@@ -14,6 +14,7 @@ import {
   calculateRoute,
 } from "../utils";
 import { SwapContracts } from "../Types";
+import { ProvidedHelper } from "../typechain-types/contracts/SwapHelper.sol";
 
 // @ts-ignore
 const networkAddresses = addresses[hre.network.name];
@@ -76,9 +77,9 @@ describe("Universal swap", async function () {
       value: etherSupplied,
     });
     const rc = await tx.wait();
-    const event = rc.events?.find((event: any) => event.event === "AssetsSent");
+    const event = rc.events?.find((event: any) => event.event === "Trade");
     // @ts-ignore
-    const [receiver, tokens, managers, amountsAndIds] = event!.args;
+    const [receiver, usdValue, tokens, managers, amountsAndIds] = event!.args;
     const ids = amountsAndIds.slice(tokens.length);
     let nextInputERC721sPromises = await desired.outputERC721s.map(async (nft: any, index: number) => {
       const managerContract = await ethers.getContractAt("INonfungiblePositionManager", nft.manager);
@@ -92,6 +93,7 @@ describe("Universal swap", async function () {
   };
 
   before(async function () {
+    await deployments.fixture()
     const universalSwapAddress = (await deployments.get('UniversalSwap')).address;
     universalSwap = await ethers.getContractAt("UniversalSwap", universalSwapAddress)
     owners = await ethers.getSigners();
@@ -106,7 +108,8 @@ describe("Universal swap", async function () {
     const swappers: ISwapper[] = await Promise.all(
       swapperAddresses.map(async (address) => await ethers.getContractAt("ISwapper", address))
     );
-    contracts = { universalSwap, oracle, swappers, networkToken: networkTokenContract };
+    const providedHelper: ProvidedHelper = await ethers.getContractAt("ProvidedHelper", await universalSwap.providedHelper())
+    contracts = { universalSwap, oracle, swappers, networkToken: networkTokenContract, providedHelper };
   });
   it("Swaps tokens correctly without losing too much equity", async function () {
     let currentToken = networkAddresses.networkToken;

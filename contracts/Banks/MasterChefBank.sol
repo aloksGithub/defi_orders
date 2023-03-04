@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "./MasterChefWrappers.sol";
 import "hardhat/console.sol";
 
-contract MasterChefBank is ERC1155("MasterChefBank"), BankBase {
+contract MasterChefBank is Initializable, ERC1155Upgradeable, BankBase {
     using Address for address;
     using SaferERC20 for IERC20;
 
@@ -20,13 +20,17 @@ contract MasterChefBank is ERC1155("MasterChefBank"), BankBase {
         mapping(address => mapping(address => int256)) rewardDebt; // Mapping from user to reward to debt
     }
 
-    uint256 PRECISION = 1e12;
+    uint256 PRECISION;
     mapping(uint256 => PoolInfo) public poolInfo;
     mapping(address => address) public masterChefWrappers;
     address[] public supportedMasterChefs;
     mapping(address => uint256) public balances;
 
-    constructor(address _positionsManager) BankBase(_positionsManager) {}
+    function initialize(address _positionsManager) public initializer {
+        PRECISION = 1e12;
+        __BankBase_init(_positionsManager);
+        __ERC1155_init("MasterChefBank");
+    }
 
     function encodeId(address masterChef, uint256 pid) public pure returns (uint256) {
         return (pid << 160) | uint160(masterChef);

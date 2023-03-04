@@ -78,6 +78,7 @@ describe.skip("Slippage tests", function () {
   let stableContract: ERC20;
   let amountUsed = "1";
   before(async function () {
+    await deployments.fixture()
     const managerAddress = (await deployments.get('PositionsManager')).address;
     manager = await ethers.getContractAt("PositionsManager", managerAddress)
     owners = await ethers.getSigners();

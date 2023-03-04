@@ -2,6 +2,8 @@ import { HardhatRuntimeEnvironment, Network } from "hardhat/types";
 import { DeployFunction, DeployOptions, DeployResult } from "hardhat-deploy/types";
 import { SupportedNetworks } from "../utils/protocolDataGetter";
 import { addresses } from "../utils";
+import { ethers } from "hardhat";
+import { UniversalSwap } from "../typechain-types";
 
 const getSwappers = async (
   network: string,
@@ -88,6 +90,39 @@ const deployNFTInteractors = async function (
   return interactors;
 };
 
+const deployHelpers = async function (
+  universalSwap: string,
+  deployer: string,
+  deploy: (name: string, options: DeployOptions) => Promise<DeployResult>,
+  network: Network
+) {
+  const providedHelper = await deploy("ProvidedHelper", {
+    from: deployer,
+    contract: "ProvidedHelper",
+    args: [universalSwap],
+    log: true,
+  });
+  const conversionHelper = await deploy("ConversionHelper", {
+    from: deployer,
+    contract: "ConversionHelper",
+    args: [universalSwap],
+    log: true,
+  });
+  const swapHelper = await deploy("SwapHelper", {
+    from: deployer,
+    contract: "SwapHelper",
+    args: [universalSwap, conversionHelper.address],
+    log: true,
+  });
+  const coreLogic = await deploy("CoreLogic", {
+    from: deployer,
+    contract: "CoreLogic",
+    args: [],
+    log: true,
+  });
+  return {coreLogic, providedHelper, conversionHelper, swapHelper}
+}
+
 const deployUniversalSwap: DeployFunction = async function ({ getNamedAccounts, deployments, network }) {
   const { deploy } = deployments;
   const namedAccounts = await getNamedAccounts();
@@ -99,19 +134,34 @@ const deployUniversalSwap: DeployFunction = async function ({ getNamedAccounts, 
   const aaveInteractor = await deployAAVEInteractor(deployer, deploy, network);
   const interactors = [uniswapPoolInteractor, venusInteractor, aaveInteractor].filter((address) => address != "");
   const nftInteractors = await deployNFTInteractors(deployer, deploy, network);
-  await deploy("UniversalSwap", {
+  const universalSwap = await deploy("UniversalSwap", {
     from: deployer,
     contract: "UniversalSwap",
-    args: [
-      interactors,
-      nftInteractors,
-      addresses[network.name].networkToken,
-      addresses[network.name].preferredStable,
-      swappers,
-      oracle.address,
-    ],
+    proxy: {
+      owner: deployer,
+      proxyContract: 'OpenZeppelinTransparentProxy',
+      execute: {
+        init: {
+          methodName: 'initialize',
+          args: [
+            interactors,
+            nftInteractors,
+            addresses[network.name].networkToken,
+            addresses[network.name].preferredStable,
+            swappers,
+            oracle.address
+          ],
+        }
+      }
+    },
     log: true,
   });
+  const universalSwapContract: UniversalSwap = await ethers.getContractAt("UniversalSwap", universalSwap.address, deployer)
+  const {coreLogic, providedHelper, conversionHelper, swapHelper} = await deployHelpers(universalSwap.address, deployer, deploy, network);
+  if (universalSwap.newlyDeployed) {
+    const tx = await universalSwapContract.setHelpers(coreLogic.address, providedHelper.address, conversionHelper.address, swapHelper.address)
+    await tx.wait()
+  }
 };
 
 module.exports = deployUniversalSwap;
