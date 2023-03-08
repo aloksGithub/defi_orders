@@ -6,9 +6,7 @@ let skipFiles;
 
 if (currentlyForking === "bsc") {
   skipFiles = [
-    "libraries/TickMath.sol",
-    "libraries/LiquidityAmounts.sol",
-    "libraries/FullMath.sol",
+    "interfaces",
     "PoolInteractors/UniswapV3PoolInteractor.sol",
     "PoolInteractors/AaveV2PoolInteractor.sol",
   ];

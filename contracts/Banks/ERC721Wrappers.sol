@@ -5,9 +5,8 @@ import "../interfaces/UniswapV3/INonfungiblePositionManager.sol";
 import "../interfaces/UniswapV3/IUniswapV3Pool.sol";
 import "../interfaces/UniswapV3/IUniswapV3Factory.sol";
 import "./BankBase.sol";
-import "../libraries/TickMath.sol";
-import "../libraries/LiquidityAmounts.sol";
-import "hardhat/console.sol";
+import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
+import "@uniswap/v3-periphery/contracts/libraries/LiquidityAmounts.sol";
 
 abstract contract IERC721Wrapper is Ownable {
     function isSupported(address manager, address pool) external view virtual returns (bool);

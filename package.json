@@ -44,7 +44,7 @@
   "dependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.4",
     "@openzeppelin/contracts-upgradeable": "^4.8.1",
-    "@uniswap/v3-core": "^1.0.1",
+    "@uniswap/v3-core": "^1.0.2-solc-0.8-simulate",
     "@uniswap/v3-periphery": "^1.4.2",
     "dotenv": "^16.0.1",
     "hardhat-gas-reporter": "^1.0.9",

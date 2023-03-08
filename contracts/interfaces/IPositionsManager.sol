@@ -101,6 +101,10 @@ interface IPositionsManager {
 
     /// @notice Updates bank addresses
     function setBanks(address payable[] memory _banks) external;
+    
+    /// @notice Update minimum deposit required for limit orders to be executed
+    /// @dev This limit is placed to ensure that the gas fees for the transaction can be covered
+    function setMinDepositAmount(uint _minDepositAmount) external;
 
     // /// @notice Get a position
     // /// @param positionId position ID

@@ -28,12 +28,14 @@ contract PositionsManager is IPositionsManager, Initializable, OwnableUpgradeabl
     address public networkToken;
     address public stableToken; // Stable token such as USDC or BUSD is used to measure the value of the position using the function closeToUSDC
     mapping(address => bool) public keepers;
+    uint256 minDepositAmount;
 
     function initialize(address _universalSwap, address _stableToken) public initializer {
         universalSwap = _universalSwap;
         stableToken = _stableToken;
         networkToken = IUniversalSwap(_universalSwap).networkToken();
         positions.push();
+        minDepositAmount = 10*10**ERC20(stableToken).decimals();
         __Ownable_init();
     }
 
@@ -188,10 +190,12 @@ contract PositionsManager is IPositionsManager, Initializable, OwnableUpgradeabl
         } else {
             provided = Provided(suppliedTokens, suppliedAmounts, new Asset[](0));
         }
+        uint positionValue = IUniversalSwap(universalSwap).estimateValue(provided, stableToken);
+        require(positionValue>minDepositAmount, "14");
         emit Deposit(
             positions.length - 1,
             newPosition.amount,
-            IUniversalSwap(universalSwap).estimateValue(provided, stableToken)
+            positionValue
         );
         return positions.length - 1;
     }
@@ -209,6 +213,21 @@ contract PositionsManager is IPositionsManager, Initializable, OwnableUpgradeabl
             msg.sender
         );
         Provided memory withdrawn = Provided(tokens, amounts, new Asset[](0));
+        (address[] memory underlyingTokens, uint256[] memory underlyingAmounts) = bank.getPositionTokens(
+            position.bankToken,
+            address(uint160(positionId))
+        );
+        (address[] memory rewardTokens, uint256[] memory rewardAmounts) = bank.getPendingRewardsForUser(
+            position.bankToken,
+            position.user
+        );
+        Provided memory assets = Provided(
+            underlyingTokens.concat(rewardTokens),
+            underlyingAmounts.concat(rewardAmounts),
+            new Asset[](0)
+        );
+        uint usdValueLeft = IUniversalSwap(universalSwap).estimateValue(assets, stableToken);
+        require(usdValueLeft>minDepositAmount, "14");
         emit Withdraw(positionId, amount, IUniversalSwap(universalSwap).estimateValue(withdrawn, stableToken));
     }
 
@@ -333,6 +352,11 @@ contract PositionsManager is IPositionsManager, Initializable, OwnableUpgradeabl
     /// @inheritdoc IPositionsManager
     function setBanks(address payable[] memory _banks) external onlyOwner {
         banks = _banks;
+    }
+
+    /// @inheritdoc IPositionsManager
+    function setMinDepositAmount(uint _minDepositAmount) external onlyOwner {
+        minDepositAmount = _minDepositAmount;
     }
 
     ///-------------Internal logic-------------

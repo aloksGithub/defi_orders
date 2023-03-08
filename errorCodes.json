@@ -7,9 +7,9 @@
   "6": "Invalid tokens supplied",
   "7": "Withdrawing more funds than available",
   "8": "Failed sanity check",
-  "9": "User doesn't own the asset",
   "10": "Failed to burn LP tokens",
   "11": "Failed to mint LP tokens",
   "12": "Position closed",
-  "13": "Unable to pay liquidation fee"
+  "13": "Unable to pay liquidation fee",
+  "14": "Minimum balance requirement failed"
 }

@@ -16,6 +16,7 @@ const getSwappers = async (
       from: deployer,
       contract: "UniswapV2Swapper",
       args: [router, addresses[network].commonPoolTokens],
+      log: true
     });
     swappers.push(deployed.address);
   }
@@ -31,6 +32,7 @@ const deployUniswapV2PoolInteractor = async function (
     from: deployer,
     contract: "UniswapV2PoolInteractor",
     args: [],
+    log: true
   });
   return uniswapV2PoolInteractor.address;
 };
@@ -84,6 +86,7 @@ const deployNFTInteractors = async function (
       from: deployer,
       contract: "UniswapV3PoolInteractor",
       args: [manager],
+      log: true
     });
     interactors.push(deployed.address);
   }

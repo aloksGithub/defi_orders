@@ -70,12 +70,15 @@ export const getLPToken = async (
   owner: SignerWithAddress
 ) => {
   const network = hre.network.name;
-  // @ts-ignore
-  const wethContract = await ethers.getContractAt("IWETH", addresses[network].networkToken);
-  await wethContract.connect(owner).approve(universalSwap.address, ethers.utils.parseEther(etherAmount));
   const lpTokenContract = lpToken != constants.AddressZero ? await ethers.getContractAt("ERC20", lpToken) : undefined;
   const balanceBefore =
     lpToken != constants.AddressZero ? await lpTokenContract!.balanceOf(owner.address) : await owner.getBalance();
+  if (lpToken===addresses[network].networkToken) {
+    return {lpBalance: ethers.utils.parseEther(etherAmount), lpTokenContract}
+  }
+  // @ts-ignore
+  const wethContract = await ethers.getContractAt("IWETH", addresses[network].networkToken);
+  await wethContract.connect(owner).approve(universalSwap.address, ethers.utils.parseEther(etherAmount));
   // @ts-ignore
   await universalSwap
     .connect(owner)

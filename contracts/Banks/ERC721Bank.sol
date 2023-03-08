@@ -8,7 +8,6 @@ contract ERC721Bank is Initializable, BankBase {
     using Address for address;
 
     struct PoolInfo {
-        address user;
         uint256 liquidity;
         // mapping(address=>mapping(uint=>bool)) userShares;
     }
@@ -73,7 +72,7 @@ contract ERC721Bank is Initializable, BankBase {
         (, , , , , , , uint256 minted, , , , ) = INonfungiblePositionManager(suppliedTokens[0]).positions(
             suppliedAmounts[0]
         );
-        poolInfo[tokenId] = PoolInfo(userAddress, minted);
+        poolInfo[tokenId] = PoolInfo(minted);
         return minted;
     }
 
@@ -83,7 +82,6 @@ contract ERC721Bank is Initializable, BankBase {
         address[] memory suppliedTokens,
         uint256[] memory suppliedAmounts
     ) external override onlyAuthorized returns (uint256) {
-        require(poolInfo[tokenId].user == userAddress, "9");
         (, address manager, uint256 id) = decodeId(tokenId);
         address wrapper = erc721Wrappers[manager];
 
@@ -101,7 +99,6 @@ contract ERC721Bank is Initializable, BankBase {
         uint256 amount,
         address receiver
     ) external override onlyAuthorized returns (address[] memory outTokens, uint256[] memory tokenAmounts) {
-        require(poolInfo[tokenId].user == userAddress, "9");
         (, address manager, uint256 id) = decodeId(tokenId);
         address wrapper = erc721Wrappers[manager];
         bytes memory returnData = wrapper.functionDelegateCall(
@@ -118,7 +115,6 @@ contract ERC721Bank is Initializable, BankBase {
         address userAddress,
         address receiver
     ) external override onlyAuthorized returns (address[] memory rewardAddresses, uint256[] memory rewardAmounts) {
-        require(poolInfo[tokenId].user == userAddress, "9");
         (, address manager, uint256 id) = decodeId(tokenId);
         address wrapper = erc721Wrappers[manager];
         bytes memory returnData = wrapper.functionDelegateCall(

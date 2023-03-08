@@ -8,8 +8,7 @@ import "./interfaces/UniswapV3/IUniswapV3Factory.sol";
 import "./interfaces/UniswapV3/IUniswapV3Pool.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "./libraries/TickMath.sol";
-import "hardhat/console.sol";
+import "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 
 contract UniswapV3Source is IOracle {
     IUniswapV3Factory factory;
