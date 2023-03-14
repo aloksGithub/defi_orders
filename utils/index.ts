@@ -25,6 +25,7 @@ export interface MasterChef {
 }
 
 interface Addresses {
+  keeper: string
   preferredStable: string
   networkToken: string
   commonPoolTokens: string[]

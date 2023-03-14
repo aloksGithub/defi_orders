@@ -8,7 +8,7 @@ const deployPositionsManager: DeployFunction = async function ({ getNamedAccount
   const namedAccounts = await getNamedAccounts();
   const { deployer } = namedAccounts;
   const universalSwap = await deployments.get('UniversalSwap')
-  await deploy("PositionsManager", {
+  const deployedManager = await deploy("PositionsManager", {
     from: deployer,
     contract: 'PositionsManager',
     proxy: {
@@ -23,6 +23,10 @@ const deployPositionsManager: DeployFunction = async function ({ getNamedAccount
     },
     log: true
   })
+  if (deployedManager.newlyDeployed) {
+    const manager: PositionsManager = await ethers.getContractAt("PositionsManager", deployedManager.address)
+    await manager.setKeeper(addresses[network.name].keeper, true)
+  }
 };
 
 module.exports = deployPositionsManager;

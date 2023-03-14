@@ -6,7 +6,6 @@ import "../interfaces/MasterChefInterfaces.sol";
 import "../libraries/AddressArray.sol";
 import "../libraries/UintArray.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
-import "hardhat/console.sol";
 
 abstract contract IMasterChefWrapper is Ownable {
     using AddressArray for address[];

@@ -127,8 +127,8 @@ describe("Error codes", function () {
         liquidationPoints,
         owners[0]
       );
-      
       const positionSize = (await helper.getPosition(positionId)).position.amount
+      
       await expect(manager.withdraw(positionId, positionSize.mul(2))).to.be.revertedWith("7")
     }
   })

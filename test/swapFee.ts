@@ -21,25 +21,26 @@ describe("Swap fee", async function () {
     const universalSwapAddress = (await deployments.get('UniversalSwap')).address;
     universalSwap = await ethers.getContractAt("UniversalSwap", universalSwapAddress)
     owners = await ethers.getSigners();
-    networkTokenContract = await ethers.getContractAt("IERC20", networkAddresses.networkToken);
-    await networkTokenContract.transfer(owners[1].address, networkTokenContract.balanceOf(owners[0].address));
-    const { wethContract } = await getNetworkToken(owners[0], "10.0");
-    await wethContract.connect(owners[0]).approve(universalSwap.address, ethers.utils.parseEther("100"));
+    const { wethContract } = await getNetworkToken(owners[1], "10.0");
+    await wethContract.connect(owners[1]).approve(universalSwap.address, ethers.utils.parseEther("100"));
   });
 
   it("Sends 0.1% fee to treasury", async function() {
     for (const token of networkAddresses.commonPoolTokens.slice(1)) {
-        const {lpBalance, lpTokenContract} = await getLPToken(token, universalSwap, "1", owners[0])
-        // @ts-ignore
-        await lpTokenContract.approve(universalSwap.address, lpBalance)
-        await universalSwap.swap(
-            {tokens: [token], amounts: [lpBalance], nfts: []},
-            [], [],
-            {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], minAmountsOut: [0], ratios: [1]}, await owners[0].getAddress()
-        )
-        const treasury = await universalSwap.treasury()
-        // @ts-ignore
-        expect(await lpTokenContract.balanceOf(treasury)).to.equal(lpBalance.div(1000))
+      const {lpBalance, lpTokenContract} = await getLPToken(token, universalSwap, "1", owners[1])
+      const treasury = await universalSwap.treasury()
+      // @ts-ignore
+      const treasuryBalanceBefore = await lpTokenContract.balanceOf(treasury)
+      // @ts-ignore
+      await lpTokenContract.connect(owners[1]).approve(universalSwap.address, lpBalance)
+      await universalSwap.connect(owners[1]).swap(
+          {tokens: [token], amounts: [lpBalance], nfts: []},
+          [], [],
+          {outputERC20s: [networkAddresses.networkToken], outputERC721s: [], minAmountsOut: [0], ratios: [1]}, await owners[1].getAddress()
+      )
+      // @ts-ignore
+      const treasuryBalanceAfter = await lpTokenContract.balanceOf(treasury)
+      expect(treasuryBalanceAfter.sub(treasuryBalanceBefore)).to.equal(lpBalance.div(1000))
     }
   })
 });

@@ -36,15 +36,6 @@ struct BankTokenInfo {
     uint idInManager;
 }
 
-// struct PositionInteraction {
-//     string action;
-//     uint timestamp;
-//     uint blockNumber;
-//     Provided assets;
-//     uint usdValue;
-//     uint positionSizeChange;
-// }
-
 struct PositionData {
     Position position; // Position data such as bankId, bankToken, positionSize, etc.
     BankTokenInfo bankTokenInfo; // The information about the banktoken from the bank
@@ -80,12 +71,6 @@ interface IPositionsManager {
     /// @return positions Number of positions that have been opened
     function numPositions() external view returns (uint positions);
 
-    // /// @notice Returns a list of position interactions, each interaction is a two element array consisting of block number and interaction type
-    // /// @notice Interaction type 0 is deposit, 1 is withdraw, 2 is harvest, 3 is compound and 4 is bot liquidation
-    // /// @param positionId position ID
-    // /// @return interactions List of position interactions
-    // function getPositionInteractions(uint positionId) external view returns (PositionInteraction[] memory interactions);
-
     /// @notice Returns number of banks
     /// @return banks Addresses of banks
     function getBanks() external view returns (address payable[] memory banks);
@@ -105,6 +90,9 @@ interface IPositionsManager {
     /// @notice Update minimum deposit required for limit orders to be executed
     /// @dev This limit is placed to ensure that the gas fees for the transaction can be covered
     function setMinDepositAmount(uint _minDepositAmount) external;
+
+    /// @notice Specify a reason as to why a position can't be liquidated. Such a position should be closed by user
+    function setLiquidationFailure(uint positionId, string memory reason) external;
 
     // /// @notice Get a position
     // /// @param positionId position ID

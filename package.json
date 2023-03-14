@@ -10,7 +10,7 @@
     "size": "yarn run hardhat size-contracts",
     "pretty": "yarn prettier --write .",
     "verify:bsc": "yarn run hardhat etherscan-verify --solc-input --api-key YourApiKeyToken --network bsc",
-    "verify:bscTestnet": "yarn run hardhat etherscan-verify --solc-input --api-key YourApiKeyToken --network bscTestnet",
+    "verify:bscTestnet": "yarn run hardhat etherscan-verify --solc-input --api-key K34CKDK8FQJUC6S76TVX2JTZU6V73QGHRA --network bscTestnet",
     "verify:mainnet": "yarn run hardhat etherscan-verify --solc-input --api-key YourApiKeyToken --network mainnet",
     "deploy": "yarn run hardhat deploy"
   },

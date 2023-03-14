@@ -28,7 +28,8 @@ contract PositionsManager is IPositionsManager, Initializable, OwnableUpgradeabl
     address public networkToken;
     address public stableToken; // Stable token such as USDC or BUSD is used to measure the value of the position using the function closeToUSDC
     mapping(address => bool) public keepers;
-    uint256 minDepositAmount;
+    uint256 public minDepositAmount;
+    mapping(uint=>string) public liquidationFailure; // Reason for failing to liquidate a position
 
     function initialize(address _universalSwap, address _stableToken) public initializer {
         universalSwap = _universalSwap;
@@ -357,6 +358,12 @@ contract PositionsManager is IPositionsManager, Initializable, OwnableUpgradeabl
     /// @inheritdoc IPositionsManager
     function setMinDepositAmount(uint _minDepositAmount) external onlyOwner {
         minDepositAmount = _minDepositAmount;
+    }
+
+    /// @inheritdoc IPositionsManager
+    function setLiquidationFailure(uint positionId, string memory reason) external {
+        require(keepers[msg.sender] || msg.sender == currentOwner(), "1");
+        liquidationFailure[positionId] = reason;
     }
 
     ///-------------Internal logic-------------

@@ -1,5 +1,6 @@
 {
   "addresses": {
+    "keeper": "0x51fC878B3849a60896E61843FD194b3F2a9d06AB",
     "preferredStable": "0xeD24FC36d5Ee211Ea25A80239Fb8C4Cfd80f12Ee",
     "networkToken": "0xae13d989daC2f0dEbFf460aC112a837C89BAa7cd",
     "commonPoolTokens": [
