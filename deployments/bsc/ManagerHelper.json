@@ -1,5 +1,5 @@
 {
-  "address": "0xc2854C8c755afAeF74E8C979a4da5e522414Bb93",
+  "address": "0x4177f5A30590d832A4E964018Bd7711c89a5756d",
   "abi": [
     {
       "anonymous": false,
@@ -128,137 +128,6 @@
       "anonymous": false,
       "inputs": [
         {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "positionId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "usdValue",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "liquidationIndex",
-          "type": "uint256"
-        }
-      ],
-      "name": "BotLiquidate",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "positionId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "usdValue",
-          "type": "uint256"
-        }
-      ],
-      "name": "Deposit",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "positionId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "usdValue",
-          "type": "uint256"
-        }
-      ],
-      "name": "Harvest",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "positionId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "usdValue",
-          "type": "uint256"
-        }
-      ],
-      "name": "HarvestRecompound",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "positionId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "usdValue",
-          "type": "uint256"
-        }
-      ],
-      "name": "IncreasePosition",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
           "indexed": false,
           "internalType": "uint8",
           "name": "version",
@@ -269,164 +138,24 @@
       "type": "event"
     },
     {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "previousOwner",
-          "type": "address"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "newOwner",
-          "type": "address"
-        }
-      ],
-      "name": "OwnershipTransferred",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "positionId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "usdValue",
-          "type": "uint256"
-        }
-      ],
-      "name": "PositionClose",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "positionId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "usdValue",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "string",
-          "name": "reason",
-          "type": "string"
-        }
-      ],
-      "name": "Refund",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "positionId",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "usdValue",
-          "type": "uint256"
-        }
-      ],
-      "name": "Withdraw",
-      "type": "event"
-    },
-    {
       "inputs": [
         {
           "internalType": "uint256",
           "name": "positionId",
           "type": "uint256"
-        },
-        {
-          "components": [
-            {
-              "internalType": "address",
-              "name": "watchedToken",
-              "type": "address"
-            },
-            {
-              "internalType": "address",
-              "name": "liquidateTo",
-              "type": "address"
-            },
-            {
-              "internalType": "bool",
-              "name": "lessThan",
-              "type": "bool"
-            },
-            {
-              "internalType": "uint256",
-              "name": "liquidationPoint",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "slippage",
-              "type": "uint256"
-            }
-          ],
-          "internalType": "struct LiquidationCondition[]",
-          "name": "_liquidationPoints",
-          "type": "tuple[]"
         }
       ],
-      "name": "adjustLiquidationPoints",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "banks",
+      "name": "checkLiquidate",
       "outputs": [
         {
-          "internalType": "address payable",
-          "name": "",
-          "type": "address"
+          "internalType": "uint256",
+          "name": "index",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "liquidate",
+          "type": "bool"
         }
       ],
       "stateMutability": "view",
@@ -440,432 +169,17 @@
           "type": "uint256"
         },
         {
-          "internalType": "uint256",
-          "name": "liquidationIndex",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "liquidationFee",
-          "type": "uint256"
-        },
-        {
-          "components": [
-            {
-              "internalType": "uint256",
-              "name": "amountIn",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "valueIn",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "amountOut",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "valueOut",
-              "type": "uint256"
-            },
-            {
-              "internalType": "int256",
-              "name": "slippage",
-              "type": "int256"
-            },
-            {
-              "internalType": "address",
-              "name": "tokenIn",
-              "type": "address"
-            },
-            {
-              "internalType": "address[]",
-              "name": "swappers",
-              "type": "address[]"
-            },
-            {
-              "internalType": "address",
-              "name": "tokenOut",
-              "type": "address"
-            },
-            {
-              "internalType": "address[][]",
-              "name": "paths",
-              "type": "address[][]"
-            }
-          ],
-          "internalType": "struct SwapPoint[]",
-          "name": "swaps",
-          "type": "tuple[]"
-        },
-        {
-          "components": [
-            {
-              "components": [
-                {
-                  "internalType": "address",
-                  "name": "pool",
-                  "type": "address"
-                },
-                {
-                  "internalType": "address",
-                  "name": "manager",
-                  "type": "address"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "tokenId",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "liquidity",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "bytes",
-                  "name": "data",
-                  "type": "bytes"
-                }
-              ],
-              "internalType": "struct Asset",
-              "name": "desiredERC721",
-              "type": "tuple"
-            },
-            {
-              "internalType": "address",
-              "name": "desiredERC20",
-              "type": "address"
-            },
-            {
-              "internalType": "uint256",
-              "name": "value",
-              "type": "uint256"
-            },
-            {
-              "internalType": "address[]",
-              "name": "underlying",
-              "type": "address[]"
-            },
-            {
-              "internalType": "uint256[]",
-              "name": "underlyingValues",
-              "type": "uint256[]"
-            }
-          ],
-          "internalType": "struct Conversion[]",
-          "name": "conversions",
-          "type": "tuple[]"
-        }
-      ],
-      "name": "botLiquidate",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "positionId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "string",
-          "name": "reason",
-          "type": "string"
-        }
-      ],
-      "name": "close",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "currentOwner",
-      "outputs": [
-        {
           "internalType": "address",
-          "name": "",
+          "name": "inTermsOf",
           "type": "address"
         }
       ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "components": [
-            {
-              "internalType": "address",
-              "name": "user",
-              "type": "address"
-            },
-            {
-              "internalType": "address",
-              "name": "bank",
-              "type": "address"
-            },
-            {
-              "internalType": "uint256",
-              "name": "bankToken",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "amount",
-              "type": "uint256"
-            },
-            {
-              "components": [
-                {
-                  "internalType": "address",
-                  "name": "watchedToken",
-                  "type": "address"
-                },
-                {
-                  "internalType": "address",
-                  "name": "liquidateTo",
-                  "type": "address"
-                },
-                {
-                  "internalType": "bool",
-                  "name": "lessThan",
-                  "type": "bool"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "liquidationPoint",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "slippage",
-                  "type": "uint256"
-                }
-              ],
-              "internalType": "struct LiquidationCondition[]",
-              "name": "liquidationPoints",
-              "type": "tuple[]"
-            }
-          ],
-          "internalType": "struct Position",
-          "name": "position",
-          "type": "tuple"
-        },
-        {
-          "internalType": "address[]",
-          "name": "suppliedTokens",
-          "type": "address[]"
-        },
-        {
-          "internalType": "uint256[]",
-          "name": "suppliedAmounts",
-          "type": "uint256[]"
-        }
-      ],
-      "name": "deposit",
+      "name": "estimateValue",
       "outputs": [
         {
           "internalType": "uint256",
           "name": "",
           "type": "uint256"
-        }
-      ],
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "positionId",
-          "type": "uint256"
-        },
-        {
-          "components": [
-            {
-              "internalType": "address[]",
-              "name": "tokens",
-              "type": "address[]"
-            },
-            {
-              "internalType": "uint256[]",
-              "name": "amounts",
-              "type": "uint256[]"
-            },
-            {
-              "components": [
-                {
-                  "internalType": "address",
-                  "name": "pool",
-                  "type": "address"
-                },
-                {
-                  "internalType": "address",
-                  "name": "manager",
-                  "type": "address"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "tokenId",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "liquidity",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "bytes",
-                  "name": "data",
-                  "type": "bytes"
-                }
-              ],
-              "internalType": "struct Asset[]",
-              "name": "nfts",
-              "type": "tuple[]"
-            }
-          ],
-          "internalType": "struct Provided",
-          "name": "provided",
-          "type": "tuple"
-        },
-        {
-          "components": [
-            {
-              "internalType": "uint256",
-              "name": "amountIn",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "valueIn",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "amountOut",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "valueOut",
-              "type": "uint256"
-            },
-            {
-              "internalType": "int256",
-              "name": "slippage",
-              "type": "int256"
-            },
-            {
-              "internalType": "address",
-              "name": "tokenIn",
-              "type": "address"
-            },
-            {
-              "internalType": "address[]",
-              "name": "swappers",
-              "type": "address[]"
-            },
-            {
-              "internalType": "address",
-              "name": "tokenOut",
-              "type": "address"
-            },
-            {
-              "internalType": "address[][]",
-              "name": "paths",
-              "type": "address[][]"
-            }
-          ],
-          "internalType": "struct SwapPoint[]",
-          "name": "swaps",
-          "type": "tuple[]"
-        },
-        {
-          "components": [
-            {
-              "components": [
-                {
-                  "internalType": "address",
-                  "name": "pool",
-                  "type": "address"
-                },
-                {
-                  "internalType": "address",
-                  "name": "manager",
-                  "type": "address"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "tokenId",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "liquidity",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "bytes",
-                  "name": "data",
-                  "type": "bytes"
-                }
-              ],
-              "internalType": "struct Asset",
-              "name": "desiredERC721",
-              "type": "tuple"
-            },
-            {
-              "internalType": "address",
-              "name": "desiredERC20",
-              "type": "address"
-            },
-            {
-              "internalType": "uint256",
-              "name": "value",
-              "type": "uint256"
-            },
-            {
-              "internalType": "address[]",
-              "name": "underlying",
-              "type": "address[]"
-            },
-            {
-              "internalType": "uint256[]",
-              "name": "underlyingValues",
-              "type": "uint256[]"
-            }
-          ],
-          "internalType": "struct Conversion[]",
-          "name": "conversions",
-          "type": "tuple[]"
-        },
-        {
-          "internalType": "uint256[]",
-          "name": "minAmounts",
-          "type": "uint256[]"
-        }
-      ],
-      "name": "depositInExisting",
-      "outputs": [],
-      "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "getBanks",
-      "outputs": [
-        {
-          "internalType": "address payable[]",
-          "name": "",
-          "type": "address[]"
         }
       ],
       "stateMutability": "view",
@@ -884,151 +198,69 @@
         {
           "components": [
             {
-              "internalType": "address",
-              "name": "user",
-              "type": "address"
-            },
-            {
-              "internalType": "address",
-              "name": "bank",
-              "type": "address"
-            },
-            {
-              "internalType": "uint256",
-              "name": "bankToken",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "amount",
-              "type": "uint256"
-            },
-            {
               "components": [
                 {
                   "internalType": "address",
-                  "name": "watchedToken",
+                  "name": "user",
                   "type": "address"
                 },
                 {
                   "internalType": "address",
-                  "name": "liquidateTo",
+                  "name": "bank",
                   "type": "address"
                 },
                 {
-                  "internalType": "bool",
-                  "name": "lessThan",
-                  "type": "bool"
-                },
-                {
                   "internalType": "uint256",
-                  "name": "liquidationPoint",
+                  "name": "bankToken",
                   "type": "uint256"
                 },
                 {
                   "internalType": "uint256",
-                  "name": "slippage",
+                  "name": "amount",
                   "type": "uint256"
+                },
+                {
+                  "components": [
+                    {
+                      "internalType": "address",
+                      "name": "watchedToken",
+                      "type": "address"
+                    },
+                    {
+                      "internalType": "address",
+                      "name": "liquidateTo",
+                      "type": "address"
+                    },
+                    {
+                      "internalType": "bool",
+                      "name": "lessThan",
+                      "type": "bool"
+                    },
+                    {
+                      "internalType": "uint256",
+                      "name": "liquidationPoint",
+                      "type": "uint256"
+                    },
+                    {
+                      "internalType": "uint256",
+                      "name": "slippage",
+                      "type": "uint256"
+                    }
+                  ],
+                  "internalType": "struct LiquidationCondition[]",
+                  "name": "liquidationPoints",
+                  "type": "tuple[]"
                 }
               ],
-              "internalType": "struct LiquidationCondition[]",
-              "name": "liquidationPoints",
-              "type": "tuple[]"
-            }
-          ],
-          "internalType": "struct Position",
-          "name": "position",
-          "type": "tuple"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "user",
-          "type": "address"
-        }
-      ],
-      "name": "getPositions",
-      "outputs": [
-        {
-          "internalType": "uint256[]",
-          "name": "",
-          "type": "uint256[]"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "positionId",
-          "type": "uint256"
-        },
-        {
-          "components": [
-            {
-              "internalType": "uint256",
-              "name": "amountIn",
-              "type": "uint256"
+              "internalType": "struct Position",
+              "name": "position",
+              "type": "tuple"
             },
-            {
-              "internalType": "uint256",
-              "name": "valueIn",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "amountOut",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "valueOut",
-              "type": "uint256"
-            },
-            {
-              "internalType": "int256",
-              "name": "slippage",
-              "type": "int256"
-            },
-            {
-              "internalType": "address",
-              "name": "tokenIn",
-              "type": "address"
-            },
-            {
-              "internalType": "address[]",
-              "name": "swappers",
-              "type": "address[]"
-            },
-            {
-              "internalType": "address",
-              "name": "tokenOut",
-              "type": "address"
-            },
-            {
-              "internalType": "address[][]",
-              "name": "paths",
-              "type": "address[][]"
-            }
-          ],
-          "internalType": "struct SwapPoint[]",
-          "name": "swaps",
-          "type": "tuple[]"
-        },
-        {
-          "components": [
             {
               "components": [
                 {
                   "internalType": "address",
-                  "name": "pool",
+                  "name": "lpToken",
                   "type": "address"
                 },
                 {
@@ -1038,64 +270,56 @@
                 },
                 {
                   "internalType": "uint256",
-                  "name": "tokenId",
+                  "name": "idInManager",
                   "type": "uint256"
-                },
-                {
-                  "internalType": "uint256",
-                  "name": "liquidity",
-                  "type": "uint256"
-                },
-                {
-                  "internalType": "bytes",
-                  "name": "data",
-                  "type": "bytes"
                 }
               ],
-              "internalType": "struct Asset",
-              "name": "desiredERC721",
+              "internalType": "struct BankTokenInfo",
+              "name": "bankTokenInfo",
               "type": "tuple"
             },
             {
-              "internalType": "address",
-              "name": "desiredERC20",
-              "type": "address"
-            },
-            {
-              "internalType": "uint256",
-              "name": "value",
-              "type": "uint256"
-            },
-            {
               "internalType": "address[]",
-              "name": "underlying",
+              "name": "underlyingTokens",
               "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "underlyingAmounts",
+              "type": "uint256[]"
             },
             {
               "internalType": "uint256[]",
               "name": "underlyingValues",
               "type": "uint256[]"
+            },
+            {
+              "internalType": "address[]",
+              "name": "rewardTokens",
+              "type": "address[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "rewardAmounts",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "uint256[]",
+              "name": "rewardValues",
+              "type": "uint256[]"
+            },
+            {
+              "internalType": "uint256",
+              "name": "usdValue",
+              "type": "uint256"
             }
           ],
-          "internalType": "struct Conversion[]",
-          "name": "conversions",
-          "type": "tuple[]"
-        },
-        {
-          "internalType": "uint256[]",
-          "name": "minAmounts",
-          "type": "uint256[]"
-        }
-      ],
-      "name": "harvestAndRecompound",
-      "outputs": [
-        {
-          "internalType": "uint256",
+          "internalType": "struct PositionData",
           "name": "",
-          "type": "uint256"
+          "type": "tuple"
         }
       ],
-      "stateMutability": "nonpayable",
+      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -1106,168 +330,67 @@
           "type": "uint256"
         }
       ],
-      "name": "harvestRewards",
+      "name": "getPositionRewards",
       "outputs": [
         {
           "internalType": "address[]",
-          "name": "",
+          "name": "rewards",
           "type": "address[]"
         },
         {
           "internalType": "uint256[]",
-          "name": "",
+          "name": "rewardAmounts",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "rewardValues",
           "type": "uint256[]"
         }
       ],
-      "stateMutability": "nonpayable",
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "positionId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getPositionTokens",
+      "outputs": [
+        {
+          "internalType": "address[]",
+          "name": "tokens",
+          "type": "address[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "amounts",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "values",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     },
     {
       "inputs": [
         {
           "internalType": "address",
-          "name": "_universalSwap",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "_stableToken",
+          "name": "_manager",
           "type": "address"
         }
       ],
       "name": "initialize",
       "outputs": [],
       "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "name": "keepers",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "liquidationFailure",
-      "outputs": [
-        {
-          "internalType": "string",
-          "name": "",
-          "type": "string"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "minDepositAmount",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "networkToken",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "numPositions",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "positionClosed",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "positions",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "user",
-          "type": "address"
-        },
-        {
-          "internalType": "address",
-          "name": "bank",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "bankToken",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -1295,156 +418,6 @@
       "type": "function"
     },
     {
-      "inputs": [],
-      "name": "renounceOwnership",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address payable[]",
-          "name": "_banks",
-          "type": "address[]"
-        }
-      ],
-      "name": "setBanks",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "keeperAddress",
-          "type": "address"
-        },
-        {
-          "internalType": "bool",
-          "name": "active",
-          "type": "bool"
-        }
-      ],
-      "name": "setKeeper",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "positionId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "string",
-          "name": "reason",
-          "type": "string"
-        }
-      ],
-      "name": "setLiquidationFailure",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "_minDepositAmount",
-          "type": "uint256"
-        }
-      ],
-      "name": "setMinDepositAmount",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "stableToken",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "newOwner",
-          "type": "address"
-        }
-      ],
-      "name": "transferOwnership",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "universalSwap",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "name": "userPositions",
-      "outputs": [
-        {
-          "internalType": "uint256",
-          "name": "",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "positionId",
-          "type": "uint256"
-        },
-        {
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "withdraw",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
       "inputs": [
         {
           "internalType": "address",
@@ -1466,78 +439,64 @@
       "type": "constructor"
     }
   ],
-  "transactionHash": "0x19c7982fded0fca75888ebbfbdae3ea7466a24fde63ebbe49204c60cef73ce1a",
+  "transactionHash": "0xd8787f85cd734a9291a08363247fd8ae5f08f43ff81154d0efe5c712e85aeb37",
   "receipt": {
     "to": null,
     "from": "0x0a66E0c3c5fE88d08a2346A1D276575E172AD2D2",
-    "contractAddress": "0xc2854C8c755afAeF74E8C979a4da5e522414Bb93",
-    "transactionIndex": 79,
-    "gasUsed": "880735",
-    "logsBloom": "0x00000100000000000000000000000001400000000000000000800000000000000000000000001000000100000000000040000000000000000000000000000000000000000000000000000000000002000001000000000000000000000000000000000000020000000000000000000800000000800000000000000000000000400000000000000000000000000000000000000000000080000000000000800000000000000000000000000000000400000000000000000000000000002200000000000020000000000000000000040000000000000400000002000000000020000000000000000000000400000000000000000000000000000000000000000000",
-    "blockHash": "0x412af2780afc734d520537c4193706e963e74c560c734f593a048c56a5a9e5f6",
-    "transactionHash": "0x19c7982fded0fca75888ebbfbdae3ea7466a24fde63ebbe49204c60cef73ce1a",
+    "contractAddress": "0x4177f5A30590d832A4E964018Bd7711c89a5756d",
+    "transactionIndex": 125,
+    "gasUsed": "745091",
+    "logsBloom": "0x00000000000000000000000000000000400000080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001000002000000000000000000000000000000400000000000000000000000000000000000000000800000000000000000000000000000000000000000080000000000000000000000000080000000000000800000000000000000000000000000100400000000000000000000001000000000000000000020000000000000000000040000000000000400000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+    "blockHash": "0x4f24228aa23daf660cfb3aa814a9599d511a2160dc66f22d61f95ae5657a8c0e",
+    "transactionHash": "0xd8787f85cd734a9291a08363247fd8ae5f08f43ff81154d0efe5c712e85aeb37",
     "logs": [
       {
-        "transactionIndex": 79,
-        "blockNumber": 26452500,
-        "transactionHash": "0x19c7982fded0fca75888ebbfbdae3ea7466a24fde63ebbe49204c60cef73ce1a",
-        "address": "0xc2854C8c755afAeF74E8C979a4da5e522414Bb93",
+        "transactionIndex": 125,
+        "blockNumber": 26452545,
+        "transactionHash": "0xd8787f85cd734a9291a08363247fd8ae5f08f43ff81154d0efe5c712e85aeb37",
+        "address": "0x4177f5A30590d832A4E964018Bd7711c89a5756d",
         "topics": [
           "0xbc7cd75a20ee27fd9adebab32041f755214dbc6bffa90cc0225b39da2e5c2d3b",
-          "0x000000000000000000000000abf8194e448644f34a9fe3b72666a4675cc420b0"
+          "0x00000000000000000000000050aaddb50c8ebd0c269e1da70d21f755163fd7d0"
         ],
         "data": "0x",
-        "logIndex": 191,
-        "blockHash": "0x412af2780afc734d520537c4193706e963e74c560c734f593a048c56a5a9e5f6"
+        "logIndex": 286,
+        "blockHash": "0x4f24228aa23daf660cfb3aa814a9599d511a2160dc66f22d61f95ae5657a8c0e"
       },
       {
-        "transactionIndex": 79,
-        "blockNumber": 26452500,
-        "transactionHash": "0x19c7982fded0fca75888ebbfbdae3ea7466a24fde63ebbe49204c60cef73ce1a",
-        "address": "0xc2854C8c755afAeF74E8C979a4da5e522414Bb93",
-        "topics": [
-          "0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0",
-          "0x0000000000000000000000000000000000000000000000000000000000000000",
-          "0x0000000000000000000000000a66e0c3c5fe88d08a2346a1d276575e172ad2d2"
-        ],
-        "data": "0x",
-        "logIndex": 192,
-        "blockHash": "0x412af2780afc734d520537c4193706e963e74c560c734f593a048c56a5a9e5f6"
-      },
-      {
-        "transactionIndex": 79,
-        "blockNumber": 26452500,
-        "transactionHash": "0x19c7982fded0fca75888ebbfbdae3ea7466a24fde63ebbe49204c60cef73ce1a",
-        "address": "0xc2854C8c755afAeF74E8C979a4da5e522414Bb93",
+        "transactionIndex": 125,
+        "blockNumber": 26452545,
+        "transactionHash": "0xd8787f85cd734a9291a08363247fd8ae5f08f43ff81154d0efe5c712e85aeb37",
+        "address": "0x4177f5A30590d832A4E964018Bd7711c89a5756d",
         "topics": [
           "0x7f26b83ff96e1f2b6a682f133852f6798a09c465da95921460cefb3847402498"
         ],
         "data": "0x0000000000000000000000000000000000000000000000000000000000000001",
-        "logIndex": 193,
-        "blockHash": "0x412af2780afc734d520537c4193706e963e74c560c734f593a048c56a5a9e5f6"
+        "logIndex": 287,
+        "blockHash": "0x4f24228aa23daf660cfb3aa814a9599d511a2160dc66f22d61f95ae5657a8c0e"
       },
       {
-        "transactionIndex": 79,
-        "blockNumber": 26452500,
-        "transactionHash": "0x19c7982fded0fca75888ebbfbdae3ea7466a24fde63ebbe49204c60cef73ce1a",
-        "address": "0xc2854C8c755afAeF74E8C979a4da5e522414Bb93",
+        "transactionIndex": 125,
+        "blockNumber": 26452545,
+        "transactionHash": "0xd8787f85cd734a9291a08363247fd8ae5f08f43ff81154d0efe5c712e85aeb37",
+        "address": "0x4177f5A30590d832A4E964018Bd7711c89a5756d",
         "topics": [
           "0x7e644d79422f17c01e4894b5f4f588d331ebfa28653d42ae832dc59e38c9798f"
         ],
         "data": "0x000000000000000000000000000000000000000000000000000000000000000000000000000000000000000051da004e14987861db01ddda1dcba656ca3ffecd",
-        "logIndex": 194,
-        "blockHash": "0x412af2780afc734d520537c4193706e963e74c560c734f593a048c56a5a9e5f6"
+        "logIndex": 288,
+        "blockHash": "0x4f24228aa23daf660cfb3aa814a9599d511a2160dc66f22d61f95ae5657a8c0e"
       }
     ],
-    "blockNumber": 26452500,
-    "cumulativeGasUsed": "7932671",
+    "blockNumber": 26452545,
+    "cumulativeGasUsed": "15236124",
     "status": 1,
     "byzantium": true
   },
   "args": [
-    "0xAbf8194E448644f34A9fE3B72666A4675Cc420b0",
+    "0x50aaddB50c8eBd0c269E1DA70d21F755163fD7d0",
     "0x51dA004E14987861dB01ddDA1dcBa656CA3ffEcd",
-    "0x485cc955000000000000000000000000e955ba147c797209407fae375c09fa20ebaa9648000000000000000000000000e9e7cea3dedca5984780bafc599bd69add087d56"
+    "0xc4d66de8000000000000000000000000c2854c8c755afaef74e8c979a4da5e522414bb93"
   ],
   "numDeployments": 1,
   "solcInputHash": "0e89febeebc7444140de8e67c9067d2c",
@@ -1547,11 +506,10 @@
   "execute": {
     "methodName": "initialize",
     "args": [
-      "0xe955Ba147c797209407faE375c09FA20eBaa9648",
-      "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56"
+      "0xc2854C8c755afAeF74E8C979a4da5e522414Bb93"
     ]
   },
-  "implementation": "0xAbf8194E448644f34A9fE3B72666A4675Cc420b0",
+  "implementation": "0x50aaddB50c8eBd0c269E1DA70d21F755163fD7d0",
   "devdoc": {
     "details": "This contract implements a proxy that is upgradeable by an admin. To avoid https://medium.com/nomic-labs-blog/malicious-backdoors-in-ethereum-proxies-62629adf3357[proxy selector clashing], which can potentially be used in an attack, this contract uses the https://blog.openzeppelin.com/the-transparent-proxy-pattern/[transparent proxy pattern]. This pattern implies two things that go hand in hand: 1. If any account other than the admin calls the proxy, the call will be forwarded to the implementation, even if that call matches one of the admin functions exposed by the proxy itself. 2. If the admin calls the proxy, it can access the admin functions, but its calls will never be forwarded to the implementation. If the admin tries to call a function on the implementation it will fail with an error that says \"admin cannot fallback to proxy target\". These properties mean that the admin account can only be used for admin actions like upgrading the proxy or changing the admin, so it's best if it's a dedicated account that is not used for anything else. This will avoid headaches due to sudden errors when trying to call a function from the proxy implementation. Our recommendation is for the dedicated account to be an instance of the {ProxyAdmin} contract. If set up this way, you should think of the `ProxyAdmin` instance as the real administrative interface of your proxy.",
     "kind": "dev",
